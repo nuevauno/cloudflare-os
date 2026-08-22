@@ -12,7 +12,8 @@ import { applyAccentColor, applyStoredThemeMode } from './theme'
 import './styles.css'
 import FrontendErrorBoundary from './FrontendErrorBoundary'
 import { installWorkshopErrorReporting, reportIssue } from './errorReporting'
-import { applySiteFavicon, cacheBustSiteLogoUrl } from './siteLogoUtils'
+import { cacheBustSiteLogoUrl } from './siteLogoUtils'
+import { I18nProvider } from './i18n'
 
 // ---------------------------------------------------------------------------
 // Dev auto-login: if VITE_DEV_AUTO_LOGIN=true, automatically create/login
@@ -158,12 +159,8 @@ function AppWithConnection() {
     applyAccentColor(serverConfig?.accentColor ?? '');
   }, [serverConfig?.accentColor]);
 
-  useEffect(() => {
-    return applySiteFavicon(serverConfig?.siteLogo?.url);
-  }, [serverConfig]);
-
   return (
-    <ThemeProvider>
+    <I18nProvider><ThemeProvider>
       <RpcContext.Provider value={rpcState}>
         <ServerConfigErrorContext.Provider value={serverConfigError}>
           <ServerConfigContext.Provider value={serverConfig}>
@@ -172,7 +169,7 @@ function AppWithConnection() {
           </ServerConfigContext.Provider>
         </ServerConfigErrorContext.Provider>
       </RpcContext.Provider>
-    </ThemeProvider>
+    </ThemeProvider></I18nProvider>
   );
 }
 
