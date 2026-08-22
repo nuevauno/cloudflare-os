@@ -3,11 +3,18 @@
 @import "tailwindcss";
 @custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
 
+@font-face {
+  font-family: "Urbanist";
+  src: url("https://branding.nuevauno.com/fonts/urbanist-var.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 @theme {
   /* ===== FONTS ===== */
-  --font-sans: "FT Kunst Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Roboto", "Helvetica Neue", sans-serif;
-  --font-mono: "Apercu Mono Pro", "SF Mono", Menlo, Monaco, Consolas, monospace;
+  --font-sans: "Urbanist", system-ui, sans-serif;
+  --font-mono: "Urbanist", system-ui, sans-serif;
 
   /* ===== TEXT SIZES (restore Tailwind defaults, overriding Kumo's 12/13/14/16px) ===== */
   --text-xs: 0.75rem;
@@ -37,8 +44,8 @@
   --color-kumo-interact: #cac8c3;
 
   /* Brand — warm orange accent (intent only) */
-  --color-kumo-brand: #ff4801;
-  --color-kumo-brand-hover: #e03f00;
+  --color-kumo-brand: #FE4A23;
+  --color-kumo-brand-hover: #e43f1b;
 
   /* Border / line tokens — neutral hairlines */
   --color-kumo-line: #1411100f;
@@ -68,14 +75,14 @@
   --text-color-kumo-strong: #100f0d;
   --text-color-kumo-subtle: oklch(52% 0.006 60);
   --text-color-kumo-inactive: oklch(66% 0.005 60);
-  --text-color-kumo-brand: #ff4801;
-  --text-color-kumo-link: #ff4801;
+  --text-color-kumo-brand: #FE4A23;
+  --text-color-kumo-link: #FE4A23;
   --text-color-kumo-success: oklch(72.3% 0.219 149.579);
   --text-color-kumo-danger: oklch(63.7% 0.237 25.331);
   --text-color-kumo-warning: oklch(47.6% 0.114 61.907);
 
   /* ===== CUSTOM BRAND TOKENS (for direct use alongside Kumo tokens) ===== */
-  --color-accent-100: #ff4801;
+  --color-accent-100: #FE4A23;
   --color-accent-200: #ff7038;
   --color-background-100: #fcfcfb;
   --color-background-200: #f8f8f7;
@@ -221,6 +228,11 @@ body {
   font-family: var(--font-sans);
   background-color: var(--color-kumo-base);
   color: var(--text-color-kumo-default);
+}
+
+/* NUEVAUNO usa un solo peso. La jerarquía se expresa con tamaño y color. */
+body, body * {
+  font-weight: 400 !important;
 }
 
 ::selection {

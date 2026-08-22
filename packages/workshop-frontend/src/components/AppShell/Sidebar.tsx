@@ -1,14 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import {
-  Blueprint,
   BookOpen,
-  Compass,
   Hexagon,
-  House,
   MagnifyingGlass,
   SidebarSimple,
-  SquaresFour,
-  Stack,
 } from '@phosphor-icons/react'
 import { useSiteName } from '../../ServerConfigContext'
 import SiteLogo from '../SiteLogo'
@@ -21,6 +16,12 @@ import {
   SidebarWorkspacesLists,
 } from './SidebarWorkspaces'
 import SidebarUtilityStrip from './SidebarUtilityStrip'
+
+const BRAND_ICON = 'https://branding.nuevauno.com/icons/nuevauno'
+
+function NuevaunoIcon({ name }: { name: string }) {
+  return <img src={`${BRAND_ICON}/${name}.svg`} alt="" width={14} height={14} className="h-3.5 w-3.5 object-contain" />
+}
 
 /**
  * The persistent left rail. Three pinned regions sandwich a single scrolling region of lists, so
@@ -80,8 +81,8 @@ export default function Sidebar({
             <button
               type="button"
               onClick={() => openCommandPalette()}
-              aria-label="Search"
-              title="Search (⌘K)"
+              aria-label="Buscar"
+              title="Buscar (⌘K)"
               className="press flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default"
             >
               <MagnifyingGlass size={15} />
@@ -89,8 +90,8 @@ export default function Sidebar({
             <button
               type="button"
               onClick={onToggleCollapsed}
-              aria-label="Collapse sidebar"
-              title="Collapse sidebar"
+              aria-label="Contraer barra lateral"
+              title="Contraer barra lateral"
               className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default"
             >
               <SidebarSimple size={15} />
@@ -104,8 +105,8 @@ export default function Sidebar({
         <button
           type="button"
           onClick={onToggleCollapsed}
-          aria-label="Expand sidebar"
-          title="Expand sidebar"
+          aria-label="Expandir barra lateral"
+          title="Expandir barra lateral"
           className="mx-auto mt-2 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default"
         >
           <SidebarSimple size={15} className="rotate-180" />
@@ -119,26 +120,26 @@ export default function Sidebar({
           <nav className="flex flex-col gap-0.5 px-2">
             <SidebarItem
               to="/"
-              label="Home"
-              icon={<House size={14} weight="regular" />}
+              label="Inicio"
+              icon={<NuevaunoIcon name="base" />}
               collapsed={collapsed}
             />
             <SidebarItem
               to="/workspaces"
-              label="Workspaces"
-              icon={<SquaresFour size={14} weight="regular" />}
+              label="Espacios"
+              icon={<NuevaunoIcon name="project" />}
               collapsed={collapsed}
             />
             <SidebarItem
               to="/blueprints"
-              label="Blueprints"
-              icon={<Blueprint size={14} weight="regular" />}
+              label="Plantillas"
+              icon={<NuevaunoIcon name="automation" />}
               collapsed={collapsed}
             />
             <SidebarItem
               to="/outputs"
-              label="Outputs"
-              icon={<Stack size={14} weight="regular" />}
+              label="Resultados"
+              icon={<NuevaunoIcon name="documentos" />}
               collapsed={collapsed}
             />
             {/* Gatekeeper management apps (e.g. the Context Library), listed dynamically. */}
@@ -182,8 +183,8 @@ export default function Sidebar({
             })}
             <SidebarItem
               to="/explore"
-              label="Explore"
-              icon={<Compass size={14} weight="regular" />}
+              label="Explorar"
+              icon={<NuevaunoIcon name="knowledge" />}
               collapsed={collapsed}
             />
           </nav>

@@ -9,6 +9,7 @@ import { useAvatar, invalidateAvatarCache } from './useAvatar'
 import { compressAvatar, avatarBlobUrl } from './avatarUtils'
 import UsageSettings from './components/billing/UsageSettings'
 import { useDocumentTitle } from './useDocumentTitle'
+import { getUserLanguage, getUserTimeZone, setUserPreferences, type UserLanguage } from './userPreferences'
 
 // Shared, on-language control classes (match the rest of the app: Workspaces/Blueprints headers,
 // the gatekeepers toolbar, the command palette). Kept here so the profile page reads as part of the
@@ -114,6 +115,8 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null)
   // Whether this account has a password (false for OAuth-created accounts). Null while loading.
   const [hasPassword, setHasPassword] = useState<boolean | null>(null)
+  const [language, setLanguage] = useState<UserLanguage>(() => getUserLanguage())
+  const [timeZone, setTimeZone] = useState(() => getUserTimeZone())
 
   const avatarUrl = useAvatar(authenticatedApi, userInfo?.id)
 
@@ -255,6 +258,49 @@ export default function SettingsPage() {
       </header>
 
       <div className="mt-6 flex flex-col gap-9">
+        <section className="flex flex-col gap-3">
+          <SectionLabel>Idioma y zona horaria</SectionLabel>
+          <div className="grid gap-4 rounded-xl border border-kumo-line bg-kumo-base p-5 sm:grid-cols-2">
+            <label className="text-[12px] text-kumo-subtle">
+              Idioma
+              <select
+                className={`mt-1.5 ${INPUT}`}
+                value={language}
+                onChange={(event) => {
+                  const next = event.target.value as UserLanguage
+                  setLanguage(next)
+                  setUserPreferences(next, timeZone)
+                }}
+              >
+                <option value="es">Español</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+            <label className="text-[12px] text-kumo-subtle">
+              Zona horaria
+              <select
+                className={`mt-1.5 ${INPUT}`}
+                value={timeZone}
+                onChange={(event) => {
+                  setTimeZone(event.target.value)
+                  setUserPreferences(language, event.target.value)
+                }}
+              >
+                <option value="America/Santiago">Santiago</option>
+                <option value="America/Bogota">Bogotá</option>
+                <option value="America/Lima">Lima</option>
+                <option value="America/Mexico_City">Ciudad de México</option>
+                <option value="America/Argentina/Buenos_Aires">Buenos Aires</option>
+                <option value="America/Sao_Paulo">São Paulo</option>
+                <option value="UTC">UTC</option>
+              </select>
+            </label>
+            <p className="sm:col-span-2 text-[12px] text-kumo-subtle">
+              Los cambios se aplican a las fechas y horas de esta sesión. El idioma inicial de NUEVAUNO OS es español.
+            </p>
+          </div>
+        </section>
+
         {/* Account */}
         <section className="flex flex-col gap-3">
           <SectionLabel>Account</SectionLabel>
