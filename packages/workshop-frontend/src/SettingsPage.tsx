@@ -10,6 +10,7 @@ import { compressAvatar, avatarBlobUrl } from './avatarUtils'
 import UsageSettings from './components/billing/UsageSettings'
 import { useDocumentTitle } from './useDocumentTitle'
 import { getUserLanguage, getUserTimeZone, setUserPreferences, type UserLanguage } from './userPreferences'
+import { useI18n } from './i18n'
 
 // Shared, on-language control classes (match the rest of the app: Workspaces/Blueprints headers,
 // the gatekeepers toolbar, the command palette). Kept here so the profile page reads as part of the
@@ -86,7 +87,8 @@ function PasswordField({
 }
 
 export default function SettingsPage() {
-  useDocumentTitle('Profile')
+  const { t } = useI18n()
+  useDocumentTitle(t('profile.title'))
 
   const { authenticatedApi } = useAuthenticatedApi()
   const toasts = useKumoToastManager()
@@ -152,7 +154,7 @@ export default function SettingsPage() {
 
   const handleSaveName = async () => {
     if (!nameInput.trim()) {
-      toasts.add({ title: 'Display name cannot be empty', variant: 'error' })
+      toasts.add({ title: t('profile.nameRequired'), variant: 'error' })
       return
     }
 
@@ -160,10 +162,10 @@ export default function SettingsPage() {
       await authenticatedApi.setOwnDisplayName(nameInput.trim())
       setUserInfo(prev => prev ? { ...prev, name: nameInput.trim() } : null)
       setIsEditingName(false)
-      toasts.add({ title: 'Display name updated', variant: 'success' })
+      toasts.add({ title: t('profile.nameUpdated'), variant: 'success' })
     } catch (err) {
       console.error('Failed to update display name:', err)
-      toasts.add({ title: 'Failed to update display name', variant: 'error' })
+      toasts.add({ title: t('profile.nameUpdateFailed'), variant: 'error' })
     }
   }
 
@@ -176,9 +178,9 @@ export default function SettingsPage() {
     if (!userInfo?.id) return
     try {
       await navigator.clipboard.writeText(userInfo.id)
-      toasts.add({ title: 'User ID copied', variant: 'success' })
+      toasts.add({ title: t('profile.idCopied'), variant: 'success' })
     } catch {
-      toasts.add({ title: 'Failed to copy', variant: 'error' })
+      toasts.add({ title: t('profile.copyFailed'), variant: 'error' })
     }
   }
 
@@ -211,11 +213,11 @@ export default function SettingsPage() {
     if (!userInfo) return
     if (!currentPassword || !newPassword || !confirmPassword) return
     if (newPassword.length < 8) {
-      setPasswordError('Password must be at least 8 characters')
+      setPasswordError(t('profile.passwordTooShort'))
       return
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match')
+      setPasswordError(t('profile.passwordMismatch'))
       return
     }
 
@@ -243,7 +245,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex min-h-[60vh] flex-1 items-center justify-center">
-        <p className="text-[13px] tracking-[-0.25px] text-kumo-subtle">Loading profile…</p>
+        <p className="text-[13px] tracking-[-0.25px] text-kumo-subtle">{t('profile.loading')}</p>
       </div>
     )
   }
@@ -251,18 +253,18 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-6 pb-16 sm:px-10">
       <header className="px-1 pb-2 pt-10">
-        <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">Profile</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">{t('profile.title')}</h1>
         <p className="mt-1 text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
-          Manage your account details, avatar, and security.
+          {t('profile.subtitle')}
         </p>
       </header>
 
       <div className="mt-6 flex flex-col gap-9">
         <section className="flex flex-col gap-3">
-          <SectionLabel>Idioma y zona horaria</SectionLabel>
+          <SectionLabel>{t('profile.preferences')}</SectionLabel>
           <div className="grid gap-4 rounded-xl border border-kumo-line bg-kumo-base p-5 sm:grid-cols-2">
             <label className="text-[12px] text-kumo-subtle">
-              Idioma
+              {t('profile.language')}
               <select
                 className={`mt-1.5 ${INPUT}`}
                 value={language}
@@ -277,7 +279,7 @@ export default function SettingsPage() {
               </select>
             </label>
             <label className="text-[12px] text-kumo-subtle">
-              Zona horaria
+              {t('profile.timeZone')}
               <select
                 className={`mt-1.5 ${INPUT}`}
                 value={timeZone}
@@ -296,14 +298,14 @@ export default function SettingsPage() {
               </select>
             </label>
             <p className="sm:col-span-2 text-[12px] text-kumo-subtle">
-              Los cambios se aplican a las fechas y horas de esta sesión. El idioma inicial de NUEVAUNO OS es español.
+              {t('profile.preferencesHelp')}
             </p>
           </div>
         </section>
 
         {/* Account */}
         <section className="flex flex-col gap-3">
-          <SectionLabel>Account</SectionLabel>
+          <SectionLabel>{t('profile.account')}</SectionLabel>
           <div className="divide-y divide-kumo-line overflow-hidden rounded-xl border border-kumo-line bg-kumo-base">
             {/* Avatar */}
             <div className="flex items-center gap-4 px-5 py-4">
@@ -343,7 +345,7 @@ export default function SettingsPage() {
                   {userInfo?.name}
                 </p>
                 <p className="mt-0.5 text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
-                  Click the avatar to upload a new photo
+                  {t('profile.avatarHelp')}
                 </p>
               </div>
             </div>
@@ -351,7 +353,7 @@ export default function SettingsPage() {
             {/* Display name */}
             <div className="flex items-end gap-2 px-5 py-4">
               <div className="min-w-0 flex-1">
-                <FieldLabel>Display name</FieldLabel>
+                <FieldLabel>{t('profile.displayName')}</FieldLabel>
                 {isEditingName ? (
                   <input
                     value={nameInput}
@@ -360,7 +362,7 @@ export default function SettingsPage() {
                       if (e.key === 'Enter') handleSaveName()
                       if (e.key === 'Escape') handleCancelEdit()
                     }}
-                    placeholder="Enter display name"
+                    placeholder={t('profile.enterName')}
                     autoFocus
                     className={`mt-1.5 ${INPUT}`}
                   />
@@ -376,16 +378,16 @@ export default function SettingsPage() {
                     type="button"
                     onClick={handleSaveName}
                     disabled={!nameInput.trim()}
-                    aria-label="Save display name"
+                    aria-label={t('profile.save')}
                     className={PRIMARY_BTN}
                   >
                     <Check size={15} weight="bold" />
-                    Save
+                    {t('profile.save')}
                   </button>
                   <button
                     type="button"
                     onClick={handleCancelEdit}
-                    aria-label="Cancel"
+                    aria-label={t('profile.cancel')}
                     className={ICON_BTN}
                   >
                     <X size={15} />
@@ -395,7 +397,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setIsEditingName(true)}
-                  aria-label="Edit display name"
+                  aria-label={t('profile.editName')}
                   className={ICON_BTN}
                 >
                   <Pencil size={14} />
@@ -406,7 +408,7 @@ export default function SettingsPage() {
             {/* User ID */}
             <div className="flex items-center gap-2 px-5 py-4">
               <div className="min-w-0 flex-1">
-                <FieldLabel>User ID</FieldLabel>
+                <FieldLabel>{t('profile.userId')}</FieldLabel>
                 <p className="mt-1 truncate font-mono text-[12px] tracking-[-0.1px] text-kumo-subtle">
                   {userInfo?.id}
                 </p>
@@ -414,7 +416,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={handleCopyId}
-                aria-label="Copy user ID"
+                aria-label={t('profile.copyId')}
                 className={ICON_BTN}
               >
                 <Copy size={14} />
@@ -429,31 +431,31 @@ export default function SettingsPage() {
         {/* Security — only for password accounts (hidden under CF Access or gatekeeper sign-in) */}
         {!CF_ACCESS_MODE && hasPassword === true && (
           <section className="flex flex-col gap-3">
-            <SectionLabel>Security</SectionLabel>
+            <SectionLabel>{t('profile.security')}</SectionLabel>
             <div className="rounded-xl border border-kumo-line bg-kumo-base p-5">
               <div className="flex max-w-sm flex-col gap-4">
                 <PasswordField
-                  label="Current password"
+                  label={t('profile.currentPassword')}
                   value={currentPassword}
                   onChange={setCurrentPassword}
-                  placeholder="Enter current password"
+                  placeholder={t('profile.enterCurrentPassword')}
                   autoComplete="current-password"
                 />
 
                 <PasswordField
-                  label="New password"
+                  label={t('profile.newPassword')}
                   value={newPassword}
                   onChange={setNewPassword}
-                  placeholder="Enter new password"
-                  description="Must be at least 8 characters"
+                  placeholder={t('profile.enterNewPassword')}
+                  description={t('profile.passwordHint')}
                   autoComplete="new-password"
                 />
 
                 <PasswordField
-                  label="Confirm new password"
+                  label={t('profile.confirmPassword')}
                   value={confirmPassword}
                   onChange={setConfirmPassword}
-                  placeholder="Confirm new password"
+                  placeholder={t('profile.confirmPassword')}
                   autoComplete="new-password"
                   error={passwordError}
                 />
@@ -466,7 +468,7 @@ export default function SettingsPage() {
                     className={PRIMARY_BTN}
                   >
                     <Lock size={14} weight="bold" />
-                    {passwordLoading ? 'Changing…' : 'Change password'}
+                    {passwordLoading ? t('profile.changingPassword') : t('profile.changePassword')}
                   </button>
                 </div>
               </div>

@@ -16,6 +16,7 @@ import {
   SidebarWorkspacesLists,
 } from './SidebarWorkspaces'
 import SidebarUtilityStrip from './SidebarUtilityStrip'
+import { useI18n } from '../../i18n'
 
 const BRAND_ICON = 'https://branding.nuevauno.com/icons/nuevauno'
 
@@ -43,6 +44,7 @@ export default function Sidebar({
   onToggleCollapsed: () => void
 }) {
   const siteName = useSiteName()
+  const { t } = useI18n()
   // Gatekeeper-served management apps the user can reach now (one per gatekeeper that provides a UI
   // and is connected / enabled for everyone). Disabled or not-yet-connected ones aren't returned, so
   // they simply don't appear. The set is fully dynamic — no gatekeeper is hardcoded.
@@ -50,7 +52,7 @@ export default function Sidebar({
 
   return (
     <aside
-      aria-label="Primary"
+      aria-label={t('nav.primary')}
       className={[
         // Sidebar is the app chrome: a hair greyer than the (lighter) content canvas so the two
         // surfaces read as distinct without a heavy divider.
@@ -81,8 +83,8 @@ export default function Sidebar({
             <button
               type="button"
               onClick={() => openCommandPalette()}
-              aria-label="Buscar"
-              title="Buscar (⌘K)"
+              aria-label={t('nav.search')}
+              title={`${t('nav.search')} (⌘K)`}
               className="press flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default"
             >
               <MagnifyingGlass size={15} />
@@ -90,8 +92,8 @@ export default function Sidebar({
             <button
               type="button"
               onClick={onToggleCollapsed}
-              aria-label="Contraer barra lateral"
-              title="Contraer barra lateral"
+              aria-label={t('nav.collapse')}
+              title={t('nav.collapse')}
               className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default"
             >
               <SidebarSimple size={15} />
@@ -105,8 +107,8 @@ export default function Sidebar({
         <button
           type="button"
           onClick={onToggleCollapsed}
-          aria-label="Expandir barra lateral"
-          title="Expandir barra lateral"
+          aria-label={t('nav.expand')}
+          title={t('nav.expand')}
           className="mx-auto mt-2 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default"
         >
           <SidebarSimple size={15} className="rotate-180" />
@@ -120,25 +122,25 @@ export default function Sidebar({
           <nav className="flex flex-col gap-0.5 px-2">
             <SidebarItem
               to="/"
-              label="Inicio"
+              label={t('nav.home')}
               icon={<NuevaunoIcon name="base" />}
               collapsed={collapsed}
             />
             <SidebarItem
               to="/workspaces"
-              label="Espacios"
+              label={t('nav.workspaces')}
               icon={<NuevaunoIcon name="project" />}
               collapsed={collapsed}
             />
             <SidebarItem
               to="/blueprints"
-              label="Plantillas"
+              label={t('nav.blueprints')}
               icon={<NuevaunoIcon name="automation" />}
               collapsed={collapsed}
             />
             <SidebarItem
               to="/outputs"
-              label="Resultados"
+              label={t('nav.outputs')}
               icon={<NuevaunoIcon name="documentos" />}
               collapsed={collapsed}
             />
@@ -183,7 +185,7 @@ export default function Sidebar({
             })}
             <SidebarItem
               to="/explore"
-              label="Explorar"
+              label={t('nav.explore')}
               icon={<NuevaunoIcon name="knowledge" />}
               collapsed={collapsed}
             />

@@ -1,0 +1,13 @@
+import type { UserLanguage } from './userPreferences'
+
+export type FormatPreferences = { language: UserLanguage; timeZone: string }
+
+export function formatDateTime(value: Date | number, preferences: FormatPreferences): string {
+  return new Intl.DateTimeFormat(preferences.language, {
+    dateStyle: 'short', timeStyle: 'short', timeZone: preferences.timeZone,
+  }).format(value)
+}
+
+export function formatNumber(value: number, language: UserLanguage): string {
+  return new Intl.NumberFormat(language).format(value)
+}

@@ -7,15 +7,16 @@ import {
   Presentation,
   type Icon,
 } from '@phosphor-icons/react'
+import { useI18n, type MessageKey } from '../../i18n'
 
 // A few example work tasks shown under the Home composer, so a new user immediately sees the kind
 // of thing they can ask for. Picking one drops a starter prompt into the composer (it does not
 // auto-send) so the user can tweak it before running.
 type TaskSuggestion = {
   id: string
-  label: string
-  description: string
-  prompt: string
+  label: MessageKey
+  description: MessageKey
+  prompt: MessageKey
   icon: Icon
 }
 
@@ -24,43 +25,38 @@ type TaskSuggestion = {
 const SUGGESTIONS: TaskSuggestion[] = [
   {
     id: 'one-on-one',
-    label: 'Write a 1:1 pre-read',
-    description: 'A doc with a snapshot, things to inspect, and one ask',
+    label: 'home.example.one.label',
+    description: 'home.example.one.description',
     icon: FileText,
-    prompt:
-      'Create a document to prepare for my next 1:1 with a direct report: a current snapshot, a coaching frame, things to inspect, carryover items from last time, and one clear ask.',
+    prompt: 'home.example.one.prompt',
   },
   {
     id: 'team-meeting',
-    label: 'Build a team meeting deck',
-    description: 'Slides with progress, risks, and what needs a decision',
+    label: 'home.example.team.label',
+    description: 'home.example.team.description',
     icon: Presentation,
-    prompt:
-      'Create a slide deck for my next team meeting: where things stand, what shipped, risks and blockers, and the decisions I need from the room. Ask me what the team is working on first.',
+    prompt: 'home.example.team.prompt',
   },
   {
     id: 'insights',
-    label: 'Find insights in my data',
-    description: 'Turn a spreadsheet or CSV into trends and recommendations',
+    label: 'home.example.data.label',
+    description: 'home.example.data.description',
     icon: ChartLineUp,
-    prompt:
-      'Turn a dataset I will share (a spreadsheet, CSV, or pasted table) into a narrative analysis: key trends, anomalies, the "so what", and concrete recommendations.',
+    prompt: 'home.example.data.prompt',
   },
   {
     id: 'workflow',
-    label: 'Automate a workflow',
-    description: 'Trigger an agent when a new email arrives',
+    label: 'home.example.workflow.label',
+    description: 'home.example.workflow.description',
     icon: Lightning,
-    prompt:
-      'Create an agent workflow that runs automatically when a new email arrives: read the message, decide what to do, and take action or draft a reply. Ask me which inbox to watch and what it should handle.',
+    prompt: 'home.example.workflow.prompt',
   },
   {
     id: 'app',
-    label: 'Build a quick tool',
-    description: 'A small interactive app, calculator, or dashboard',
+    label: 'home.example.app.label',
+    description: 'home.example.app.description',
     icon: AppWindow,
-    prompt:
-      'Build a small interactive tool I can use right here — a calculator, dashboard, or explorer. Ask me what it should do, then create it.',
+    prompt: 'home.example.app.prompt',
   },
 ]
 
@@ -118,22 +114,23 @@ export default function HomeTaskSuggestions({
 }: {
   onPick: (prompt: string) => void
 }) {
+  const { t } = useI18n()
   // Chosen once per mount: re-rolling on every render would shuffle the list under the pointer.
   const visible = useMemo(pickSuggestions, [])
 
   return (
-    <section aria-label="Example tasks" className="flex flex-col gap-1">
+    <section aria-label={t('home.examples')} className="flex flex-col gap-1">
       <h3 className="px-1 pb-1 text-[12px] font-medium uppercase tracking-[0.06em] text-kumo-inactive">
-        Get started
+        {t('home.examples')}
       </h3>
       <ul className="flex flex-col gap-0.5">
         {visible.map((suggestion) => (
           <SuggestionRow
             key={suggestion.id}
             icon={<suggestion.icon size={16} />}
-            label={suggestion.label}
-            description={suggestion.description}
-            onClick={() => onPick(suggestion.prompt)}
+            label={t(suggestion.label)}
+            description={t(suggestion.description)}
+            onClick={() => onPick(t(suggestion.prompt))}
           />
         ))}
       </ul>
