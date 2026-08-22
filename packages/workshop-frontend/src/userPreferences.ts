@@ -11,7 +11,7 @@ export function getUserTimeZone(): string {
   return localStorage.getItem('nuevauno.timeZone') || DEFAULT_TIME_ZONE
 }
 
-export function setUserPreferences(language: UserLanguage, timeZone: string): void {
+export function applyUserPreferences(language: UserLanguage, timeZone: string): void {
   localStorage.setItem('nuevauno.language', language)
   localStorage.setItem('nuevauno.timeZone', timeZone)
   document.documentElement.lang = language

@@ -9,7 +9,7 @@ import { useAvatar, invalidateAvatarCache } from './useAvatar'
 import { compressAvatar, avatarBlobUrl } from './avatarUtils'
 import UsageSettings from './components/billing/UsageSettings'
 import { useDocumentTitle } from './useDocumentTitle'
-import { getUserLanguage, getUserTimeZone, setUserPreferences, type UserLanguage } from './userPreferences'
+import { applyUserPreferences, getUserLanguage, getUserTimeZone, type UserLanguage } from './userPreferences'
 import { useI18n } from './i18n'
 
 // Shared, on-language control classes (match the rest of the app: Workspaces/Blueprints headers,
@@ -271,7 +271,9 @@ export default function SettingsPage() {
                 onChange={(event) => {
                   const next = event.target.value as UserLanguage
                   setLanguage(next)
-                  setUserPreferences(next, timeZone)
+                  void authenticatedApi.setOwnPreferences({ language: next, timeZone }).then((saved) => {
+                    applyUserPreferences(saved.language, saved.timeZone)
+                  })
                 }}
               >
                 <option value="es">Español</option>
@@ -285,7 +287,9 @@ export default function SettingsPage() {
                 value={timeZone}
                 onChange={(event) => {
                   setTimeZone(event.target.value)
-                  setUserPreferences(language, event.target.value)
+                  void authenticatedApi.setOwnPreferences({ language, timeZone: event.target.value }).then((saved) => {
+                    applyUserPreferences(saved.language, saved.timeZone)
+                  })
                 }}
               >
                 <option value="America/Santiago">Santiago</option>

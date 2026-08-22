@@ -838,3 +838,25 @@ html {
 body:has([role="dialog"], [role="alertdialog"]) .app-header {
   z-index: 0;
 }
+@font-face {
+  font-family: 'Nuevauno Mono';
+  src: url('https://branding.nuevauno.com/fonts/ubuntu-mono-400.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@keyframes nuevauno-cursor-blink {
+  0%, 48% { opacity: 1; }
+  49%, 100% { opacity: 0; }
+}
+
+.font-nuevauno { font-family: 'Nuevauno Mono', monospace; font-weight: 400; }
+.nuevauno-cursor {
+  display: inline-block;
+  width: .231em;
+  height: .641em;
+  margin-left: .256em;
+  background: #FE4A23;
+  animation: nuevauno-cursor-blink 1.05s steps(1, end) infinite;
+}

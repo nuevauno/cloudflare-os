@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { RpcStub } from 'capnweb'
 import { AuthenticatedApi, AiChatAuthorInfo } from '@gadgets/workshop-shared/api'
+import { applyUserPreferences } from './userPreferences'
 
 interface AuthContextType {
   authenticatedApi: RpcStub<AuthenticatedApi>
@@ -27,6 +28,14 @@ export function AuthProvider({ children, authenticatedApi, onLogout }: AuthProvi
     let cancelled = false
     authenticatedApi.whoami().then((info) => {
       if (!cancelled) setCurrentUser(info)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [authenticatedApi])
+
+  useEffect(() => {
+    let cancelled = false
+    authenticatedApi.getOwnPreferences().then((preferences) => {
+      if (!cancelled && preferences) applyUserPreferences(preferences.language, preferences.timeZone)
     }).catch(() => {})
     return () => { cancelled = true }
   }, [authenticatedApi])

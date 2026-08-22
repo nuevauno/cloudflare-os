@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import {
-  Hexagon,
   Robot,
   Lightning,
   Star,
@@ -10,6 +9,7 @@ import {
   BlueprintMetadata,
 } from "@gadgets/workshop-shared/api";
 import { VendorDescription } from "@gadgets/workshop-shared/gatekeeper";
+import { NuevaunoMark } from "./NuevaunoIdentity";
 
 const gradients = [
   "from-[#4A154B] to-[#7C3085]",
@@ -137,7 +137,7 @@ export function BlueprintCard({
           <div
             className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${getGradient(id)}`}
           >
-            <Hexagon size={16} className="text-white/75" weight="bold" />
+            <NuevaunoMark size={22} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="m-0 line-clamp-2 text-[15px] leading-5 font-medium tracking-[-0.25px] text-kumo-default">

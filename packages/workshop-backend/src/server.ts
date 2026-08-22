@@ -119,6 +119,12 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   whoami(): Promise<AiChatAuthorInfo> {
     return this.#user.whoami();
   }
+  getOwnPreferences() {
+    return this.#user.getOwnPreferences();
+  }
+  setOwnPreferences(preferences: import('@gadgets/workshop-shared/api').UserPreferences) {
+    return this.#user.setOwnPreferences(preferences);
+  }
   setOwnDisplayName(name: string): Promise<void> {
     return this.#user.setOwnDisplayName(name);
   }

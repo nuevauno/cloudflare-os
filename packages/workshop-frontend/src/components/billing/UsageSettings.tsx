@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { CloudflareUsageInfo, CloudflareAccountOption } from '@gadgets/workshop-shared/api'
 import { Button, useKumoToastManager } from '@cloudflare/kumo'
 import { Lightning, CloudCheck, Warning } from '@phosphor-icons/react'
-import CloudflareLogo from '../auth/CloudflareLogo'
+import SiteLogo from '../SiteLogo'
 import { useAuthenticatedApi } from '../../AuthContext'
 import { useCloudflareLimitsEnabled } from '../../ServerConfigContext'
 import { buildAddCreditsUrl } from './creditsUrl'
@@ -115,7 +115,7 @@ export default function UsageSettings() {
             {!usage.connected ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm text-kumo-subtle">
-                  <CloudflareLogo size={16} />
+                  <SiteLogo size={16}><span aria-hidden /></SiteLogo>
                   <span>Not connected</span>
                 </div>
                 <p className="text-sm text-kumo-subtle">

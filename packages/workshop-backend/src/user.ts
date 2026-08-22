@@ -200,6 +200,7 @@ function makeUserStorage(storage: DurableObjectStorage) {
       quickModel: <string | null>null,
       preferredModel: <string | null>null,
       onboardingCompleted: false,
+      preferences: <import('@gadgets/workshop-shared/api').UserPreferences | null>null,
 
       // Set once the user's pre-existing workspaces have been asked to populate the outputs index
       // (see #backfillOutputs()). Workspaces created since push on their own.
@@ -448,6 +449,26 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
 
   async whoami(): Promise<AiChatAuthorInfo> {
     return this.storage.profile.get();
+  }
+
+  async getOwnPreferences(): Promise<import('@gadgets/workshop-shared/api').UserPreferences | null> {
+    return this.storage.preferences.get();
+  }
+
+  async setOwnPreferences(
+      preferences: import('@gadgets/workshop-shared/api').UserPreferences
+  ): Promise<import('@gadgets/workshop-shared/api').UserPreferences> {
+    if (preferences.language !== "es" && preferences.language !== "en") {
+      throw new TypeError("Unsupported language.");
+    }
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: preferences.timeZone }).format();
+    } catch {
+      throw new TypeError("Invalid IANA time zone.");
+    }
+    const validated = { language: preferences.language, timeZone: preferences.timeZone };
+    this.storage.preferences.put(validated);
+    return validated;
   }
 
   /** Like whoami(), but returns null if the account was never initialized. */
