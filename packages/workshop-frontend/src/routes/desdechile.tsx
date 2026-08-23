@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuthenticatedApi } from "../AuthContext";
+import NuevaunoIdentity from "../components/NuevaunoIdentity";
 
 export const Route = createFileRoute("/desdechile")({ component: DesdeChileBridge });
 
@@ -25,11 +26,7 @@ export function DesdeChileBridge() {
   };
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 py-10">
-      <img
-        src="https://branding.nuevauno.com/logos/nuevauno-logo-light.svg"
-        alt="NUEVAUNO"
-        className="h-8 w-fit"
-      />
+      <NuevaunoIdentity siteName="NUEVAUNO" size={32} className="text-xl text-kumo-default" />
       <p className="text-xs uppercase tracking-[.16em] text-kumo-subtle">App oficial</p>
       <h1 className="text-3xl font-normal text-kumo-default">DesdeChile</h1>
       <p className="max-w-xl text-sm text-kumo-subtle">
