@@ -362,6 +362,14 @@ export interface UserPreferences {
 
 /** Top-level API exposed to the user after they have authenticated. */
 export interface AuthenticatedApi extends RpcTarget {
+  /** Create a short-lived, single-use handoff into the official DesdeChile app. */
+  createDesdeChileSession(intent: {
+    action: "dashboard" | "publish" | "claim" | "promote";
+    businessId?: string;
+    returnPath: string;
+    state: string;
+  }): Promise<string>;
+
   /** Get profile info for the user who is logged in. */
   whoami(): Promise<AiChatAuthorInfo>;
 
