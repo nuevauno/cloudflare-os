@@ -68,51 +68,12 @@ type Env = Cloudflare.Env & {
   CF_ACCESS_ISS?: string,  // team URL, i.e. https://<team>.cloudflareaccess.com
   DEV?: boolean;
   FLAGS?: Flagship;
-  IDENTITY_ASSERTION_SECRET?: string;
 }
 
 // =======================================================================================
 
 @validateRpc()
 class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
-  async createDesdeChileSession(intent: {
-    action: "dashboard" | "publish" | "claim" | "promote";
-    businessId?: string;
-    returnPath: string;
-    state: string;
-  }): Promise<string> {
-    if (!this.env.IDENTITY_ASSERTION_SECRET) {
-      throw new Error("DesdeChile session bridge is not configured.");
-    }
-    if (!/^[a-f\d-]{16,80}$/i.test(intent.state) ||
-        !["dashboard", "publish", "claim", "promote"].includes(intent.action)) {
-      throw new TypeError("Invalid DesdeChile intent.");
-    }
-    const returnPath = /^\/(?:panel|negocio\/|$)/.test(intent.returnPath) &&
-      !intent.returnPath.startsWith("//") ? intent.returnPath.slice(0, 300) : "/panel";
-    const now = Math.floor(Date.now() / 1000);
-    const payload = {
-      iss: "https://os.nuevauno.com",
-      aud: "https://desdechile.com",
-      sub: this.#userId.name!,
-      iat: now,
-      exp: now + 120,
-      nonce: crypto.randomUUID(),
-      state: intent.state,
-      intent: { ...intent, returnPath },
-    };
-    const encoded = btoa(JSON.stringify(payload)).replace(/=/g, "")
-      .replace(/\+/g, "-").replace(/\//g, "_");
-    const key = await crypto.subtle.importKey(
-      "raw", new TextEncoder().encode(this.env.IDENTITY_ASSERTION_SECRET),
-      { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-    const signature = [...new Uint8Array(
-      await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(encoded)))]
-      .map(byte => byte.toString(16).padStart(2, "0")).join("");
-    return `https://desdechile.com/auth/callback?assertion=${
-      encodeURIComponent(`${encoded}.${signature}`)}&state=${encodeURIComponent(intent.state)}`;
-  }
-
   constructor(private ctx: ExecutionContext, private env: Env,
       userId: DurableObjectId,
       private abortSession: (reason: Error) => void) {
