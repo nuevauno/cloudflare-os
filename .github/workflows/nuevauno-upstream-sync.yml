@@ -1,0 +1,105 @@
+name: NUEVAUNO upstream sync
+
+on:
+  schedule:
+    - cron: "17 */4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: nuevauno-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch official upstream
+        run: git fetch https://github.com/cloudflare/cloudflare-os.git main:refs/remotes/upstream/main
+
+      - name: Resolve update
+        id: update
+        shell: bash
+        run: |
+          set -euo pipefail
+          upstream="$(git rev-parse refs/remotes/upstream/main)"
+          current="$(git rev-parse HEAD)"
+          echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          if git merge-base --is-ancestor "$upstream" "$current"; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            echo "branch=automation/upstream-${upstream:0:12}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Merge upstream without publishing conflicts
+        id: merge
+        if: steps.update.outputs.needed == 'true'
+        continue-on-error: true
+        env:
+          UPSTREAM_SHA: ${{ steps.update.outputs.upstream }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git switch -c "${{ steps.update.outputs.branch }}"
+          git merge --no-edit "$UPSTREAM_SHA"
+
+      - name: Report an integration conflict
+        if: steps.merge.outcome == 'failure'
+        uses: actions/github-script@v7
+        env:
+          UPSTREAM_SHA: ${{ steps.update.outputs.upstream }}
+        with:
+          script: |
+            const title = 'Resolver conflicto con Cloudflare OS upstream';
+            const body = `La sincronización automática no pudo integrar \`${process.env.UPSTREAM_SHA}\`. La producción permanece en la última versión validada. Resolver el conflicto en un worktree, ejecutar la suite completa y cerrar este issue al promover.`;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              ...context.repo,
+              state: 'open',
+            });
+            const existing = issues.find((issue) => !issue.pull_request && issue.title === title);
+            if (existing) {
+              await github.rest.issues.update({ ...context.repo, issue_number: existing.number, body });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title, body });
+            }
+
+      - uses: pnpm/action-setup@v4
+        if: steps.merge.outcome == 'success'
+
+      - uses: actions/setup-node@v4
+        if: steps.merge.outcome == 'success'
+        with:
+          node-version: '24.19.0'
+          cache: pnpm
+
+      - name: Validate integrated source
+        if: steps.merge.outcome == 'success'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm lint
+          pnpm test
+
+      - name: Open update PR and enable guarded merge
+        if: steps.merge.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.update.outputs.branch }}
+          UPSTREAM_SHA: ${{ steps.update.outputs.upstream }}
+        run: |
+          git push origin "HEAD:refs/heads/$BRANCH"
+          pr="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$pr" ]; then
+            gh pr create --base "${{ github.event.repository.default_branch }}" --head "$BRANCH" --title "chore(upstream): integra $UPSTREAM_SHA" --body "Actualización automática desde Cloudflare OS oficial. La integración y la suite completa pasaron antes de abrir este PR."
+            pr="$(gh pr view "$BRANCH" --json number --jq .number)"
+          fi
+          gh pr merge "$pr" --auto --merge

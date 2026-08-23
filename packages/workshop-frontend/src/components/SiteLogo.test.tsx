@@ -51,9 +51,11 @@ describe('SiteLogo', () => {
     expect(container!.querySelector('[data-fallback]')).toBeNull()
   })
 
-  it('uses the supplied fallback when no logo is configured or loading fails', () => {
+  it('uses the canonical mark when no logo is configured and the supplied fallback on failure', () => {
     render()
-    expect(container!.querySelector('[data-fallback]')).not.toBeNull()
+    expect(container!.querySelector('img')?.getAttribute('src')).toBe(
+      'https://branding.nuevauno.com/logos/nuevauno-mark.anim.svg',
+    )
 
     act(() => root!.unmount())
     container!.remove()
@@ -68,7 +70,7 @@ describe('SiteLogo', () => {
     expect(container!.querySelector('img')).not.toBeNull()
   })
 
-  it('uses an explicit null override for the Admin reset preview', () => {
+  it('uses an explicit null override to preview the canonical mark', () => {
     render('/api/site-logo?v=configured')
     const config = { siteLogo: { url: '/api/site-logo?v=configured' } } as ServerConfig
     act(() => root!.render(
@@ -79,8 +81,9 @@ describe('SiteLogo', () => {
       </ServerConfigContext.Provider>,
     ))
 
-    expect(container!.querySelector('img')).toBeNull()
-    expect(container!.querySelector('[data-fallback]')).not.toBeNull()
+    expect(container!.querySelector('img')?.getAttribute('src')).toBe(
+      'https://branding.nuevauno.com/logos/nuevauno-mark.anim.svg',
+    )
   })
 
 })
