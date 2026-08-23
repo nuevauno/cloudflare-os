@@ -1,9 +1,4 @@
 import { Link } from '@tanstack/react-router'
-import {
-  BookOpen,
-  MagnifyingGlass,
-  SidebarSimple,
-} from '@phosphor-icons/react'
 import { useSiteName } from '../../ServerConfigContext'
 import NuevaunoIdentity from '../NuevaunoIdentity'
 import { useGatekeeperApps } from '../../useGatekeeperApps'
@@ -16,12 +11,7 @@ import {
 } from './SidebarWorkspaces'
 import SidebarUtilityStrip from './SidebarUtilityStrip'
 import { useI18n } from '../../i18n'
-
-const BRAND_ICON = 'https://branding.nuevauno.com/icons/nuevauno'
-
-function NuevaunoIcon({ name }: { name: string }) {
-  return <img src={`${BRAND_ICON}/${name}.svg`} alt="" width={14} height={14} className="h-3.5 w-3.5 object-contain" />
-}
+import NuevaunoIcon from '../NuevaunoIcon'
 
 /**
  * The persistent left rail. Three pinned regions sandwich a single scrolling region of lists, so
@@ -79,7 +69,7 @@ export default function Sidebar({
               title={`${t('nav.search')} (⌘K)`}
               className="press flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default"
             >
-              <MagnifyingGlass size={15} />
+              <NuevaunoIcon name="search" size={15} />
             </button>
             <button
               type="button"
@@ -88,7 +78,7 @@ export default function Sidebar({
               title={t('nav.collapse')}
               className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default"
             >
-              <SidebarSimple size={15} />
+              <NuevaunoIcon name="sidebar" size={15} />
             </button>
           </div>
         )}
@@ -103,7 +93,7 @@ export default function Sidebar({
           title={t('nav.expand')}
           className="mx-auto mt-2 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default"
         >
-          <SidebarSimple size={15} className="rotate-180" />
+          <NuevaunoIcon name="sidebar" size={15} className="rotate-180" />
         </button>
       )}
 
@@ -168,7 +158,7 @@ export default function Sidebar({
                       }}
                     />
                   ) : (
-                    <BookOpen size={14} weight="regular" />
+                    <NuevaunoIcon name="connections" size={14} />
                   )
                 }
                 collapsed={collapsed}

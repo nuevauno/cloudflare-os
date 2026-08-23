@@ -16,6 +16,7 @@ import {
 } from "react";
 import { reportIssue } from './errorReporting'
 import { useI18n } from './i18n'
+import NuevaunoIcon from './components/NuevaunoIcon'
 import {
   Dialog,
   DropdownMenu,
@@ -3570,7 +3571,7 @@ export const ChatInput = ({
                     className="group flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-lg text-kumo-inactive transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint hover:text-kumo-subtle focus-visible:bg-kumo-tint focus-visible:text-kumo-subtle focus-visible:outline-none active:scale-[0.96] data-[popup-open]:bg-kumo-tint data-[popup-open]:text-kumo-subtle sm:h-8 sm:w-8"
                     aria-label={t('composer.options')}
                   >
-                    <Plus size={18} />
+                    <NuevaunoIcon name="more_options" size={18} />
                   </button>
                 }
               />
@@ -3598,7 +3599,7 @@ export const ChatInput = ({
                   className="!h-auto rounded-xl !px-2 !py-1.5 text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default"
                 >
                   <span className="mr-2 inline-flex h-4 w-4 items-center justify-center text-kumo-inactive">
-                    <FileIcon size={14} />
+                      <NuevaunoIcon name="attach_resource" size={14} />
                   </span>
                   <span className="flex-1">{t('composer.upload')}</span>
                 </DropdownMenu.Item>
@@ -3609,7 +3610,7 @@ export const ChatInput = ({
               onClick={handleAttachOpen}
               className="inline-flex h-10 flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[14px] leading-none text-kumo-inactive transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint hover:text-kumo-subtle focus-visible:bg-kumo-tint focus-visible:text-kumo-subtle focus-visible:outline-none active:scale-[0.97] sm:h-8 sm:text-[13px]"
             >
-              <Plug size={15} className="flex-shrink-0" />
+              <NuevaunoIcon name="attach_resource" size={15} />
               <span className={`leading-none ${styles.attachLabelText}`}>{attachLabel ?? t('composer.resource')}</span>
             </button>
           </div>
@@ -3624,12 +3625,9 @@ export const ChatInput = ({
                       className="group inline-flex h-10 min-w-0 max-w-[110px] cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[14px] leading-5 text-kumo-subtle transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint hover:text-kumo-default focus-visible:bg-kumo-tint focus-visible:text-kumo-default focus-visible:outline-none active:scale-[0.97] data-[popup-open]:bg-kumo-tint data-[popup-open]:text-kumo-default sm:h-8 sm:max-w-[180px] sm:text-[13px]"
                       aria-label={t('composer.model')}
                     >
+                      <NuevaunoIcon name="select_model" size={14} />
                       <span className="min-w-0 truncate">{selectedModelLabel}</span>
-                      <CaretDown
-                        size={12}
-                        weight="bold"
-                        className="flex-shrink-0 text-kumo-inactive transition-transform duration-150 ease-out group-data-[popup-open]:rotate-180"
-                      />
+                      <NuevaunoIcon name="next" size={11} className="rotate-90 transition-transform duration-150 ease-out group-data-[popup-open]:-rotate-90" />
                     </button>
                   }
                 />
@@ -3644,7 +3642,7 @@ export const ChatInput = ({
                       >
                         <span className="min-w-0 flex-1 truncate">{model.name}</span>
                         {active && (
-                          <Check size={12} weight="bold" className="ml-3 flex-shrink-0 text-kumo-inactive" />
+                          <NuevaunoIcon name="confirm" size={12} className="ml-3" />
                         )}
                       </DropdownMenu.Item>
                     );
@@ -3656,7 +3654,7 @@ export const ChatInput = ({
                   >
                     <span className="min-w-0 flex-1 truncate">{t('composer.noAgent')}</span>
                     {selectedModel == null && (
-                      <Check size={12} weight="bold" className="ml-3 flex-shrink-0 text-kumo-inactive" />
+                      <NuevaunoIcon name="confirm" size={12} className="ml-3" />
                     )}
                   </DropdownMenu.Item>
                 </DropdownMenu.Content>
@@ -3668,14 +3666,7 @@ export const ChatInput = ({
                   className="!h-10 !w-10 sm:!h-8 sm:!w-8"
                   aria-label={t('composer.stop')}
                 >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <rect x="5" y="5" width="14" height="14" rx="2" />
-                  </svg>
+                  <NuevaunoIcon name="close" size={14} mode="dark" />
                 </WorkshopIconButton>
               ) : (
                 <WorkshopIconButton
@@ -3685,18 +3676,7 @@ export const ChatInput = ({
                   className="!h-10 !w-10 disabled:cursor-not-allowed disabled:opacity-30 sm:!h-8 sm:!w-8"
                   aria-label={t('composer.send')}
                 >
-                  {/* Arrow-up icon */}
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                  >
-                    <line x1="12" y1="19" x2="12" y2="5" />
-                    <polyline points="5 12 12 5 19 12" />
-                  </svg>
+                  <NuevaunoIcon name="send" size={16} mode="dark" className="-rotate-90" />
                 </WorkshopIconButton>
               )}
           </div>

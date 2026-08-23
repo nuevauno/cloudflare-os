@@ -10,25 +10,30 @@
 // content, which is when the user is deciding what to make.
 
 import type { BlueprintOutput } from '@gadgets/workshop-shared/api'
-import { FORMAT_ICONS, formatOf, wireframeOf, type FormatWireframe } from './formats'
+import { formatOf, wireframeOf, type FormatWireframe } from './formats'
+import NuevaunoIcon, { type NuevaunoIconName } from '../NuevaunoIcon'
 
 // ─── glyph ───────────────────────────────────────────────────────────────────
 
 const GLYPH_SIZES = { sm: 11, md: 15, lg: 17 } as const
+const FORMAT_BRAND_ICONS: Record<string, NuevaunoIconName> = {
+  fileText: 'documentos', notebook: 'documentos', gridNine: 'hoja_calculo',
+  table: 'hoja_calculo', chartBar: 'hoja_calculo', presentation: 'website_slides',
+  appWindow: 'project', flowArrow: 'automation', kanban: 'project', listChecks: 'confirm',
+}
 
 export function FormatGlyph({
   output,
   size = 'md',
   className,
-  weight,
 }: {
   output?: BlueprintOutput
   size?: keyof typeof GLYPH_SIZES
   className?: string
   weight?: 'regular' | 'fill'
 }) {
-  const Icon = FORMAT_ICONS[formatOf(output).icon]
-  return <Icon size={GLYPH_SIZES[size]} className={className} weight={weight} />
+  const iconName = FORMAT_BRAND_ICONS[formatOf(output).icon] ?? 'project'
+  return <NuevaunoIcon name={iconName} size={GLYPH_SIZES[size]} className={className} />
 }
 
 // ─── tile ────────────────────────────────────────────────────────────────────

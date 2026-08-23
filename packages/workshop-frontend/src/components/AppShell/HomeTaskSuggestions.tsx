@@ -1,13 +1,6 @@
 import { useMemo } from 'react'
-import {
-  AppWindow,
-  ChartLineUp,
-  FileText,
-  Lightning,
-  Presentation,
-  type Icon,
-} from '@phosphor-icons/react'
 import { useI18n, type MessageKey } from '../../i18n'
+import NuevaunoIcon, { type NuevaunoIconName } from '../NuevaunoIcon'
 
 // A few example work tasks shown under the Home composer, so a new user immediately sees the kind
 // of thing they can ask for. Picking one drops a starter prompt into the composer (it does not
@@ -17,7 +10,7 @@ type TaskSuggestion = {
   label: MessageKey
   description: MessageKey
   prompt: MessageKey
-  icon: Icon
+  icon: NuevaunoIconName
 }
 
 // Formats are advertised by example rather than by a row of "Start with Docs" buttons, so the
@@ -27,35 +20,35 @@ const SUGGESTIONS: TaskSuggestion[] = [
     id: 'one-on-one',
     label: 'home.example.one.label',
     description: 'home.example.one.description',
-    icon: FileText,
+    icon: 'documentos',
     prompt: 'home.example.one.prompt',
   },
   {
     id: 'team-meeting',
     label: 'home.example.team.label',
     description: 'home.example.team.description',
-    icon: Presentation,
+    icon: 'website_slides',
     prompt: 'home.example.team.prompt',
   },
   {
     id: 'insights',
     label: 'home.example.data.label',
     description: 'home.example.data.description',
-    icon: ChartLineUp,
+    icon: 'hoja_calculo',
     prompt: 'home.example.data.prompt',
   },
   {
     id: 'workflow',
     label: 'home.example.workflow.label',
     description: 'home.example.workflow.description',
-    icon: Lightning,
+    icon: 'automation',
     prompt: 'home.example.workflow.prompt',
   },
   {
     id: 'app',
     label: 'home.example.app.label',
     description: 'home.example.app.description',
-    icon: AppWindow,
+    icon: 'project',
     prompt: 'home.example.app.prompt',
   },
 ]
@@ -127,7 +120,7 @@ export default function HomeTaskSuggestions({
         {visible.map((suggestion) => (
           <SuggestionRow
             key={suggestion.id}
-            icon={<suggestion.icon size={16} />}
+            icon={<NuevaunoIcon name={suggestion.icon} size={16} />}
             label={t(suggestion.label)}
             description={t(suggestion.description)}
             onClick={() => onPick(t(suggestion.prompt))}
