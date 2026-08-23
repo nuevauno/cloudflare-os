@@ -7,6 +7,8 @@ import { useConnectionLost } from '../../RpcContext'
 import Sidebar from './Sidebar'
 import CommandPalette from './CommandPalette'
 import { OPEN_COMMAND_PALETTE_EVENT } from './commandPaletteBus'
+import { useI18n } from '../../i18n'
+import ReleaseVersion from '../ReleaseVersion'
 
 const STORAGE_KEY_COLLAPSED = 'gadgets:sidebar-collapsed'
 
@@ -35,6 +37,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const drawerRef = useRef<HTMLDivElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const connectionLost = useConnectionLost()
+  const { t } = useI18n()
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((prev) => {
@@ -148,7 +151,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             ref={menuButtonRef}
             onClick={() => setMobileOpen((o) => !o)}
-            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-label={mobileOpen ? t('nav.closeMenu') : t('nav.openMenu')}
             className="flex h-11 w-11 items-center justify-center rounded-md text-kumo-default transition-colors hover:bg-kumo-tint md:hidden"
           >
             {mobileOpen ? <X size={16} /> : <List size={16} />}
@@ -158,6 +161,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               hidden, leaving this the only in-flow child, which `justify-between` would park on the
               left. */}
           <div className="ml-auto flex items-center gap-2">
+            <ReleaseVersion />
             {connectionLost && <ReconnectingChip />}
             <span aria-hidden="true" className="h-11 w-11 md:hidden" />
           </div>

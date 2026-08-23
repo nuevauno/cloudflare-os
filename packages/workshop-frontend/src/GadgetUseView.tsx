@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router'
-import { Hexagon } from '@phosphor-icons/react'
 import { FormatGlyph } from './components/format/FormatVisuals'
 import { RpcStub } from 'capnweb'
 import {
@@ -66,7 +65,7 @@ export default function GadgetUseView({
         <div className="flex items-center gap-2 min-w-0">
           <Link to="/" aria-label="Home" className="flex-shrink-0 hover:opacity-80 transition-opacity">
             <SiteLogo size={22}>
-              <Hexagon size={22} className="text-kumo-brand" weight="bold" />
+              <span aria-hidden />
             </SiteLogo>
           </Link>
 

@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { RpcStub } from 'capnweb'
 import { Switch, Textarea, Input, Button, Tabs, useKumoToastManager } from '@cloudflare/kumo'
-import { Hexagon, ShieldWarning, UserPlus } from '@phosphor-icons/react'
+import { ShieldWarning, UserPlus } from '@phosphor-icons/react'
 import { useAuthenticatedApi } from './AuthContext'
-import { AdminApi, AdminFormat, AdminResourceVendor, AmbientGatekeeperMode, MAX_INSTANCE_INSTRUCTIONS_LENGTH, MAX_ANNOUNCEMENT_LENGTH, MAX_SITE_NAME_LENGTH, DEFAULT_SITE_NAME, BannerColor, BANNER_COLORS, DEFAULT_BANNER_COLOR } from '@gadgets/workshop-shared/api'
+import { AdminApi, AdminFormat, AdminResourceVendor, AmbientGatekeeperMode, MAX_INSTANCE_INSTRUCTIONS_LENGTH, MAX_ANNOUNCEMENT_LENGTH, MAX_SITE_NAME_LENGTH, DEFAULT_SITE_NAME, BannerColor, BANNER_COLORS, DEFAULT_BANNER_COLOR, type AiChatAuthorInfo, type AiGatewayInfo, type ServerConfig } from '@gadgets/workshop-shared/api'
 import { applyAccentColor, DEFAULT_ACCENT_COLOR } from './theme'
 import { cacheBustSiteLogoUrl, prepareSiteLogo } from './siteLogoUtils'
 import SiteLogo from './components/SiteLogo'
 import { useDocumentTitle } from './useDocumentTitle'
 import AdminFormatsPanel from './components/format/AdminFormatsPanel'
+import { useServerConfig } from './ServerConfigContext'
+import { RELEASE_VERSION } from './release'
 
 // Preset accent colors offered in the Theme section ('' = default brand).
 const ACCENT_PRESETS: { label: string; value: string }[] = [
@@ -30,8 +32,76 @@ const BANNER_SWATCH: Record<BannerColor, string> = {
   brand: 'var(--color-accent-100)',
 }
 
+type NuevaunoStatusCardProps = {
+  origin: string
+  identity: AiChatAuthorInfo
+  serverConfig: ServerConfig
+  aiConfig: AiGatewayInfo
+}
+
+function StatusBadge({ verified }: { verified: boolean }) {
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[11px] ${
+      verified ? 'bg-kumo-success/10 text-kumo-success' : 'bg-kumo-tint text-kumo-subtle'
+    }`}>
+      {verified ? 'Verificado' : 'Configurado'}
+    </span>
+  )
+}
+
+export function NuevaunoStatusCard({ origin, identity, serverConfig, aiConfig }: NuevaunoStatusCardProps) {
+  const accessMethods = [
+    ...(serverConfig.passwordAuthEnabled ? ['Contraseña'] : []),
+    ...serverConfig.authVendors.map((vendor) => vendor.displayName),
+  ]
+  const accessMode = accessMethods.length > 0
+    ? accessMethods.join(', ')
+    : 'Identidad verificada antes de entrar al servicio'
+  const aiSummary = aiConfig.enabled
+    ? aiConfig.enabledProviders.join(', ') || 'Gateway activo sin proveedores publicados'
+    : 'Gateway administrado desactivado'
+  const capabilities = [
+    serverConfig.signupsEnabled ? 'Alta de cuentas' : 'Alta de cuentas cerrada',
+    serverConfig.passwordAuthEnabled ? 'Credenciales locales' : null,
+    ...serverConfig.authVendors.map((vendor) => `Acceso con ${vendor.displayName}`),
+    aiConfig.enabled ? 'Catálogo AI administrado' : 'Claves AI por usuario',
+  ].filter((value): value is string => value !== null)
+
+  const rows = [
+    { label: 'Origen', value: origin, verified: true },
+    { label: 'Identidad', value: `${identity.name} (${identity.id})`, verified: true },
+    { label: 'Modo de acceso', value: accessMode, verified: false },
+    { label: 'AI configurada', value: aiSummary, verified: false },
+    { label: 'Capacidades', value: capabilities.join(' · '), verified: false },
+  ]
+
+  return (
+    <section aria-labelledby="nuevauno-status-title" className="bg-kumo-elevated border border-kumo-line rounded-xl p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+        <div>
+          <h2 id="nuevauno-status-title" className="text-lg font-normal text-kumo-strong">Estado de NUEVAUNO</h2>
+          <p className="text-sm text-kumo-subtle mt-1">
+            Estado observado desde esta sesión. Configurado no implica una verificación operativa.
+          </p>
+        </div>
+        <span className="font-mono text-xs text-kumo-subtle">{RELEASE_VERSION}</span>
+      </div>
+      <dl className="divide-y divide-kumo-line">
+        {rows.map((row) => (
+          <div key={row.label} className="grid gap-1 py-3 sm:grid-cols-[10rem_1fr_auto] sm:items-center sm:gap-4">
+            <dt className="text-xs text-kumo-subtle">{row.label}</dt>
+            <dd className="min-w-0 break-words text-sm text-kumo-default">{row.value}</dd>
+            <dd><StatusBadge verified={row.verified} /></dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  )
+}
+
 export default function AdminPage() {
-  const { authenticatedApi, isAdmin } = useAuthenticatedApi()
+  const { authenticatedApi, isAdmin, currentUser } = useAuthenticatedApi()
+  const serverConfig = useServerConfig()
   const toasts = useKumoToastManager()
   useDocumentTitle('Admin')
 
@@ -40,6 +110,7 @@ export default function AdminPage() {
   const [admin, setAdmin] = useState<{ api: RpcStub<AdminApi> } | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  const [aiConfig, setAiConfig] = useState<AiGatewayInfo | null>(null)
 
   // System-prompt instructions: last-saved value + current editor draft.
   const [savedInstructions, setSavedInstructions] = useState('')
@@ -127,7 +198,12 @@ export default function AdminPage() {
         }
         stub = api
         setAdmin({ api })
-        applySettings(await api.getSettings())
+        const [settings, nextAiConfig] = await Promise.all([
+          api.getSettings(),
+          authenticatedApi.getAiConfig(),
+        ])
+        applySettings(settings)
+        setAiConfig(nextAiConfig)
       } catch (err) {
         if (!cancelled) {
           console.error('Failed to load admin settings:', err)
@@ -407,6 +483,15 @@ export default function AdminPage() {
         ]}
       />
 
+      {activeTab === 'general' && currentUser && serverConfig && aiConfig && (
+        <NuevaunoStatusCard
+          origin={window.location.origin}
+          identity={currentUser}
+          serverConfig={serverConfig}
+          aiConfig={aiConfig}
+        />
+      )}
+
       {/* Standard output formats */}
       {activeTab === 'formats' && admin && (
         <AdminFormatsPanel
@@ -491,7 +576,7 @@ export default function AdminPage() {
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-kumo-line bg-kumo-base p-2">
               <SiteLogo size={40} srcOverride={siteLogoUrl}>
-                <Hexagon size={32} weight="bold" className="text-kumo-brand" />
+                <span aria-hidden />
               </SiteLogo>
             </div>
             <input

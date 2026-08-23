@@ -2,13 +2,12 @@ import { useState, FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { RpcStub } from "capnweb";
 import { PublicApi } from "@gadgets/workshop-shared/api";
-import { Hexagon } from "@phosphor-icons/react";
 import { Input, Button, Banner, Loader } from "@cloudflare/kumo";
 import { hashPassword } from "./passwordHash";
 import { useServerConfig, useServerConfigError, useSiteName } from "./ServerConfigContext";
 import { useDocumentTitle } from "./useDocumentTitle";
 import OAuthButtons from "./components/auth/OAuthButtons";
-import SiteLogo from "./components/SiteLogo";
+import NuevaunoIdentity from "./components/NuevaunoIdentity";
 import { useConnectionLost } from "./RpcContext";
 
 interface SignupPageProps {
@@ -20,7 +19,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
   const serverConfigError = useServerConfigError();
   const siteName = useSiteName();
   const connectionLost = useConnectionLost();
-  useDocumentTitle("Create account");
+  useDocumentTitle("Crear cuenta");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -29,17 +28,17 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
 
   const usernameError =
     username && !/^[a-z0-9_-]+$/i.test(username)
-      ? "Letters, numbers, underscores, and hyphens only"
+      ? "Usa sólo letras, números, guiones y guiones bajos"
       : undefined;
 
   const passwordError =
     password && password.length < 8
-      ? "Must be at least 8 characters"
+      ? "Debe tener al menos 8 caracteres"
       : undefined;
 
   const confirmError =
     confirmPassword && confirmPassword !== password
-      ? "Passwords do not match"
+      ? "Las contraseñas no coinciden"
       : undefined;
 
   const canSubmit =
@@ -68,10 +67,10 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
         localStorage.setItem("authToken", token);
         window.location.href = "/";
       } else {
-        setError("Username already exists");
+        setError("Ese usuario ya existe");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Account creation failed");
+      setError(err instanceof Error ? err.message : "No fue posible crear la cuenta");
     } finally {
       setLoading(false);
     }
@@ -85,9 +84,9 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
           className="flex h-full min-h-0 flex-col items-center justify-center gap-4 overflow-y-auto bg-kumo-base px-4 py-8"
         >
           <p className="text-sm text-kumo-danger text-center">
-            Couldn&apos;t load deployment settings.
+            No fue posible cargar la configuración.
           </p>
-          <Button variant="secondary" onClick={() => window.location.reload()}>Reload</Button>
+          <Button variant="secondary" onClick={() => window.location.reload()}>Reintentar</Button>
         </div>
       );
     }
@@ -95,7 +94,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
       <div className="flex h-full min-h-0 flex-col items-center justify-center gap-4 overflow-y-auto bg-kumo-base px-4 py-8">
         <Loader size="lg" />
         <p className="text-sm text-kumo-subtle text-center">
-          {connectionLost ? "Can't reach the server. Retrying…" : "Loading…"}
+          {connectionLost ? "Sin conexión. Reintentando…" : "Cargando…"}
         </p>
       </div>
     );
@@ -125,24 +124,17 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
       <div className="relative my-auto w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <SiteLogo size={40} className="mb-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-kumo-brand mb-3">
-              <Hexagon size={20} className="text-white" weight="bold" />
-            </div>
-          </SiteLogo>
-          <h1 className="text-xl font-semibold text-kumo-default">
-            {siteName}
-          </h1>
-          <p className="text-sm text-kumo-subtle mt-1">Create your account</p>
+          <NuevaunoIdentity siteName={siteName} size={40} className="mb-3 text-xl text-kumo-default" />
+          <p className="text-sm text-kumo-subtle mt-1">Crea tu cuenta</p>
         </div>
 
         {!signupsEnabled && (
           <Banner
             variant="default"
-            title="Signups are closed"
+            title="Los registros están cerrados"
             className="mb-4"
           >
-            New account registration is currently disabled on this deployment.
+            La creación de cuentas nuevas está desactivada por ahora.
           </Banner>
         )}
 
@@ -152,20 +144,20 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 className="w-full"
-                label="Username"
+                label="Usuario"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoFocus
                 autoComplete="username"
                 disabled={loading}
-                placeholder="your-username"
+                placeholder="tu-usuario"
                 error={usernameError}
               />
 
               <Input
                 className="w-full"
                 type="password"
-                label="Password"
+                label="Contraseña"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
@@ -177,7 +169,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
               <Input
                 className="w-full"
                 type="password"
-                label="Confirm Password"
+                label="Confirmar contraseña"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
@@ -195,7 +187,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
                 loading={loading}
                 className="w-full justify-center"
               >
-                Create account
+                Crear cuenta
               </Button>
             </form>
           </>
@@ -207,7 +199,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
             {passwordAuthEnabled && (
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-px flex-1 bg-kumo-line" />
-                <span className="text-xs text-kumo-subtle">or</span>
+                <span className="text-xs text-kumo-subtle">o</span>
                 <div className="h-px flex-1 bg-kumo-line" />
               </div>
             )}
@@ -217,9 +209,9 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
 
         {passwordAuthEnabled && (
           <p className="text-center text-sm text-kumo-subtle mt-6">
-            Already have an account?{" "}
+            ¿Ya tienes una cuenta?{" "}
             <Link to="/" className="text-kumo-brand hover:underline font-medium">
-              Sign in
+              Ingresar
             </Link>
           </p>
         )}

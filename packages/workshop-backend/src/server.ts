@@ -120,6 +120,12 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     // Pure-read delegations retry once across a user-DO reset (see retryOnDoReset); writes never do.
     return retryOnDoReset(() => this.#user.whoami());
   }
+  getOwnPreferences() {
+    return this.#user.getOwnPreferences();
+  }
+  setOwnPreferences(preferences: import('@gadgets/workshop-shared/api').UserPreferences) {
+    return this.#user.setOwnPreferences(preferences);
+  }
   setOwnDisplayName(name: string): Promise<void> {
     return this.#user.setOwnDisplayName(name);
   }

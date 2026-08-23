@@ -3,7 +3,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MAX_SITE_LOGO_BYTES } from '@gadgets/workshop-shared/api'
 import {
-  applySiteFavicon,
   cacheBustSiteLogoUrl,
   prepareSiteLogo,
   siteLogoDimensions,
@@ -163,33 +162,6 @@ describe('site logo preparation', () => {
     await expect(prepareSiteLogo(new File([svg], 'logo.svg', { type: 'image/svg+xml' })))
       .rejects.toThrow('embedded images')
     expect(createUrl).not.toHaveBeenCalled()
-  })
-})
-
-describe('site favicon', () => {
-  it('fetches the custom PNG once before assigning a blob favicon', async () => {
-    document.head.innerHTML = '<link rel="icon" type="image/svg+xml" href="/favicon.svg">'
-    const blob = new Blob([new Uint8Array([1])], { type: 'image/png' })
-    const fetchLogo = vi.fn<typeof fetch>().mockResolvedValue({
-      ok: true,
-      status: 200,
-      blob: () => Promise.resolve(blob),
-    } as Response)
-    const createUrl = vi.fn<(blob: Blob) => string>().mockReturnValue('blob:favicon')
-    const revokeUrl = vi.fn<(url: string) => void>()
-    vi.stubGlobal('fetch', fetchLogo)
-    vi.stubGlobal('URL', { createObjectURL: createUrl, revokeObjectURL: revokeUrl })
-
-    const cleanup = applySiteFavicon('/api/site-logo?v=revision')
-    const favicon = document.querySelector<HTMLLinkElement>('link[rel~="icon"]')!
-    expect(favicon.getAttribute('href')).toBe('/favicon.svg')
-
-    await vi.waitFor(() => expect(favicon.getAttribute('href')).toBe('blob:favicon'))
-    expect(favicon.type).toBe('image/png')
-    expect(fetchLogo).toHaveBeenCalledOnce()
-
-    cleanup()
-    expect(revokeUrl).toHaveBeenCalledWith('blob:favicon')
   })
 })
 

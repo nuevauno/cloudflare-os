@@ -2,14 +2,13 @@ import { useState, FormEvent } from 'react'
 import { Link } from '@tanstack/react-router'
 import { RpcStub } from 'capnweb'
 import { PublicApi } from '@gadgets/workshop-shared/api'
-import { Hexagon } from '@phosphor-icons/react'
 import { Input, Button, Banner, Loader } from '@cloudflare/kumo'
 import { hashPassword } from './passwordHash'
 import { useServerConfig, useServerConfigError, useSiteName } from './ServerConfigContext'
 import { useDocumentTitle } from './useDocumentTitle'
 import { useConnectionLost } from './RpcContext'
 import OAuthButtons from './components/auth/OAuthButtons'
-import SiteLogo from './components/SiteLogo'
+import NuevaunoIdentity from './components/NuevaunoIdentity'
 
 
 interface LoginPageProps {
@@ -26,7 +25,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
   const serverConfigError = useServerConfigError()
   const siteName = useSiteName()
   const connectionLost = useConnectionLost()
-  useDocumentTitle('Sign in')
+  useDocumentTitle('Ingresar')
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -45,10 +44,10 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
           window.location.reload()
         }
       } else {
-        setError('Invalid username or password')
+        setError('Usuario o contraseña incorrectos')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError(err instanceof Error ? err.message : 'No fue posible ingresar')
     } finally {
       setLoading(false)
     }
@@ -66,9 +65,9 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
           className="flex h-full min-h-0 flex-col items-center justify-center gap-4 overflow-y-auto bg-kumo-base px-4 py-8"
         >
           <p className="text-sm text-kumo-danger text-center">
-            Couldn&apos;t load deployment settings.
+            No fue posible cargar la configuración.
           </p>
-          <Button variant="secondary" onClick={() => window.location.reload()}>Reload</Button>
+          <Button variant="secondary" onClick={() => window.location.reload()}>Reintentar</Button>
         </div>
       )
     }
@@ -76,7 +75,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
       <div className="flex h-full min-h-0 flex-col items-center justify-center gap-4 overflow-y-auto bg-kumo-base px-4 py-8">
         <Loader size="lg" />
         <p className="text-sm text-kumo-subtle text-center">
-          {connectionLost ? "Can't reach the server. Retrying…" : 'Loading…'}
+          {connectionLost ? 'Sin conexión. Reintentando…' : 'Cargando…'}
         </p>
       </div>
     )
@@ -101,13 +100,8 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
       <div className="relative my-auto w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <SiteLogo size={40} className="mb-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-kumo-brand mb-3">
-              <Hexagon size={20} className="text-white" weight="bold" />
-            </div>
-          </SiteLogo>
-          <h1 className="text-xl font-semibold text-kumo-default">{siteName}</h1>
-          <p className="text-sm text-kumo-subtle mt-1">Sign in to your account</p>
+          <NuevaunoIdentity siteName={siteName} size={40} className="mb-3 text-xl text-kumo-default" />
+          <p className="text-sm text-kumo-subtle mt-1">Ingresa a tu cuenta</p>
         </div>
 
         {passwordAuthEnabled && (
@@ -116,19 +110,19 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 className="w-full"
-                label="Username"
+                label="Usuario"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoFocus
                 autoComplete="username"
                 disabled={loading}
-                placeholder="your-username"
+                placeholder="tu-usuario"
               />
 
               <Input
                 className="w-full"
                 type="password"
-                label="Password"
+                label="Contraseña"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
@@ -147,14 +141,14 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
                 loading={loading}
                 className="w-full justify-center"
               >
-                Sign in
+                Ingresar
               </Button>
             </form>
 
             <p className="text-center text-sm text-kumo-subtle mt-6">
-              Don't have an account?{' '}
+              ¿Aún no tienes una cuenta?{' '}
               <Link to="/signup" className="text-kumo-brand hover:underline font-medium">
-                Create one
+                Crear cuenta
               </Link>
             </p>
           </>
@@ -166,7 +160,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
             {passwordAuthEnabled && (
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-px flex-1 bg-kumo-line" />
-                <span className="text-xs text-kumo-subtle">or</span>
+                <span className="text-xs text-kumo-subtle">o</span>
                 <div className="h-px flex-1 bg-kumo-line" />
               </div>
             )}

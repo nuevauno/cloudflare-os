@@ -356,10 +356,24 @@ export const createAuthError = authErrors.create;
 /** Reads the machine-readable code from an authentication failure. */
 export const getAuthErrorCode = authErrors.getCode;
 
+/** Locale preferences persisted for an authenticated user. */
+export interface UserPreferences {
+  /** Language used by the product UI. */
+  language: "es" | "en";
+  /** IANA time-zone identifier used when presenting dates and times. */
+  timeZone: string;
+}
+
 /** Top-level API exposed to the user after they have authenticated. */
 export interface AuthenticatedApi extends RpcTarget {
   /** Get profile info for the user who is logged in. */
   whoami(): Promise<AiChatAuthorInfo>;
+
+  /** Get the user's persisted locale preferences, or null before the first explicit choice. */
+  getOwnPreferences(): Promise<UserPreferences | null>;
+
+  /** Validate and persist the user's locale preferences. */
+  setOwnPreferences(preferences: UserPreferences): Promise<UserPreferences>;
 
   /** Set the user's own display name, seen in chats, etc. */
   setOwnDisplayName(name: string): Promise<void>;

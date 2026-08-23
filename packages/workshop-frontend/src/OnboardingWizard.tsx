@@ -19,7 +19,6 @@ import {
   UsersThree,
   Key,
   Plugs,
-  Hexagon,
 } from '@phosphor-icons/react'
 import AddModelModal from './AddModelModal'
 import { persistSelectedModel } from './modelSelection'
@@ -29,7 +28,7 @@ import { compressAvatar, avatarBlobUrl } from './avatarUtils'
 import { invalidateAvatarCache } from './useAvatar'
 import { useTheme } from './ThemeContext'
 import { useSiteName } from './ServerConfigContext'
-import SiteLogo from './components/SiteLogo'
+import NuevaunoIdentity from './components/NuevaunoIdentity'
 import { useDocumentTitle } from './useDocumentTitle'
 import { AccountsSubscriberAdapter } from './accountsSubscriber'
 
@@ -337,12 +336,7 @@ export default function OnboardingWizard({
             mounted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
           }`}
         >
-          <SiteLogo size={22}>
-            <Hexagon size={22} className="text-kumo-brand" weight="bold" />
-          </SiteLogo>
-          <span className="text-base font-semibold tracking-tight text-kumo-default">
-            {siteName}
-          </span>
+          <NuevaunoIdentity siteName={siteName} size={22} className="text-base text-kumo-default" />
         </div>
 
         {/* Header */}
