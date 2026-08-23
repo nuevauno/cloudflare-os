@@ -1,12 +1,15 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { Desktop, Moon, Plug, Sun } from '@phosphor-icons/react'
 import { Tooltip } from '@cloudflare/kumo'
 import UserMenu from '../UserMenu'
 import { useTheme } from '../../ThemeContext'
 import type { ThemeMode } from '../../theme'
-import { useI18n } from '../../i18n'
+import { useI18n, type MessageKey } from '../../i18n'
+import NuevaunoIcon, { type NuevaunoIconName } from '../NuevaunoIcon'
 
 const THEME_SEQUENCE: ThemeMode[] = ['system', 'light', 'dark']
+const THEME_KEYS: Record<ThemeMode, MessageKey> = {
+  system: 'theme.system', light: 'theme.light', dark: 'theme.dark',
+}
 
 function nextThemeMode(mode: ThemeMode): ThemeMode {
   return THEME_SEQUENCE[(THEME_SEQUENCE.indexOf(mode) + 1) % THEME_SEQUENCE.length]
@@ -14,28 +17,24 @@ function nextThemeMode(mode: ThemeMode): ThemeMode {
 
 function ThemeModeButton() {
   const { themeMode, resolvedThemeMode, setThemeMode } = useTheme()
+  const { t } = useI18n()
   const label = themeMode === 'system'
-    ? `Theme: system (${resolvedThemeMode})`
-    : `Theme: ${themeMode}`
+    ? t('theme.systemResolved', { mode: t(THEME_KEYS[resolvedThemeMode]) })
+    : t(THEME_KEYS[themeMode])
   const nextMode = nextThemeMode(themeMode)
+  const iconName: NuevaunoIconName = `theme_${themeMode}`
 
   return (
     <Tooltip
-      content={`${label}. Switch to ${nextMode}.`}
+      content={t('theme.switch', { current: label, next: t(THEME_KEYS[nextMode]) })}
       render={(
         <button
           type="button"
-          aria-label={`${label}. Switch to ${nextMode}.`}
+          aria-label={t('theme.switch', { current: label, next: t(THEME_KEYS[nextMode]) })}
           onClick={() => setThemeMode(nextMode)}
           className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-ring focus-visible:ring-offset-2 focus-visible:ring-offset-kumo-elevated"
         >
-          {themeMode === 'system' ? (
-            <Desktop size={15} />
-          ) : themeMode === 'dark' ? (
-            <Moon size={15} />
-          ) : (
-            <Sun size={15} />
-          )}
+          <NuevaunoIcon name={iconName} size={15} />
         </button>
       )}
     />
@@ -86,7 +85,7 @@ export default function SidebarUtilityStrip({ collapsed = false }: { collapsed?:
       ].join(' ')}
     >
       <StripLink to="/gatekeepers" label={t('utility.gatekeepers')}>
-        <Plug size={15} />
+        <NuevaunoIcon name="connections" size={15} />
       </StripLink>
       <div className={collapsed ? 'flex flex-col items-center gap-2' : 'ml-auto flex items-center gap-1'}>
         <ThemeModeButton />

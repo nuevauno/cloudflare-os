@@ -10,12 +10,8 @@ import {
   type ReactNode,
 } from 'react'
 import { Link } from '@tanstack/react-router'
-import {
-  ArrowRight,
-  CaretDown,
-  MagnifyingGlass,
-  Star,
-} from '@phosphor-icons/react'
+import { CaretDown } from '@phosphor-icons/react'
+import NuevaunoIcon from '../NuevaunoIcon'
 import { openCommandPalette } from './commandPaletteBus'
 import { useKumoToastManager } from '@cloudflare/kumo'
 import type { RpcStub } from 'capnweb'
@@ -282,7 +278,7 @@ export function SidebarWorkspacesTools({ collapsed = false }: { collapsed?: bool
         title={`${t('nav.search')} (⌘K)`}
         className="press flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default"
       >
-        <MagnifyingGlass size={15} />
+        <NuevaunoIcon name="search" size={15} />
       </button>
     </div>
   )
@@ -340,7 +336,7 @@ export function SidebarWorkspacesLists({ collapsed = false }: { collapsed?: bool
         count={favorites.length}
         open={favOpen}
         onToggle={() => setFavOpen((o) => !o)}
-        icon={<Star size={12} weight="regular" className="text-kumo-inactive" />}
+        icon={<NuevaunoIcon name="favorite" size={12} />}
       >
         {favorites.length === 0 ? (
           <p className="px-2.5 py-1.5 text-[12px] leading-4 tracking-[-0.2px] text-kumo-inactive">
@@ -397,7 +393,7 @@ export function SidebarWorkspacesLists({ collapsed = false }: { collapsed?: bool
               className="mt-0.5 flex h-7 items-center gap-1 rounded-md px-2.5 text-[12px] font-medium tracking-[-0.2px] text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default"
             >
               {recentHidden > 0 ? t('sidebar.showAllCount', { count: recent.length }) : t('sidebar.showAll')}
-              <ArrowRight size={11} weight="bold" />
+              <NuevaunoIcon name="next" size={11} />
             </Link>
           </>
         )}
