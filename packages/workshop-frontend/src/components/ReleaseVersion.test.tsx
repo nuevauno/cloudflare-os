@@ -19,8 +19,8 @@ describe('ReleaseVersion', () => {
     act(() => root?.render(React.createElement(ReleaseVersion)))
 
     const version = container.querySelector('[data-release-version]')
-    expect(version?.textContent).toBe('26.08.24.1')
+    expect(version?.textContent).toBe('26.08.24.2')
     expect(version?.getAttribute('data-release-version')).toBe(RELEASE_VERSION)
-    expect(version?.getAttribute('aria-label')).toBe('Versión 26.08.24.1')
+    expect(version?.getAttribute('aria-label')).toBe('Versión 26.08.24.2')
   })
 })
