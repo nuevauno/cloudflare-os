@@ -14,7 +14,7 @@ import {
   Lightning,
   MagnifyingGlass,
   DotsThreeVertical,
-} from '@phosphor-icons/react'
+} from '@/components/NuevaunoGlyphs'
 import AddModelModal from '../AddModelModal'
 import { useDocumentTitle } from '../useDocumentTitle'
 import { MENU_CONTENT, MENU_ITEM, MENU_ITEM_DANGER } from '../components/menuStyles'

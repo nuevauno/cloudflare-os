@@ -1,8 +1,24 @@
+import NuevaunoIcon, { type NuevaunoIconName } from './NuevaunoIcon'
+
+const VENDOR_ICONS: Record<string, NuevaunoIconName> = {
+  cloudflare: 'cloud',
+  context: 'knowledge',
+  custom: 'connections',
+  email: 'connections',
+  github: 'code',
+  google: 'globe',
+  linear: 'list',
+  mcp: 'connections',
+  mcp_portal: 'connections',
+  scheduler: 'automation',
+  supabase: 'database',
+}
+
 export function GatekeeperIcon({
   vendorId,
-  fallbackText,
-  logoUrl,
-  color,
+  fallbackText: _fallbackText,
+  logoUrl: _logoUrl,
+  color: _color,
   size = 16,
   className = 'h-8 w-8 rounded-lg',
 }: {
@@ -21,27 +37,19 @@ export function GatekeeperIcon({
   size?: number
   className?: string
 }) {
-  const fallback = fallbackText || vendorId || '?'
-
-  if (logoUrl) {
-    return (
-      <div
-        className={`flex shrink-0 items-center justify-center overflow-hidden ${className}`}
-        style={{ backgroundColor: color ?? 'var(--color-kumo-tint)' }}
-      >
-        <img src={logoUrl} alt="" className="h-full w-full object-contain p-1" />
-      </div>
-    )
-  }
+  const normalizedVendor = (vendorId || '').toLowerCase()
+  const icon = VENDOR_ICONS[normalizedVendor]
+    ?? (normalizedVendor.includes('schedule') ? 'automation' : undefined)
+    ?? (normalizedVendor.includes('context') ? 'knowledge' : undefined)
+    ?? (normalizedVendor.includes('custom') ? 'connections' : undefined)
+    ?? 'app'
 
   return (
     <div
       className={`flex shrink-0 items-center justify-center ${className}`}
       style={{ backgroundColor: 'var(--color-kumo-tint)' }}
     >
-      <span className="font-medium text-kumo-strong" style={{ fontSize: Math.max(11, Math.round(size * 0.7)) }}>
-        {fallback[0].toUpperCase()}
-      </span>
+      <NuevaunoIcon name={icon} size={size} />
     </div>
   )
 }

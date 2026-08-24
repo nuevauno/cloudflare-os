@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Clock, MagnifyingGlass, DotsThreeVertical, ShareNetwork, Trash, Info, Star, Pencil, ArrowRight } from '@phosphor-icons/react'
+import { Clock, MagnifyingGlass, DotsThreeVertical, ShareNetwork, Trash, Info, Star, Pencil, ArrowRight } from '@/components/NuevaunoGlyphs'
 import { NuevaunoMark } from './NuevaunoIdentity'
 import { useState, useEffect, useRef } from 'react'
 import { DropdownMenu, Dialog, Button, useKumoToastManager } from '@cloudflare/kumo'

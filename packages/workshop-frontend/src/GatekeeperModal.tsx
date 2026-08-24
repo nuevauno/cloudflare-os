@@ -10,7 +10,7 @@ import {
   Robot,
   Sparkle,
   X,
-} from '@phosphor-icons/react'
+} from '@/components/NuevaunoGlyphs'
 import { RpcStub } from 'capnweb'
 import {
   AgentSpawnerConfig,

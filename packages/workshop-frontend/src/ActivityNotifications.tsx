@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Popover } from '@cloudflare/kumo'
-import { ArrowRight, Pulse } from '@phosphor-icons/react'
+import { ArrowRight, Pulse } from '@/components/NuevaunoGlyphs'
 import type { RpcStub } from 'capnweb'
 import type { ActionLogEntry, Overseer } from '@gadgets/workshop-shared/api'
 import { CountBadge } from './components/CountBadge'

@@ -15,7 +15,7 @@ import {
   PencilSimple,
   Trash,
   X,
-} from '@phosphor-icons/react'
+} from '@/components/NuevaunoGlyphs'
 import { OutputSummary } from '@gadgets/workshop-shared/api'
 import { useAuthenticatedApi } from '../AuthContext'
 import { useDocumentTitle } from '../useDocumentTitle'

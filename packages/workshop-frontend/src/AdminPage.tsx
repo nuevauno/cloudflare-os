@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { RpcStub } from 'capnweb'
 import { Switch, Textarea, Input, Button, Tabs, useKumoToastManager } from '@cloudflare/kumo'
-import { ShieldWarning, UserPlus } from '@phosphor-icons/react'
+import { ShieldWarning, UserPlus } from '@/components/NuevaunoGlyphs'
 import { useAuthenticatedApi } from './AuthContext'
 import { AdminApi, AdminFormat, AdminResourceVendor, AmbientGatekeeperMode, MAX_INSTANCE_INSTRUCTIONS_LENGTH, MAX_ANNOUNCEMENT_LENGTH, MAX_SITE_NAME_LENGTH, DEFAULT_SITE_NAME, BannerColor, BANNER_COLORS, DEFAULT_BANNER_COLOR, type AiChatAuthorInfo, type AiGatewayInfo, type ServerConfig } from '@gadgets/workshop-shared/api'
 import { applyAccentColor, DEFAULT_ACCENT_COLOR } from './theme'
@@ -11,6 +11,7 @@ import { useDocumentTitle } from './useDocumentTitle'
 import AdminFormatsPanel from './components/format/AdminFormatsPanel'
 import { useServerConfig } from './ServerConfigContext'
 import { RELEASE_VERSION } from './release'
+import { GatekeeperIcon } from './components/GatekeeperIcon'
 
 // Preset accent colors offered in the Theme section ('' = default brand).
 const ACCENT_PRESETS: { label: string; value: string }[] = [
@@ -907,13 +908,13 @@ export default function AdminPage() {
                 return (
                   <div key={vendor.vendorId}>
                     <div className="flex items-center gap-3 mb-2 px-3 py-2 rounded-lg bg-kumo-tint/50">
-                      {vendor.logo && (
-                        <img
-                          src={vendor.logo.url}
-                          alt=""
-                          className={`w-5 h-5 object-contain transition-[filter,opacity] ${mode === 'disabled' ? 'grayscale opacity-40' : ''}`}
-                        />
-                      )}
+                      <GatekeeperIcon
+                        vendorId={vendor.vendorId}
+                        fallbackText={vendor.displayName}
+                        logoUrl={vendor.logo?.url}
+                        size={16}
+                        className={`h-7 w-7 rounded-md transition-opacity ${mode === 'disabled' ? 'opacity-40' : ''}`}
+                      />
                       <h3 className={`flex-1 text-sm font-semibold ${mode === 'disabled' ? 'text-kumo-subtle' : 'text-kumo-default'}`}>
                         {vendor.displayName}
                       </h3>
@@ -960,13 +961,13 @@ export default function AdminPage() {
                   }}
                   className="flex cursor-pointer items-center gap-3 mb-2 px-3 py-2 rounded-lg bg-kumo-tint/50 hover:bg-kumo-tint transition-colors"
                 >
-                  {vendor.logo && (
-                    <img
-                      src={vendor.logo.url}
-                      alt=""
-                      className={`w-5 h-5 object-contain transition-[filter,opacity] ${vendor.enabled ? '' : 'grayscale opacity-40'}`}
-                    />
-                  )}
+                  <GatekeeperIcon
+                    vendorId={vendor.vendorId}
+                    fallbackText={vendor.displayName}
+                    logoUrl={vendor.logo?.url}
+                    size={16}
+                    className={`h-7 w-7 rounded-md transition-opacity ${vendor.enabled ? '' : 'opacity-40'}`}
+                  />
                   <h3 className={`flex-1 text-sm font-semibold ${vendor.enabled ? 'text-kumo-default' : 'text-kumo-subtle'}`}>
                     {vendor.displayName}
                     {!vendor.enabled && (

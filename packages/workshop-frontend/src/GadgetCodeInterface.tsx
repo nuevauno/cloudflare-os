@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { useKumoToastManager } from '@cloudflare/kumo'
-import { DownloadSimple, List } from '@phosphor-icons/react'
+import { DownloadSimple, List } from '@/components/NuevaunoGlyphs'
 import { Overseer, WorkpieceId } from '@gadgets/workshop-shared/api'
 import type { CodeChange, FileChange, TextChange } from '@gadgets/workshop-shared/code-change'
 import { RpcStub } from 'capnweb'

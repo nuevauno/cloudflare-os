@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { BookOpen, Sparkle, type Icon as PhosphorIcon } from '@phosphor-icons/react'
+import { BookOpen, Sparkle, type Icon as PhosphorIcon } from '@/components/NuevaunoGlyphs'
 import { useDocumentTitle } from '../useDocumentTitle'
 import ComingSoonPreview from '../components/ComingSoonPreview'
 import { useSiteName } from '../ServerConfigContext'

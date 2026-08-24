@@ -25,7 +25,7 @@ import {
   FolderPlus,
   User,
   X,
-} from "@phosphor-icons/react";
+} from "../../workshop-frontend/src/components/NuevaunoGlyphs";
 import {
   useCallback,
   useEffect,

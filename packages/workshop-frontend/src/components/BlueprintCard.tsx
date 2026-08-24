@@ -3,7 +3,7 @@ import {
   Robot,
   Lightning,
   Star,
-} from "@phosphor-icons/react";
+} from "@/components/NuevaunoGlyphs";
 import {
   BlueprintBinding,
   BlueprintMetadata,

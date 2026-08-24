@@ -1,4 +1,4 @@
-import { List, GridFour } from '@phosphor-icons/react'
+import { List, GridFour } from '@/components/NuevaunoGlyphs'
 
 /**
  * Shared grid/list segmented toggle. Used on Gatekeepers and Outputs so view-switching looks and

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Text, Loader, Banner } from '@cloudflare/kumo'
-import { Sparkle } from '@phosphor-icons/react'
+import { Sparkle } from '@/components/NuevaunoGlyphs'
 import { RpcStub, RpcTarget, newMessagePortRpcSession } from 'capnweb'
 import { GadgetClient, ConsoleLogEvent } from '@gadgets/workshop-shared/api'
 

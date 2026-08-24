@@ -6,7 +6,12 @@ export type NuevaunoIconName =
   | 'hoja_calculo' | 'knowledge' | 'more_options' | 'next' | 'notifications'
   | 'previous' | 'project' | 'search' | 'select_model' | 'send' | 'share'
   | 'sidebar' | 'theme_dark' | 'theme_light' | 'theme_system' | 'warning'
-  | 'website_slides'
+  | 'website_slides' | 'app' | 'back' | 'brain' | 'camera' | 'chart' | 'cloud'
+  | 'code' | 'columns' | 'compass' | 'copy' | 'database' | 'expand'
+  | 'external_link' | 'forward' | 'globe' | 'grid' | 'image' | 'info' | 'key'
+  | 'link' | 'list' | 'lock' | 'refresh' | 'robot' | 'rows' | 'shield' | 'stack'
+  | 'success' | 'swap' | 'terminal' | 'undo' | 'upload' | 'user' | 'user_add'
+  | 'users' | 'view'
 
 export function resolveNuevaunoIconUrl(name: NuevaunoIconName, mode: 'light' | 'dark'): string {
   return `${ICON_BASE}/${name}${mode === 'dark' ? '-dark' : ''}.svg`

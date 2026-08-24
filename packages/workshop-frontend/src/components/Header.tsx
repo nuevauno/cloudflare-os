@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { List, X } from '@phosphor-icons/react'
+import { List, X } from '@/components/NuevaunoGlyphs'
 import { useOptionalAuthenticatedApi } from '../AuthContext'
 import { useGatekeeperApps } from '../useGatekeeperApps'
 import { useSiteName } from '../ServerConfigContext'

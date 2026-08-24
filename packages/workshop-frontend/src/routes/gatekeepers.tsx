@@ -9,7 +9,7 @@ import {
   CaretRight,
   ShieldCheck,
   Plugs,
-} from '@phosphor-icons/react'
+} from '@/components/NuevaunoGlyphs'
 import ViewToggle from '../components/ViewToggle'
 import { useAuthenticatedApi } from '../AuthContext'
 import { refreshGatekeeperApps } from '../useGatekeeperApps'

@@ -1,4 +1,4 @@
-import { Lock, MagnifyingGlass, WarningCircle } from '@phosphor-icons/react'
+import { Lock, MagnifyingGlass, WarningCircle } from '@/components/NuevaunoGlyphs'
 import { useEffect, useId, useRef } from 'react'
 import {
   getOpenGadgetErrorCode,

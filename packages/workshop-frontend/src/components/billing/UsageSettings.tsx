@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CloudflareUsageInfo, CloudflareAccountOption } from '@gadgets/workshop-shared/api'
 import { Button, useKumoToastManager } from '@cloudflare/kumo'
-import { Lightning, CloudCheck, Warning } from '@phosphor-icons/react'
+import { Lightning, CloudCheck, Warning } from '@/components/NuevaunoGlyphs'
 import SiteLogo from '../SiteLogo'
 import { useAuthenticatedApi } from '../../AuthContext'
 import { useCloudflareLimitsEnabled } from '../../ServerConfigContext'

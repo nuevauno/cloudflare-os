@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Switch, useKumoToastManager } from '@cloudflare/kumo'
-import { CaretRight, Check, Eye, Lightning, ShieldCheck } from '@phosphor-icons/react'
+import { CaretRight, Check, Eye, Lightning, ShieldCheck } from '@/components/NuevaunoGlyphs'
 import { RpcStub } from 'capnweb'
 import { ActionLogEntry, Overseer } from '@gadgets/workshop-shared/api'
 import { ActionKind } from '@gadgets/workshop-shared/gatekeeper'

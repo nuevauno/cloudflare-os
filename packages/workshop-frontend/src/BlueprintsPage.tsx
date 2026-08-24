@@ -4,7 +4,7 @@ import {
   Blueprint as BlueprintIcon,
   BookOpen,
   MagnifyingGlass,
-} from "@phosphor-icons/react";
+} from "@/components/NuevaunoGlyphs";
 import { useEffect, useRef, useState } from "react";
 import { BlueprintPublicInfo } from "@gadgets/workshop-shared/api";
 import { VendorDescription } from "@gadgets/workshop-shared/gatekeeper";

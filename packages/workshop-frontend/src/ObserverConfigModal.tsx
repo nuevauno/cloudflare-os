@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Dialog, Select, Loader, Text, useKumoToastManager } from '@cloudflare/kumo'
-import { Warning, Plus, ArrowClockwise, CheckCircle } from '@phosphor-icons/react'
+import { Warning, Plus, ArrowClockwise, CheckCircle } from '@/components/NuevaunoGlyphs'
 import { RpcStub } from 'capnweb'
 import {
   AuthenticatedApi,

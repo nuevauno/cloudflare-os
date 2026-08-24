@@ -54,7 +54,7 @@ import {
   Question,
   ArrowUpRight,
   Blueprint,
-} from "@phosphor-icons/react";
+} from "@/components/NuevaunoGlyphs";
 import { RpcStub, RpcTarget } from "capnweb";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";

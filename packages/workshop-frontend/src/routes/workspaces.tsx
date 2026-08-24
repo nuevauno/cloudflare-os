@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Plus } from '@phosphor-icons/react'
+import { Plus } from '@/components/NuevaunoGlyphs'
 import GadgetList from '../components/GadgetList'
 import { useDocumentTitle } from '../useDocumentTitle'
 

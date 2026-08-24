@@ -8,7 +8,7 @@ import {
   Star,
   Trash,
   UploadSimple,
-} from '@phosphor-icons/react'
+} from '@/components/NuevaunoGlyphs'
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { DropdownMenu, useKumoToastManager } from '@cloudflare/kumo'
 import { useAuthenticatedApi } from '../AuthContext'

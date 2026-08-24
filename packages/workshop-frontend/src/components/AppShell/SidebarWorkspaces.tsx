@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react'
 import { Link } from '@tanstack/react-router'
-import { CaretDown } from '@phosphor-icons/react'
+import { CaretDown } from '@/components/NuevaunoGlyphs'
 import NuevaunoIcon from '../NuevaunoIcon'
 import { openCommandPalette } from './commandPaletteBus'
 import { useKumoToastManager } from '@cloudflare/kumo'
