@@ -1,7 +1,7 @@
 import { RpcStub, RpcTarget, newHttpBatchRpcResponse, newWebSocketRpcSession, RpcSessionOptions } from "capnweb";
 import { validateRpc } from "capnweb-validate";
 import type { JWTPayload } from "jose";
-import { PublicApi, AuthenticatedApi, Overseer, GadgetMetadataWithTimestamps, AiChatAuthorInfo, AiModelConfig, AiGatewayInfo, AiModelProvider, ConnectedAccountsSubscriber, ConnectedAccountsFilter, GatekeeperVendorFilter, ObserverConfigCallback, BlueprintLibrarySummary, BlueprintPublicInfo, BlueprintUserSummary, BlueprintBindingAssignment, AgentSpawnerConfig, WorkpieceId, BLUEPRINT_SCREENSHOT_PATH_PREFIX, BLUEPRINT_SCREENSHOT_R2_PREFIX, blueprintScreenshotUrl, ServerConfig, CloudflareUsageInfo, CloudflareAccountOption, LoginAttempt, GatekeeperAppInfo, AdminApi, GatekeeperVendorInfo, OutputFormatOffer, ListOutputsResult, createOpenGadgetError, getOpenGadgetErrorCode, OPEN_GADGET_ERROR_CODES, AUTH_ERROR_CODES, createAuthError } from '@gadgets/workshop-shared/api';
+import { PublicApi, AuthenticatedApi, Overseer, GadgetMetadataWithTimestamps, AiChatAuthorInfo, AiModelConfig, AiGatewayInfo, AiModelProvider, ConnectedAccountsSubscriber, ConnectedAccountsFilter, GatekeeperVendorFilter, ObserverConfigCallback, BlueprintLibrarySummary, BlueprintPublicInfo, BlueprintUserSummary, BlueprintBindingAssignment, AgentSpawnerConfig, WorkpieceId, BLUEPRINT_SCREENSHOT_PATH_PREFIX, BLUEPRINT_SCREENSHOT_R2_PREFIX, blueprintScreenshotUrl, ServerConfig, CloudflareUsageInfo, CloudflareAccountOption, LoginAttempt, GatekeeperAppInfo, AdminApi, GatekeeperVendorInfo, OutputFormatOffer, ListOutputsResult, createOpenGadgetError, getOpenGadgetErrorCode, OPEN_GADGET_ERROR_CODES, AUTH_ERROR_CODES, createAuthError, type BeginSupportSessionRequest, type BusinessSessionView, type ProvisionBusinessOwnerRequest, type SupportTargetView } from '@gadgets/workshop-shared/api';
 import type { UiFeatureFlags } from "@gadgets/workshop-shared/feature-flags";
 import { getServerConfig } from "./deployment-config.js";
 import { isPasswordAuthEnabled, getAuthGatekeeperAllowlist } from "./auth/config.js";
@@ -68,6 +68,48 @@ type Env = Cloudflare.Env & {
   CF_ACCESS_ISS?: string,  // team URL, i.e. https://<team>.cloudflareaccess.com
   DEV?: boolean;
   FLAGS?: Flagship;
+  PLATFORM_CORE?: PlatformCoreBinding;
+}
+
+type CoreOrganizationContext = {
+  organization: { id: string; slug: string; name: string };
+  membership: { role: "owner" | "admin" | "member" | "viewer" };
+  companies: Array<{
+    company: { id: string; organizationId: string; slug: string; legalName: string; displayName: string; status: "active" | "migration" | "suspended" };
+    access: { access: "manage" | "operate" | "read" };
+  }>;
+};
+type CoreBusinessSession = {
+  actorSubject: string; effectiveSubject: string; organizations: CoreOrganizationContext[];
+  activeOrganizationId?: string; activeCompanyId?: string;
+  support?: { id: string; organizationId: string; companyId: string; reason: string; expiresAt: string };
+};
+interface PlatformCoreBinding {
+  getBusinessSession(actorSubject: string): Promise<CoreBusinessSession>;
+  selectBusinessContext(actorSubject: string, organizationId: string, companyId: string): Promise<CoreBusinessSession>;
+  beginSupportSession(input: BeginSupportSessionRequest & { idempotencyKey: string; actorSubject: string }): Promise<unknown>;
+  listSupportTargets(actorSubject: string): Promise<SupportTargetView[]>;
+  endSupportSession(actorSubject: string, sessionId: string): Promise<unknown>;
+  provisionOrganization(input: {
+    idempotencyKey: string;
+    identity: { subject: string; email?: string; displayName: string; locale: "es-CL"; timezone: string };
+    organization: { slug: string; name: string };
+    company: { slug: string; legalName: string; displayName?: string; countryCode: string; currencyCode: string; timezone: string };
+  }): Promise<unknown>;
+}
+
+function businessSessionView(session: CoreBusinessSession): BusinessSessionView {
+  return {
+    actorSubject: session.actorSubject, effectiveSubject: session.effectiveSubject,
+    organizations: session.organizations.map((entry) => ({
+      id: entry.organization.id, slug: entry.organization.slug, name: entry.organization.name,
+      role: entry.membership.role,
+      companies: entry.companies.map(({ company, access }) => ({ ...company, access: access.access })),
+    })),
+    ...(session.activeOrganizationId ? { activeOrganizationId: session.activeOrganizationId } : {}),
+    ...(session.activeCompanyId ? { activeCompanyId: session.activeCompanyId } : {}),
+    ...(session.support ? { support: session.support } : {}),
+  };
 }
 
 // =======================================================================================
@@ -119,6 +161,48 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   whoami(): Promise<AiChatAuthorInfo> {
     // Pure-read delegations retry once across a user-DO reset (see retryOnDoReset); writes never do.
     return retryOnDoReset(() => this.#user.whoami());
+  }
+  async getBusinessSession(): Promise<BusinessSessionView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return businessSessionView(await this.env.PLATFORM_CORE.getBusinessSession(this.#userId.name!));
+  }
+  async selectBusinessContext(organizationId: string, companyId: string): Promise<BusinessSessionView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return businessSessionView(await this.env.PLATFORM_CORE.selectBusinessContext(this.#userId.name!, organizationId, companyId));
+  }
+  async beginSupportSession(input: BeginSupportSessionRequest): Promise<BusinessSessionView> {
+    if (!this.#isAdmin()) throw new Error("permission_denied");
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    await this.env.PLATFORM_CORE.beginSupportSession({
+      ...input, actorSubject: this.#userId.name!,
+      idempotencyKey: `support:${this.#userId.name}:${crypto.randomUUID()}`,
+    });
+    return businessSessionView(await this.env.PLATFORM_CORE.getBusinessSession(this.#userId.name!));
+  }
+  async listSupportTargets(): Promise<SupportTargetView[]> {
+    if (!this.#isAdmin()) throw new Error("permission_denied");
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.listSupportTargets(this.#userId.name!);
+  }
+  async provisionBusinessOwner(input: ProvisionBusinessOwnerRequest): Promise<void> {
+    if (!this.#isAdmin()) throw new Error("permission_denied");
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    const username = normalizeUsername(input.username);
+    if (input.passwordHash.byteLength !== 32 || input.displayName.trim().length < 2) throw new Error("validation_failed");
+    await this.env.PLATFORM_CORE.provisionOrganization({
+      idempotencyKey: `provision:${input.organizationSlug}:${username}`,
+      identity: { subject: username, ...(input.email ? { email: input.email } : {}), displayName: input.displayName, locale: "es-CL", timezone: "America/Santiago" },
+      organization: { slug: input.organizationSlug, name: input.organizationName },
+      company: { slug: input.companySlug, legalName: input.companyLegalName, ...(input.companyDisplayName ? { displayName: input.companyDisplayName } : {}), countryCode: "CL", currencyCode: "CLP", timezone: "America/Santiago" },
+    });
+    const target = this.users.get(this.users.idFromName(username));
+    await target.createAccount(username, input.displayName, input.passwordHash);
+  }
+  async endSupportSession(): Promise<BusinessSessionView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    const session = await this.env.PLATFORM_CORE.getBusinessSession(this.#userId.name!);
+    if (session.support) await this.env.PLATFORM_CORE.endSupportSession(this.#userId.name!, session.support.id);
+    return businessSessionView(await this.env.PLATFORM_CORE.getBusinessSession(this.#userId.name!));
   }
   getOwnPreferences() {
     return this.#user.getOwnPreferences();

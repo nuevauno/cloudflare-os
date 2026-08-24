@@ -364,10 +364,142 @@ export interface UserPreferences {
   timeZone: string;
 }
 
+/** One company the effective identity may use in the current deployment. */
+export interface BusinessCompanySummary {
+  /** Stable platform-core company identifier. */
+  id: string;
+  /** Stable identifier of the organization that owns the company. */
+  organizationId: string;
+  /** Human-readable URL-safe company key. */
+  slug: string;
+  /** Registered legal name. */
+  legalName: string;
+  /** Name shown in the product UI. */
+  displayName: string;
+  /** Current operating state. */
+  status: "active" | "migration" | "suspended";
+  /** Highest company-level access granted to the effective identity. */
+  access: "manage" | "operate" | "read";
+}
+
+/** One organization and its authorized companies in the active business session. */
+export interface BusinessOrganizationSummary {
+  /** Stable platform-core organization identifier. */
+  id: string;
+  /** Human-readable URL-safe organization key. */
+  slug: string;
+  /** Organization name shown in the product UI. */
+  name: string;
+  /** Effective membership role. */
+  role: "owner" | "admin" | "member" | "viewer";
+  /** Companies the effective identity may use. */
+  companies: BusinessCompanySummary[];
+}
+
+/** Visible, time-limited support access currently assumed by a deployment administrator. */
+export interface SupportSessionSummary {
+  /** Stable support-session identifier used to end the session. */
+  id: string;
+  /** Organization selected for the support session. */
+  organizationId: string;
+  /** Company selected for the support session. */
+  companyId: string;
+  /** Operator-provided reason retained by the audit log. */
+  reason: string;
+  /** ISO timestamp after which the session can no longer be used. */
+  expiresAt: string;
+}
+
+/** Server-resolved business identity, authorization and selected company context. */
+export interface BusinessSessionView {
+  /** Authenticated identity performing every action. */
+  actorSubject: string;
+  /** Identity whose authorized business context is being viewed. */
+  effectiveSubject: string;
+  /** Organizations and companies available to the effective identity. */
+  organizations: BusinessOrganizationSummary[];
+  /** Persisted organization selection, when one is available. */
+  activeOrganizationId?: string;
+  /** Persisted company selection, when one is available. */
+  activeCompanyId?: string;
+  /** Active audited support access, when the actor is assisting another identity. */
+  support?: SupportSessionSummary;
+}
+
+/** Request for short-lived, visible support access to one authorized company. */
+export interface BeginSupportSessionRequest {
+  /** Identity whose authorized context will be used. */
+  targetSubject: string;
+  /** Target organization. */
+  organizationId: string;
+  /** Target company. */
+  companyId: string;
+  /** Human-readable reason retained in the immutable audit trail. */
+  reason: string;
+  /** Requested lifetime, constrained again by the private platform core. */
+  durationMinutes?: number;
+}
+
+/** An identity/company pair a deployment administrator may select for audited support. */
+export interface SupportTargetView {
+  /** Target identity. */
+  subject: string;
+  /** Target identity's display name. */
+  displayName: string;
+  /** Target organization identifier. */
+  organizationId: string;
+  /** Target organization display name. */
+  organizationName: string;
+  /** Target company identifier. */
+  companyId: string;
+  /** Target company display name. */
+  companyName: string;
+}
+
+/** Atomic input for creating an owner, organization, first company and login account. */
+export interface ProvisionBusinessOwnerRequest {
+  /** Login name; normalized and validated by the server. */
+  username: string;
+  /** Optional notification email stored in the private platform core. */
+  email?: string;
+  /** Owner name shown in the product UI. */
+  displayName: string;
+  /** Client-derived 32-byte password hash; the cleartext never crosses RPC. */
+  passwordHash: Uint8Array;
+  /** URL-safe organization key. */
+  organizationSlug: string;
+  /** Organization name shown in the product UI. */
+  organizationName: string;
+  /** URL-safe first-company key. */
+  companySlug: string;
+  /** Registered legal name of the first company. */
+  companyLegalName: string;
+  /** Optional shorter first-company name shown in the product UI. */
+  companyDisplayName?: string;
+}
+
 /** Top-level API exposed to the user after they have authenticated. */
 export interface AuthenticatedApi extends RpcTarget {
   /** Get profile info for the user who is logged in. */
   whoami(): Promise<AiChatAuthorInfo>;
+
+  /** Company scope resolved from the authenticated user and the private platform core. */
+  getBusinessSession(): Promise<BusinessSessionView>;
+
+  /** Select a company already authorized for the effective identity. */
+  selectBusinessContext(organizationId: string, companyId: string): Promise<BusinessSessionView>;
+
+  /** Start a short, visible and audited support session. Deployment administrators only. */
+  beginSupportSession(input: BeginSupportSessionRequest): Promise<BusinessSessionView>;
+
+  /** List identities and companies available for an audited support session. */
+  listSupportTargets(): Promise<SupportTargetView[]>;
+
+  /** Provision one owner, organization and first company through the private idempotent core. */
+  provisionBusinessOwner(input: ProvisionBusinessOwnerRequest): Promise<void>;
+
+  /** End the current audited support session immediately. */
+  endSupportSession(): Promise<BusinessSessionView>;
 
   /** Get the user's persisted locale preferences, or null before the first explicit choice. */
   getOwnPreferences(): Promise<UserPreferences | null>;
