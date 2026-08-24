@@ -59,7 +59,7 @@ export default function Sidebar({
         ].join(' ')}
       >
         <Link to="/" aria-label={siteName} className="flex min-w-0 items-center gap-2">
-          <NuevaunoIdentity siteName={siteName} size={20} compact={collapsed} className="text-[14px] leading-5 text-kumo-default" />
+          <NuevaunoIdentity siteName={siteName} size={24} compact={collapsed} className="text-[16px] leading-6 text-kumo-default" />
         </Link>
         {!collapsed && (
           <div className="flex items-center gap-0.5">
