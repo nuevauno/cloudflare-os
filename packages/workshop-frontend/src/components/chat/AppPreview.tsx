@@ -1,6 +1,6 @@
 import { Badge } from '@cloudflare/kumo'
 import { Text } from '@cloudflare/kumo'
-import { Circle } from '@phosphor-icons/react'
+import { Circle } from '@/components/NuevaunoGlyphs'
 import { sampleDataRows } from '../../data/chat'
 
 /**

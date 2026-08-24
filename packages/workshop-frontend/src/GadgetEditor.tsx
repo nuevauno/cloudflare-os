@@ -12,7 +12,7 @@ import {
   DotsThree,
   Pulse,
   type Icon,
-} from '@phosphor-icons/react'
+} from '@/components/NuevaunoGlyphs'
 import { RpcStub, RpcTarget } from 'capnweb'
 import { useAuthenticatedApi } from './AuthContext'
 import { useConnectionLost } from './RpcContext'

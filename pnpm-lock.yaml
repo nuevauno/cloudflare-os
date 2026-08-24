@@ -224,9 +224,6 @@ importers:
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3
-      '@phosphor-icons/react':
-        specifier: ^2.1.10
-        version: 2.1.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@7.3.6(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.49.2)(yaml@2.9.0))
@@ -536,9 +533,6 @@ importers:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
         version: 0.20.3(@cloudflare/workers-types@5.20260808.1)(@vitest/runner@4.1.10)(@vitest/snapshot@4.1.10)(vitest@4.1.10)
-      '@phosphor-icons/react':
-        specifier: ^2.1.10
-        version: 2.1.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@7.3.6(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.49.2)(yaml@2.9.0))
@@ -912,9 +906,6 @@ importers:
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3
-      '@phosphor-icons/react':
-        specifier: ^2.1.10
-        version: 2.1.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@7.3.6(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.49.2)(yaml@2.9.0))

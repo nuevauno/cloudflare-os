@@ -1,4 +1,4 @@
-import { PlugsConnected, type Icon } from '@phosphor-icons/react'
+import { PlugsConnected, type Icon } from '@/components/NuevaunoGlyphs'
 import { WorkshopButton } from './WorkshopControls'
 
 export function EmptyState({

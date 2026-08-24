@@ -19,7 +19,7 @@ import {
   UsersThree,
   Key,
   Plugs,
-} from '@phosphor-icons/react'
+} from '@/components/NuevaunoGlyphs'
 import AddModelModal from './AddModelModal'
 import { persistSelectedModel } from './modelSelection'
 import { logoComponents } from './components/ConnectionLogos'

@@ -5,7 +5,7 @@ import {
   MagnifyingGlass,
   Plus,
   WarningCircle,
-} from "@phosphor-icons/react";
+} from "../../workshop-frontend/src/components/NuevaunoGlyphs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ManagementListOptions,

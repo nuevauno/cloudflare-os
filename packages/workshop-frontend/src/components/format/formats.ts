@@ -16,7 +16,7 @@ import {
   Notebook,
   ListChecks,
   type Icon as PhosphorIcon,
-} from '@phosphor-icons/react'
+} from '@/components/NuevaunoGlyphs'
 import type { BlueprintOutput, OutputIcon } from '@gadgets/workshop-shared/api'
 
 /** The glyph for each key in the shared `OUTPUT_ICONS` vocabulary. */

@@ -1,6 +1,6 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react'
 import { Dialog, DropdownMenu, useKumoToastManager } from '@cloudflare/kumo'
-import { DotsThree, DownloadSimple, Pencil, Plus, Trash, X } from '@phosphor-icons/react'
+import { DotsThree, DownloadSimple, Pencil, Plus, Trash, X } from '@/components/NuevaunoGlyphs'
 import DeleteConfirmationDialog from './components/DeleteConfirmationDialog'
 import { WorkshopButton, WorkshopIconButton, WorkshopInput } from './components/WorkshopControls'
 import { isImeComposing } from './keyboardEvent'

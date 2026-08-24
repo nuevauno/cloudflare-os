@@ -1,4 +1,4 @@
-import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
+import type { Icon as PhosphorIcon } from '@/components/NuevaunoGlyphs'
 import type { ReactNode } from 'react'
 
 /**

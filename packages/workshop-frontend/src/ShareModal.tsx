@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { Checkbox, Dialog, DropdownMenu, useKumoToastManager } from '@cloudflare/kumo'
 import type { PortalContainer } from '@cloudflare/kumo'
-import { CaretDown, Check, Copy, Link, PencilSimple, ShieldCheck, ShieldWarning, Trash, UserPlus, X } from '@phosphor-icons/react'
+import { CaretDown, Check, Copy, Link, PencilSimple, ShieldCheck, ShieldWarning, Trash, UserPlus, X } from '@/components/NuevaunoGlyphs'
 import { RpcStub } from 'capnweb'
 import {
   Overseer,

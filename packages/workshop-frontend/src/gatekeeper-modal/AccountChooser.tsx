@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Plus, UserCircle } from '@phosphor-icons/react'
+import { Check, Plus, UserCircle } from '@/components/NuevaunoGlyphs'
 import { AccountDescription, SupportedResource, VendorDescription } from '@gadgets/workshop-shared/gatekeeper'
 
 /**

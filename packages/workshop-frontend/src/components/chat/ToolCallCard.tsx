@@ -12,7 +12,7 @@ import {
   CheckCircle,
   WarningCircle,
   Clock,
-} from '@phosphor-icons/react'
+} from '@/components/NuevaunoGlyphs'
 import type { ToolCall } from '../../data/chat'
 
 const iconMap: Record<string, React.ElementType> = {

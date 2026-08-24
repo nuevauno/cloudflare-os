@@ -6,7 +6,7 @@ import {
   Blueprint,
   Warning,
   X,
-} from '@phosphor-icons/react'
+} from '@/components/NuevaunoGlyphs'
 import { RpcStub } from 'capnweb'
 import { Overseer, GadgetClient, GadgetBindingInfo, BoundHookInfo, AuthenticatedApi, WorkpieceId } from '@gadgets/workshop-shared/api'
 import GatekeeperModal from './GatekeeperModal'

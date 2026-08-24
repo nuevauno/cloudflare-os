@@ -1,5 +1,5 @@
 import { Dialog, Switch } from '@cloudflare/kumo'
-import { X, ShieldCheck } from '@phosphor-icons/react'
+import { X, ShieldCheck } from '@/components/NuevaunoGlyphs'
 import { useEffect, useMemo, useState } from 'react'
 import {
   AccountDescription,

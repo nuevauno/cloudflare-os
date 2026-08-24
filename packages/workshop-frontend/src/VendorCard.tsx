@@ -1,5 +1,5 @@
 import { Text, Loader } from '@cloudflare/kumo'
-import { LinkSimple } from '@phosphor-icons/react'
+import { LinkSimple } from '@/components/NuevaunoGlyphs'
 import { VendorDescription } from '@gadgets/workshop-shared/gatekeeper'
 import Avatar from './components/Avatar'
 

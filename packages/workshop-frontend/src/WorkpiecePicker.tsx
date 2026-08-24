@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CaretLeft, CaretRight, Check, Lightning, PencilSimple, Pulse, X } from '@phosphor-icons/react'
+import { CaretLeft, CaretRight, Check, Lightning, PencilSimple, Pulse, X } from '@/components/NuevaunoGlyphs'
 import { FormatGlyph } from './components/format/FormatVisuals'
 import { Tooltip } from '@cloudflare/kumo'
 import type { WorkpieceId, WorkpieceSummary } from '@gadgets/workshop-shared/api'

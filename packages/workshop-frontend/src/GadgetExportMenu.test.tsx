@@ -54,7 +54,7 @@ vi.mock('@cloudflare/kumo', () => {
   }
 })
 
-vi.mock('@phosphor-icons/react', () => ({
+vi.mock('@/components/NuevaunoGlyphs', () => ({
   DownloadSimple: () => <span>download</span>,
 }))
 

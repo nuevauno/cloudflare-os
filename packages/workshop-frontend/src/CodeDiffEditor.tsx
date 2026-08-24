@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Columns, Rows } from '@phosphor-icons/react'
+import { Columns, Rows } from '@/components/NuevaunoGlyphs'
 import { Compartment, EditorState } from '@codemirror/state'
 import type { Extension } from '@codemirror/state'
 import {

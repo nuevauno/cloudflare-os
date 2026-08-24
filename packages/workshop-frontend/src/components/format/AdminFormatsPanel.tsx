@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Button, DropdownMenu, Input, Switch, useKumoToastManager } from '@cloudflare/kumo'
-import { ArrowDown, ArrowUp, CaretDown, CaretRight, Plus, Sparkle, Trash, Warning } from '@phosphor-icons/react'
+import { ArrowDown, ArrowUp, CaretDown, CaretRight, Plus, Sparkle, Trash, Warning } from '@/components/NuevaunoGlyphs'
 import type {
   AdminApi,
   AdminFormat,

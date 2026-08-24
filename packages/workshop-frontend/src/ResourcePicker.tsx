@@ -1,7 +1,7 @@
 import { logRpcFailure } from './rpcErrors'
 import { useState, useEffect, useMemo, useCallback, type MutableRefObject } from 'react'
 import { Tooltip, useKumoToastManager } from '@cloudflare/kumo'
-import { Plus, CaretRight, Warning } from '@phosphor-icons/react'
+import { Plus, CaretRight, Warning } from '@/components/NuevaunoGlyphs'
 import { RpcStub } from 'capnweb'
 import { AuthenticatedApi } from '@gadgets/workshop-shared/api'
 import { AccountDescription, SupportedResource, VendorDescription } from '@gadgets/workshop-shared/gatekeeper'

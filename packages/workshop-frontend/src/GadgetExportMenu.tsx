@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DropdownMenu, Tooltip, useKumoToastManager } from '@cloudflare/kumo'
-import { DownloadSimple } from '@phosphor-icons/react'
+import { DownloadSimple } from '@/components/NuevaunoGlyphs'
 import type { RpcStub } from 'capnweb'
 import type { GadgetClient } from '@gadgets/workshop-shared/api'
 import type { GadgetExportFormat } from '@gadgets/workshop-shared/api'
