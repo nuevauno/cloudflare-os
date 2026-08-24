@@ -1784,10 +1784,12 @@ export class GatekeeperConnectCallbackImpl
 }
 
 export function normalizeUsername(username: string) {
-  username = username.toLowerCase();
+  username = username.trim().toLowerCase();
 
-  if (!username.match(/^[a-z][a-z0-9_]*$/)) {
-    throw new Error("Invalid username. Must be alphanumeric starting with a letter.")
+  const localUsername = /^[a-z][a-z0-9_]*$/;
+  const email = /^[a-z0-9](?:[a-z0-9._%+-]{0,62}[a-z0-9])?@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+  if (!localUsername.test(username) && !email.test(username)) {
+    throw new Error("Invalid login. Use an email address or an alphanumeric username.")
   }
 
   return username;

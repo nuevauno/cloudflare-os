@@ -21,3 +21,14 @@ test("the release uses the canonical dated version", async () => {
   const release = await readFile("packages/workshop-frontend/src/release.ts", "utf8");
   assert.match(release, /26\.08\.24\.1/);
 });
+
+test("client provisioning accepts email login and hashes its normalized identity", async () => {
+  const user = await readFile("packages/workshop-backend/src/user.ts", "utf8");
+  const menu = await readFile("packages/workshop-frontend/src/components/UserMenu.tsx", "utf8");
+  const login = await readFile("packages/workshop-frontend/src/LoginPage.tsx", "utf8");
+  assert.match(user, /username = username\.trim\(\)\.toLowerCase\(\)/);
+  assert.match(user, /const email = \/\^\[a-z0-9\]/);
+  assert.match(menu, /hashPassword\(login, provision\.password\)/);
+  assert.match(menu, /Correo de acceso/);
+  assert.match(login, /Correo o usuario/);
+});
