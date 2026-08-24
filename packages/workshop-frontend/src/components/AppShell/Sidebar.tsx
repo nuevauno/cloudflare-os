@@ -12,6 +12,7 @@ import {
 import SidebarUtilityStrip from './SidebarUtilityStrip'
 import { useI18n } from '../../i18n'
 import NuevaunoIcon from '../NuevaunoIcon'
+import BusinessContextSwitcher from './BusinessContextSwitcher'
 
 /**
  * The persistent left rail. Three pinned regions sandwich a single scrolling region of lists, so
@@ -100,6 +101,7 @@ export default function Sidebar({
       <SidebarWorkspacesProvider>
         {/* Pinned top stack. shrink-0 keeps it from squishing when the lists below grow. */}
         <div className="flex shrink-0 flex-col gap-3 pt-3">
+          <BusinessContextSwitcher collapsed={collapsed} />
           {/* Primary nav */}
           <nav className="flex flex-col gap-0.5 px-2">
             <SidebarItem

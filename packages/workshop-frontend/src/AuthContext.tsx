@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { RpcStub } from 'capnweb'
-import { AuthenticatedApi, AiChatAuthorInfo } from '@gadgets/workshop-shared/api'
+import { AuthenticatedApi, AiChatAuthorInfo, type BeginSupportSessionRequest, type BusinessSessionView } from '@gadgets/workshop-shared/api'
 import { applyUserPreferences } from './userPreferences'
 
 interface AuthContextType {
@@ -10,6 +10,11 @@ interface AuthContextType {
   currentUser: AiChatAuthorInfo | null
   /** Whether the current user is a deployment admin. False while loading / for non-admins. */
   isAdmin: boolean
+  businessSession: BusinessSessionView | null
+  refreshBusinessSession: () => Promise<void>
+  selectBusinessContext: (organizationId: string, companyId: string) => Promise<void>
+  beginSupportSession: (input: BeginSupportSessionRequest) => Promise<void>
+  endSupportSession: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -23,11 +28,33 @@ interface AuthProviderProps {
 export function AuthProvider({ children, authenticatedApi, onLogout }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<AiChatAuthorInfo | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [businessSession, setBusinessSession] = useState<BusinessSessionView | null>(null)
+
+  const refreshBusinessSession = async () => {
+    setBusinessSession(await authenticatedApi.getBusinessSession())
+  }
+  const selectBusinessContext = async (organizationId: string, companyId: string) => {
+    setBusinessSession(await authenticatedApi.selectBusinessContext(organizationId, companyId))
+  }
+  const beginSupportSession = async (input: BeginSupportSessionRequest) => {
+    setBusinessSession(await authenticatedApi.beginSupportSession(input))
+  }
+  const endSupportSession = async () => {
+    setBusinessSession(await authenticatedApi.endSupportSession())
+  }
 
   useEffect(() => {
     let cancelled = false
     authenticatedApi.whoami().then((info) => {
       if (!cancelled) setCurrentUser(info)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [authenticatedApi])
+
+  useEffect(() => {
+    let cancelled = false
+    authenticatedApi.getBusinessSession().then((session) => {
+      if (!cancelled) setBusinessSession(session)
     }).catch(() => {})
     return () => { cancelled = true }
   }, [authenticatedApi])
@@ -49,7 +76,7 @@ export function AuthProvider({ children, authenticatedApi, onLogout }: AuthProvi
   }, [authenticatedApi])
 
   return (
-    <AuthContext.Provider value={{ authenticatedApi, logout: onLogout, currentUser, isAdmin }}>
+    <AuthContext.Provider value={{ authenticatedApi, logout: onLogout, currentUser, isAdmin, businessSession, refreshBusinessSession, selectBusinessContext, beginSupportSession, endSupportSession }}>
       {children}
     </AuthContext.Provider>
   )

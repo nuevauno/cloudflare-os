@@ -9,6 +9,7 @@ import CommandPalette from './CommandPalette'
 import { OPEN_COMMAND_PALETTE_EVENT } from './commandPaletteBus'
 import { useI18n } from '../../i18n'
 import ReleaseVersion from '../ReleaseVersion'
+import { useAuthenticatedApi } from '../../AuthContext'
 
 const STORAGE_KEY_COLLAPSED = 'gadgets:sidebar-collapsed'
 
@@ -38,6 +39,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const connectionLost = useConnectionLost()
   const { t } = useI18n()
+  const { businessSession, endSupportSession } = useAuthenticatedApi()
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((prev) => {
@@ -166,6 +168,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span aria-hidden="true" className="h-11 w-11 md:hidden" />
           </div>
         </div>
+
+        {businessSession?.support && (
+          <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b border-[#FE4A23]/40 bg-[#FE4A23]/10 px-4 text-[13px] text-kumo-default">
+            <span>
+              Estás atendiendo como {businessSession.effectiveSubject}. Todas las acciones quedan registradas. Sesión hasta {new Date(businessSession.support.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
+            </span>
+            <button type="button" onClick={() => void endSupportSession()} className="shrink-0 rounded-xl border border-[#FE4A23] px-3 py-1.5 text-[#FE4A23]">
+              Salir del cliente
+            </button>
+          </div>
+        )}
 
         {/* Routed content. Flat enterprise canvas — no texture. */}
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
