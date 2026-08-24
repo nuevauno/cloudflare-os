@@ -58,9 +58,10 @@ export default function UserMenu() {
     setProvisionBusy(true)
     setProvisionError('')
     try {
+      const login = provision.username.trim().toLowerCase()
       await authenticatedApi.provisionBusinessOwner({
-        username: provision.username, ...(provision.email ? { email: provision.email } : {}),
-        displayName: provision.displayName, passwordHash: await hashPassword(provision.username, provision.password),
+        username: login, ...(provision.email ? { email: provision.email } : login.includes('@') ? { email: login } : {}),
+        displayName: provision.displayName, passwordHash: await hashPassword(login, provision.password),
         organizationSlug: provision.organizationSlug, organizationName: provision.organizationName,
         companySlug: provision.companySlug, companyLegalName: provision.companyLegalName,
         ...(provision.companyDisplayName ? { companyDisplayName: provision.companyDisplayName } : {}),
@@ -171,7 +172,7 @@ export default function UserMenu() {
           <p className="mt-1 text-sm text-kumo-subtle">Crea la identidad propietaria, su organización y la primera empresa en una sola operación.</p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {([
-              ['username', 'Usuario', 'piero'], ['email', 'Correo', 'piero@demo.com'],
+              ['username', 'Correo de acceso', 'piero@demo.com'],
               ['displayName', 'Nombre', 'Piero'], ['password', 'Contraseña temporal', ''],
               ['organizationSlug', 'ID de organización', 'piero'], ['organizationName', 'Organización', 'Empresas Piero'],
               ['companySlug', 'ID de empresa', 'rng'], ['companyLegalName', 'Razón social', 'Reciclaje Norte Grande'],
@@ -179,7 +180,7 @@ export default function UserMenu() {
             ] as const).map(([key, label, placeholder]) => (
               <label key={key} className={key === 'companyDisplayName' ? 'sm:col-span-2' : ''}>
                 <span className="text-xs uppercase tracking-[0.12em] text-kumo-subtle">{label}</span>
-                <input type={key === 'password' ? 'password' : key === 'email' ? 'email' : 'text'} value={provision[key]} placeholder={placeholder} onChange={(event) => setProvision((current) => ({ ...current, [key]: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3" />
+                <input type={key === 'password' ? 'password' : 'text'} inputMode={key === 'username' ? 'email' : undefined} value={provision[key]} placeholder={placeholder} onChange={(event) => setProvision((current) => ({ ...current, [key]: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3" />
               </label>
             ))}
           </div>

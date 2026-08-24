@@ -110,13 +110,13 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 className="w-full"
-                label="Usuario"
+                label="Correo o usuario"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoFocus
                 autoComplete="username"
                 disabled={loading}
-                placeholder="tu-usuario"
+                placeholder="tu@empresa.com"
               />
 
               <Input
