@@ -54,12 +54,12 @@ export default function Sidebar({
       {/* Brand row */}
       <div
         className={[
-          'flex h-14 shrink-0 items-center border-b border-kumo-line',
+          'flex h-16 shrink-0 items-center border-b border-kumo-line',
           collapsed ? 'justify-center px-1.5' : 'justify-between gap-2 px-3',
         ].join(' ')}
       >
         <Link to="/" aria-label={siteName} className="flex min-w-0 items-center gap-2">
-          <NuevaunoIdentity siteName={siteName} size={24} compact={collapsed} className="text-[16px] leading-6 text-kumo-default" />
+          <NuevaunoIdentity siteName={siteName} size={30} compact={collapsed} className="text-[18px] leading-7 text-kumo-default" />
         </Link>
         {!collapsed && (
           <div className="flex items-center gap-0.5">
