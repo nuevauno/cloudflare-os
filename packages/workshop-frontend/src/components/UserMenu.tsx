@@ -180,7 +180,7 @@ export default function UserMenu() {
             ] as const).map(([key, label, placeholder]) => (
               <label key={key} className={key === 'companyDisplayName' ? 'sm:col-span-2' : ''}>
                 <span className="text-xs uppercase tracking-[0.12em] text-kumo-subtle">{label}</span>
-                <input type={key === 'password' ? 'password' : key === 'email' ? 'email' : 'text'} value={provision[key]} placeholder={placeholder} onChange={(event) => setProvision((current) => ({ ...current, [key]: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3" />
+                <input type={key === 'password' ? 'password' : 'text'} inputMode={key === 'username' ? 'email' : undefined} value={provision[key]} placeholder={placeholder} onChange={(event) => setProvision((current) => ({ ...current, [key]: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3" />
               </label>
             ))}
           </div>
