@@ -53,9 +53,14 @@ describe('SiteLogo', () => {
 
   it('uses the canonical mark when no logo is configured and the supplied fallback on failure', () => {
     render()
-    expect(container!.querySelector('img')?.getAttribute('src')).toBe(
+    const marks = [...container!.querySelectorAll('img')]
+    expect(marks[0]?.getAttribute('src')).toBe(
       'https://branding.nuevauno.com/logos/nuevauno-mark.anim.svg',
     )
+    expect(marks[1]?.getAttribute('src')).toBe(
+      'https://branding.nuevauno.com/logos/nuevauno-mark-white.svg',
+    )
+    expect(marks[1]?.className).toContain('dark:block')
 
     act(() => root!.unmount())
     container!.remove()
