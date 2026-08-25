@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as BillingRouteImport } from './routes/billing'
 import { Route as BlueprintsRouteImport } from './routes/blueprints'
 import { Route as ContextRouteImport } from './routes/context'
 import { Route as ExploreRouteImport } from './routes/explore'
@@ -33,6 +34,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingRoute = BillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlueprintsRoute = BlueprintsRouteImport.update({
@@ -104,6 +110,7 @@ const WorkspaceIdRoute = WorkspaceIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/billing': typeof BillingRoute
   '/blueprints': typeof BlueprintsRoute
   '/context': typeof ContextRoute
   '/explore': typeof ExploreRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/billing': typeof BillingRoute
   '/blueprints': typeof BlueprintsRoute
   '/context': typeof ContextRoute
   '/explore': typeof ExploreRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/billing': typeof BillingRoute
   '/blueprints': typeof BlueprintsRoute
   '/context': typeof ContextRoute
   '/explore': typeof ExploreRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/billing'
     | '/blueprints'
     | '/context'
     | '/explore'
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/billing'
     | '/blueprints'
     | '/context'
     | '/explore'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/billing'
     | '/blueprints'
     | '/context'
     | '/explore'
@@ -210,6 +222,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  BillingRoute: typeof BillingRoute
   BlueprintsRoute: typeof BlueprintsRoute
   ContextRoute: typeof ContextRoute
   ExploreRoute: typeof ExploreRoute
@@ -239,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing': {
+      id: '/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof BillingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blueprints': {
@@ -338,6 +358,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  BillingRoute: BillingRoute,
   BlueprintsRoute: BlueprintsRoute,
   ContextRoute: ContextRoute,
   ExploreRoute: ExploreRoute,

@@ -81,7 +81,7 @@ type CoreOrganizationContext = {
   organization: { id: string; slug: string; name: string };
   membership: { role: "owner" | "admin" | "member" | "viewer" };
   companies: Array<{
-    company: { id: string; organizationId: string; slug: string; legalName: string; displayName: string; status: "active" | "migration" | "suspended" };
+    company: { id: string; organizationId: string; slug: string; legalName: string; displayName: string; currencyCode: string; timezone: string; status: "active" | "migration" | "suspended" };
     access: { access: "manage" | "operate" | "read" };
   }>;
 };
@@ -93,6 +93,8 @@ type CoreBusinessSession = {
 interface PlatformCoreBinding {
   getBusinessSession(actorSubject: string): Promise<CoreBusinessSession>;
   selectBusinessContext(actorSubject: string, organizationId: string, companyId: string): Promise<CoreBusinessSession>;
+  getBillingOverview(actorSubject: string, organizationId: string): Promise<import('@gadgets/workshop-shared/api').BillingOverviewView>;
+  requestSubscriptionCancellation(actorSubject: string, organizationId: string): Promise<import('@gadgets/workshop-shared/api').BillingOverviewView>;
   beginSupportSession(input: BeginSupportSessionRequest & { idempotencyKey: string; actorSubject: string }): Promise<unknown>;
   listSupportTargets(actorSubject: string): Promise<SupportTargetView[]>;
   endSupportSession(actorSubject: string, sessionId: string): Promise<unknown>;
@@ -185,6 +187,14 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   async selectBusinessContext(organizationId: string, companyId: string): Promise<BusinessSessionView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return businessSessionView(await this.env.PLATFORM_CORE.selectBusinessContext(this.#userId.name!, organizationId, companyId));
+  }
+  async getBillingOverview(organizationId: string): Promise<import('@gadgets/workshop-shared/api').BillingOverviewView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.getBillingOverview(this.#userId.name!, organizationId);
+  }
+  async requestSubscriptionCancellation(organizationId: string): Promise<import('@gadgets/workshop-shared/api').BillingOverviewView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.requestSubscriptionCancellation(this.#userId.name!, organizationId);
   }
   async beginSupportSession(input: BeginSupportSessionRequest): Promise<BusinessSessionView> {
     if (!this.#isAdmin()) throw new Error("permission_denied");

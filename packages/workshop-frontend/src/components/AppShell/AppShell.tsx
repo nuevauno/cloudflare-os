@@ -8,8 +8,8 @@ import Sidebar from './Sidebar'
 import CommandPalette from './CommandPalette'
 import { OPEN_COMMAND_PALETTE_EVENT } from './commandPaletteBus'
 import { useI18n } from '../../i18n'
-import ReleaseVersion from '../ReleaseVersion'
 import { useAuthenticatedApi } from '../../AuthContext'
+import BottomStatusBar from './BottomStatusBar'
 
 const STORAGE_KEY_COLLAPSED = 'gadgets:sidebar-collapsed'
 
@@ -163,7 +163,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               hidden, leaving this the only in-flow child, which `justify-between` would park on the
               left. */}
           <div className="ml-auto flex items-center gap-2">
-            <ReleaseVersion />
             {connectionLost && <ReconnectingChip />}
             <span aria-hidden="true" className="h-11 w-11 md:hidden" />
           </div>
@@ -182,6 +181,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Routed content. Flat enterprise canvas — no texture. */}
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+        <BottomStatusBar />
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
