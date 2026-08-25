@@ -385,10 +385,42 @@ export interface BusinessCompanySummary {
   legalName: string;
   /** Name shown in the product UI. */
   displayName: string;
+  /** ISO 4217 currency used by the company. */
+  currencyCode: string;
+  /** IANA time zone used for company-facing dates and schedules. */
+  timezone: string;
   /** Current operating state. */
   status: "active" | "migration" | "suspended";
   /** Highest company-level access granted to the effective identity. */
   access: "manage" | "operate" | "read";
+}
+
+/** Commercial plan shown to authorized members of one organization. */
+export interface BillingPlanView {
+  id: string; code: string; name: string; description: string;
+  currencyCode: string; amountMinor: number; currencyExponent: number;
+  interval: "month" | "year" | "custom";
+}
+
+/** Current organization subscription and its renewal state. */
+export interface SubscriptionView {
+  id: string; organizationId: string; plan: BillingPlanView;
+  status: "trialing" | "active" | "past_due" | "paused" | "canceled";
+  currentPeriodStart?: string; currentPeriodEnd?: string;
+  cancelAtPeriodEnd: boolean; portalUrl?: string;
+}
+
+/** One organization invoice, with provider-hosted actions when available. */
+export interface BillingInvoiceView {
+  id: string; number: string; status: "draft" | "open" | "paid" | "void" | "uncollectible";
+  currencyCode: string; currencyExponent: number; subtotalMinor: number; taxMinor: number;
+  totalMinor: number; amountDueMinor: number; issuedAt?: string; dueAt?: string; paidAt?: string;
+  hostedInvoiceUrl?: string; invoicePdfUrl?: string;
+}
+
+/** Server-authorized billing read model for the active organization. */
+export interface BillingOverviewView {
+  organizationId: string; subscription?: SubscriptionView; invoices: BillingInvoiceView[]; canManage: boolean;
 }
 
 /** One organization and its authorized companies in the active business session. */
@@ -497,6 +529,12 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Select a company already authorized for the effective identity. */
   selectBusinessContext(organizationId: string, companyId: string): Promise<BusinessSessionView>;
+
+  /** Read the selected organization's plan and invoices. */
+  getBillingOverview(organizationId: string): Promise<BillingOverviewView>;
+
+  /** Request cancellation at the end of the current paid period. */
+  requestSubscriptionCancellation(organizationId: string): Promise<BillingOverviewView>;
 
   /** Start a short, visible and audited support session. Deployment administrators only. */
   beginSupportSession(input: BeginSupportSessionRequest): Promise<BusinessSessionView>;

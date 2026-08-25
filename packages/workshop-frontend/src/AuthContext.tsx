@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { RpcStub } from 'capnweb'
-import { AuthenticatedApi, AiChatAuthorInfo, type BeginSupportSessionRequest, type BusinessSessionView } from '@gadgets/workshop-shared/api'
+import { AuthenticatedApi, AiChatAuthorInfo, type BeginSupportSessionRequest, type BillingOverviewView, type BusinessSessionView } from '@gadgets/workshop-shared/api'
 import { applyUserPreferences } from './userPreferences'
 
 interface AuthContextType {
@@ -11,7 +11,9 @@ interface AuthContextType {
   /** Whether the current user is a deployment admin. False while loading / for non-admins. */
   isAdmin: boolean
   businessSession: BusinessSessionView | null
+  billingOverview: BillingOverviewView | null
   refreshBusinessSession: () => Promise<void>
+  refreshBillingOverview: () => Promise<void>
   selectBusinessContext: (organizationId: string, companyId: string) => Promise<void>
   beginSupportSession: (input: BeginSupportSessionRequest) => Promise<void>
   endSupportSession: () => Promise<void>
@@ -29,12 +31,19 @@ export function AuthProvider({ children, authenticatedApi, onLogout }: AuthProvi
   const [currentUser, setCurrentUser] = useState<AiChatAuthorInfo | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [businessSession, setBusinessSession] = useState<BusinessSessionView | null>(null)
+  const [billingOverview, setBillingOverview] = useState<BillingOverviewView | null>(null)
 
   const refreshBusinessSession = async () => {
     setBusinessSession(await authenticatedApi.getBusinessSession())
   }
   const selectBusinessContext = async (organizationId: string, companyId: string) => {
-    setBusinessSession(await authenticatedApi.selectBusinessContext(organizationId, companyId))
+    const session = await authenticatedApi.selectBusinessContext(organizationId, companyId)
+    setBusinessSession(session)
+    setBillingOverview(await authenticatedApi.getBillingOverview(organizationId))
+  }
+  const refreshBillingOverview = async () => {
+    if (!businessSession?.activeOrganizationId) return setBillingOverview(null)
+    setBillingOverview(await authenticatedApi.getBillingOverview(businessSession.activeOrganizationId))
   }
   const beginSupportSession = async (input: BeginSupportSessionRequest) => {
     setBusinessSession(await authenticatedApi.beginSupportSession(input))
@@ -50,6 +59,21 @@ export function AuthProvider({ children, authenticatedApi, onLogout }: AuthProvi
     }).catch(() => {})
     return () => { cancelled = true }
   }, [authenticatedApi])
+
+  useEffect(() => {
+    let cancelled = false
+    const organizationId = businessSession?.activeOrganizationId
+    if (!organizationId) {
+      setBillingOverview(null)
+      return
+    }
+    authenticatedApi.getBillingOverview(organizationId).then((overview) => {
+      if (!cancelled) setBillingOverview(overview)
+    }).catch(() => {
+      if (!cancelled) setBillingOverview(null)
+    })
+    return () => { cancelled = true }
+  }, [authenticatedApi, businessSession?.activeOrganizationId])
 
   useEffect(() => {
     let cancelled = false
@@ -76,7 +100,7 @@ export function AuthProvider({ children, authenticatedApi, onLogout }: AuthProvi
   }, [authenticatedApi])
 
   return (
-    <AuthContext.Provider value={{ authenticatedApi, logout: onLogout, currentUser, isAdmin, businessSession, refreshBusinessSession, selectBusinessContext, beginSupportSession, endSupportSession }}>
+    <AuthContext.Provider value={{ authenticatedApi, logout: onLogout, currentUser, isAdmin, businessSession, billingOverview, refreshBusinessSession, refreshBillingOverview, selectBusinessContext, beginSupportSession, endSupportSession }}>
       {children}
     </AuthContext.Provider>
   )
