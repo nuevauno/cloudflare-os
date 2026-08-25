@@ -17,7 +17,7 @@ vi.mock('../../AuthContext', () => ({
   useAuthenticatedApi: () => ({
     businessSession: null,
     billingOverview: null,
-    endSupportSession: vi.fn(),
+    endSupportSession: vi.fn<() => Promise<void>>(),
   }),
 }))
 vi.mock('../../TopBarNotice', () => ({ default: () => null }))
