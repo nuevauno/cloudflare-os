@@ -174,7 +174,7 @@ export default function UserMenu() {
             {([
               ['username', 'Correo de acceso', 'piero@demo.com'],
               ['displayName', 'Nombre', 'Piero'], ['password', 'Contraseña temporal', ''],
-              ['organizationSlug', 'ID de organización', 'piero'], ['organizationName', 'Organización', 'Empresas Piero'],
+              ['organizationSlug', 'ID de organización', 'grupo-cliente'], ['organizationName', 'Organización', 'Grupo empresarial'],
               ['companySlug', 'ID de empresa', 'rng'], ['companyLegalName', 'Razón social', 'Reciclaje Norte Grande'],
               ['companyDisplayName', 'Nombre visible', 'RNG'],
             ] as const).map(([key, label, placeholder]) => (
