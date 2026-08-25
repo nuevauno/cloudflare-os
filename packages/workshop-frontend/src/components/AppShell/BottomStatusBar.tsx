@@ -41,8 +41,8 @@ export default function BottomStatusBar() {
             className="max-w-[220px] truncate rounded-lg border border-kumo-line bg-kumo-base px-2 py-1 text-[11px] text-kumo-default outline-none focus:border-kumo-accent disabled:opacity-60"
           >
             {!companies.length && <option value="">{t('status.noCompany')}</option>}
-            {companies.map(({ organization, company }) => (
-              <option key={company.id} value={company.id}>{company.displayName} · {organization.name}</option>
+            {companies.map(({ company }) => (
+              <option key={company.id} value={company.id}>{company.displayName}</option>
             ))}
         </select>
       </div>

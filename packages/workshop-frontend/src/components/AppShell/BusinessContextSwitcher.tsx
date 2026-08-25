@@ -29,8 +29,8 @@ export default function BusinessContextSwitcher({ collapsed }: { collapsed: bool
         className="mt-1 h-9 w-full rounded-xl border border-kumo-line bg-kumo-base px-2 text-[13px] text-kumo-default outline-none focus:border-kumo-accent"
       >
         <option value="" disabled>Selecciona una empresa</option>
-        {companies.map(({ organization, company }) => (
-          <option key={company.id} value={company.id}>{company.displayName}{companies.length > 1 ? ` · ${organization.name}` : ''}</option>
+        {companies.map(({ company }) => (
+          <option key={company.id} value={company.id}>{company.displayName}</option>
         ))}
       </select>
     </div>
