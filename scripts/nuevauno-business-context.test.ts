@@ -19,7 +19,7 @@ test("support access remains visible and can be ended from every product screen"
 
 test("the release uses the canonical dated version", async () => {
   const release = await readFile("packages/workshop-frontend/src/release.ts", "utf8");
-  assert.match(release, /26\.08\.25\.6/);
+  assert.match(release, /26\.08\.25\.7/);
 });
 
 test("client provisioning accepts email login and hashes its normalized identity", async () => {
