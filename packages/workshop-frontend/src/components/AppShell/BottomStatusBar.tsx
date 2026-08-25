@@ -25,29 +25,26 @@ export default function BottomStatusBar() {
     timeZone: timezone, dateStyle: 'medium', timeStyle: 'medium',
   }).format(now), [language, now, timezone])
   const planName = billingOverview?.subscription?.plan.name ?? t('status.noPlan')
-  const multipleCompanies = companies.length > 1
 
   return (
     <footer className="flex h-10 shrink-0 items-center gap-3 overflow-x-auto border-t border-kumo-line bg-kumo-elevated px-3 text-[11px] text-kumo-subtle md:px-4">
       <div className="flex min-w-0 items-center gap-2">
         <span className="shrink-0 uppercase tracking-[0.12em]">{t('status.company')}</span>
-        {multipleCompanies ? (
-          <select
+        <select
             aria-label={t('status.selectCompany')}
             value={active?.company.id ?? ''}
+            disabled={!companies.length}
             onChange={(event) => {
               const selected = companies.find(({ company }) => company.id === event.target.value)
               if (selected) void selectBusinessContext(selected.organization.id, selected.company.id)
             }}
-            className="max-w-[220px] truncate rounded-lg border border-kumo-line bg-kumo-base px-2 py-1 text-[11px] text-kumo-default outline-none focus:border-kumo-accent"
+            className="max-w-[220px] truncate rounded-lg border border-kumo-line bg-kumo-base px-2 py-1 text-[11px] text-kumo-default outline-none focus:border-kumo-accent disabled:opacity-60"
           >
+            {!companies.length && <option value="">{t('status.noCompany')}</option>}
             {companies.map(({ organization, company }) => (
               <option key={company.id} value={company.id}>{company.displayName} · {organization.name}</option>
             ))}
-          </select>
-        ) : (
-          <span className="max-w-[220px] truncate text-kumo-default">{active?.company.displayName ?? t('status.noCompany')}</span>
-        )}
+        </select>
       </div>
       <StatusDivider />
       <span className="hidden shrink-0 uppercase tracking-[0.12em] sm:inline">NUEVAUNO {RELEASE_VERSION}</span>

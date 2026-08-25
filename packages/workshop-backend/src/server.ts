@@ -95,6 +95,7 @@ interface PlatformCoreBinding {
   selectBusinessContext(actorSubject: string, organizationId: string, companyId: string): Promise<CoreBusinessSession>;
   getBillingOverview(actorSubject: string, organizationId: string): Promise<import('@gadgets/workshop-shared/api').BillingOverviewView>;
   requestSubscriptionCancellation(actorSubject: string, organizationId: string): Promise<import('@gadgets/workshop-shared/api').BillingOverviewView>;
+  listActivity(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').ActivityFeedView>;
   beginSupportSession(input: BeginSupportSessionRequest & { idempotencyKey: string; actorSubject: string }): Promise<unknown>;
   listSupportTargets(actorSubject: string): Promise<SupportTargetView[]>;
   endSupportSession(actorSubject: string, sessionId: string): Promise<unknown>;
@@ -195,6 +196,10 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   async requestSubscriptionCancellation(organizationId: string): Promise<import('@gadgets/workshop-shared/api').BillingOverviewView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.requestSubscriptionCancellation(this.#userId.name!, organizationId);
+  }
+  async listBusinessActivity(organizationId: string, companyId: string, limit = 20): Promise<import('@gadgets/workshop-shared/api').ActivityFeedView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.listActivity(this.#userId.name!, organizationId, companyId, limit);
   }
   async beginSupportSession(input: BeginSupportSessionRequest): Promise<BusinessSessionView> {
     if (!this.#isAdmin()) throw new Error("permission_denied");

@@ -423,6 +423,42 @@ export interface BillingOverviewView {
   organizationId: string; subscription?: SubscriptionView; invoices: BillingInvoiceView[]; canManage: boolean;
 }
 
+/** One authorized business event emitted by any app through the shared activity contract. */
+export interface ActivityEventView {
+  /** Stable audit-event identifier. */
+  id: string;
+  /** Organization that owns the event. */
+  organizationId: string;
+  /** Company scope selected when the event occurred. */
+  companyId?: string;
+  /** Human name of the actor when one is available. */
+  actorDisplayName?: string;
+  /** Stable technical event name, namespaced by the producing app. */
+  eventType: string;
+  /** Shared entity kind affected by the operation. */
+  entityType?: string;
+  /** Stable identifier of the affected entity. */
+  entityId?: string;
+  /** Whether the underlying operation succeeded. */
+  outcome: "succeeded" | "failed";
+  /** ISO timestamp assigned by the kernel. */
+  occurredAt: string;
+  /** Translation key registered by the producing app. */
+  activityKey?: string;
+  /** Bounded, non-secret interpolation values for the activity label. */
+  activityData?: Record<string, string | number | boolean>;
+}
+
+/** Company-scoped activity feed resolved by the private business kernel. */
+export interface ActivityFeedView {
+  /** Organization owning every returned event. */
+  organizationId: string;
+  /** Company owning every returned event. */
+  companyId: string;
+  /** Newest events first. */
+  events: ActivityEventView[];
+}
+
 /** One organization and its authorized companies in the active business session. */
 export interface BusinessOrganizationSummary {
   /** Stable platform-core organization identifier. */
@@ -535,6 +571,9 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Request cancellation at the end of the current paid period. */
   requestSubscriptionCancellation(organizationId: string): Promise<BillingOverviewView>;
+
+  /** Read the newest authorized events for one company. */
+  listBusinessActivity(organizationId: string, companyId: string, limit?: number): Promise<ActivityFeedView>;
 
   /** Start a short, visible and audited support session. Deployment administrators only. */
   beginSupportSession(input: BeginSupportSessionRequest): Promise<BusinessSessionView>;
