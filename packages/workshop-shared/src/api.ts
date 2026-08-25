@@ -459,6 +459,82 @@ export interface ActivityFeedView {
   events: ActivityEventView[];
 }
 
+/** One line belonging to a company commercial document. */
+export interface CommercialDocumentLineView {
+  /** Stable canonical line identifier. */
+  id: string;
+  /** Stable parent document identifier. */
+  documentId: string;
+  /** Source ordering within the document. */
+  sequence: number;
+  /** Line description shown to the customer. */
+  description: string;
+  /** Exact decimal quantity represented as text. */
+  quantity: string;
+  /** Unit price in the document currency's minor unit. */
+  unitPriceMinor: number;
+  /** Net line subtotal in minor units. */
+  subtotalMinor: number;
+  /** Line tax in minor units. */
+  taxMinor: number;
+  /** Gross line total in minor units. */
+  totalMinor: number;
+  /** Canonical product variant when the source supplied a trustworthy relation. */
+  productVariantId?: string;
+}
+
+/** One company invoice or credit note from the canonical business domain. */
+export interface CommercialDocumentView {
+  /** Stable canonical document identifier. */
+  id: string;
+  /** Owning organization identifier. */
+  organizationId: string;
+  /** Owning company identifier. */
+  companyId: string;
+  /** Canonical customer identifier. */
+  contactId: string;
+  /** Commercial document kind. */
+  kind: "invoice" | "credit_note";
+  /** Current document lifecycle state. */
+  state: "draft" | "posted" | "canceled";
+  /** Human document number. */
+  number: string;
+  /** Optional source or customer reference. */
+  reference?: string;
+  /** Issue date in ISO calendar format. */
+  issueDate: string;
+  /** Optional due date in ISO calendar format. */
+  dueDate?: string;
+  /** ISO currency code. */
+  currencyCode: string;
+  /** Number of decimal digits represented by minor-unit amounts. */
+  currencyExponent: number;
+  /** Net amount in minor units. */
+  untaxedMinor: number;
+  /** Tax amount in minor units. */
+  taxMinor: number;
+  /** Gross amount in minor units. */
+  totalMinor: number;
+  /** Outstanding amount in minor units. */
+  residualMinor: number;
+  /** Payment state derived from the canonical document. */
+  paymentState: "not_paid" | "partial" | "paid" | "reversed";
+  /** Customer name resolved from the shared contact. */
+  contactDisplayName: string;
+  /** Canonical document lines, in source order. */
+  lines?: CommercialDocumentLineView[];
+}
+
+/** Server-authorized commercial documents for exactly one company. */
+export interface CommercialDocumentListView {
+  /** Organization owning every returned document. */
+  organizationId: string;
+  /** Company owning every returned document. */
+  companyId: string;
+  /** Newest documents first. */
+  documents: CommercialDocumentView[];
+}
+
 /** One organization and its authorized companies in the active business session. */
 export interface BusinessOrganizationSummary {
   /** Stable platform-core organization identifier. */
@@ -574,6 +650,9 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Read the newest authorized events for one company. */
   listBusinessActivity(organizationId: string, companyId: string, limit?: number): Promise<ActivityFeedView>;
+
+  /** Read authorized invoices and credit notes for one company. */
+  listCommercialDocuments(organizationId: string, companyId: string, limit?: number): Promise<CommercialDocumentListView>;
 
   /** Start a short, visible and audited support session. Deployment administrators only. */
   beginSupportSession(input: BeginSupportSessionRequest): Promise<BusinessSessionView>;

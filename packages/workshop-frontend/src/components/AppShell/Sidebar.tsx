@@ -126,6 +126,12 @@ export default function Sidebar({
               icon={<NuevaunoIcon name="documentos" />}
               collapsed={collapsed}
             />
+            <SidebarItem
+              to="/sales"
+              label={t('nav.sales')}
+              icon={<NuevaunoIcon name="sale" />}
+              collapsed={collapsed}
+            />
             {/* Gatekeeper management apps (e.g. the Context Library), listed dynamically. */}
             {gatekeeperApps.map((app) => {
               // Escape the icon URL for safe interpolation into a CSS url("…") string.
