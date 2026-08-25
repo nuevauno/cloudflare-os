@@ -5,9 +5,21 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@tanstack/react-router', () => ({ useRouterState: () => '/' }))
+vi.mock('@tanstack/react-router', () => ({
+  useRouterState: () => '/',
+  Link: ({ children, to: _to, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { to: string }) => (
+    <a {...props}>{children}</a>
+  ),
+}))
 
 vi.mock('../../RpcContext', () => ({ useConnectionLost: () => false }))
+vi.mock('../../AuthContext', () => ({
+  useAuthenticatedApi: () => ({
+    businessSession: null,
+    billingOverview: null,
+    endSupportSession: vi.fn(),
+  }),
+}))
 vi.mock('../../TopBarNotice', () => ({ default: () => null }))
 vi.mock('./CommandPalette', () => ({ default: () => null }))
 vi.mock('./Sidebar', () => ({
