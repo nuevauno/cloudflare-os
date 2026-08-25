@@ -32,6 +32,12 @@ import { retryOnDoReset, wrapDoStubForTelemetry } from "./do-retry";
 
 const logger = createWorkshopLogger("workshop.server");
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
+  })[character]!);
+}
+
 // Set once we've asked the AdminSettings DO to install the bundled format blueprints (see the
 // fetch handler), so later requests skip the call. The DO holds the real answer.
 let formatBlueprintInstallStarted = false;
@@ -96,6 +102,16 @@ interface PlatformCoreBinding {
     organization: { slug: string; name: string };
     company: { slug: string; legalName: string; displayName?: string; countryCode: string; currencyCode: string; timezone: string };
   }): Promise<unknown>;
+  getPasswordRecoveryTarget(identifier: string): Promise<{
+    subject: string;
+    email: string;
+    displayName: string;
+  } | null>;
+  recordPasswordRecovery(
+    subject: string,
+    eventType: "identity.password_reset_requested" | "identity.password_reset_completed",
+    outcome: "succeeded" | "failed",
+  ): Promise<void>;
 }
 
 function businessSessionView(session: CoreBusinessSession): BusinessSessionView {
@@ -829,6 +845,65 @@ class PublicApiImpl extends RpcTarget implements PublicApi {
     });
 
     return `${username}:${token}`;
+  }
+
+  async requestPasswordReset(identifier: string): Promise<void> {
+    if (!isPasswordAuthEnabled(this.env) || !this.env.PLATFORM_CORE || !this.env.EMAIL) return;
+    const startedAt = Date.now();
+    try {
+      const target = await this.env.PLATFORM_CORE.getPasswordRecoveryTarget(identifier);
+      if (target) {
+        const user = this.users.get(this.users.idFromName(target.subject));
+        const token = await user.beginPasswordReset();
+        if (token) {
+          const origin = String(this.env.PUBLIC_BASE_URL ?? '').replace(/\/$/, '');
+          const link = `${origin}/?reset=${encodeURIComponent(token)}&user=${encodeURIComponent(target.subject)}`;
+          try {
+            await this.env.EMAIL.send({
+              to: { email: target.email, name: target.displayName },
+              from: { email: 'acceso@notify.nuevauno.com', name: 'NUEVAUNO' },
+              subject: 'Restablece tu acceso a NUEVAUNO',
+              text: `Hola ${target.displayName}. Usa este enlace durante los próximos 20 minutos para crear una nueva contraseña: ${link}\n\nSi no lo solicitaste, ignora este mensaje.`,
+              html: `<div style="font-family:Urbanist,Arial,sans-serif;font-weight:400;color:#111827"><p>Hola ${escapeHtml(target.displayName)}.</p><p>Usa este enlace durante los próximos 20 minutos para crear una nueva contraseña.</p><p><a href="${escapeHtml(link)}" style="color:#FE4A23">Restablecer contraseña</a></p><p>Si no lo solicitaste, ignora este mensaje.</p></div>`,
+            });
+            await this.env.PLATFORM_CORE.recordPasswordRecovery(
+              target.subject, 'identity.password_reset_requested', 'succeeded');
+          } catch (error) {
+            logger.warn("password recovery delivery failed", {
+              event: "identity.password_reset.delivery.failed",
+              error,
+            });
+            await this.env.PLATFORM_CORE.recordPasswordRecovery(
+              target.subject, 'identity.password_reset_requested', 'failed');
+          }
+        }
+      }
+    } catch (error) {
+      logger.warn("password recovery request failed", {
+        event: "identity.password_reset.request.failed",
+        error,
+      });
+    } finally {
+      const remaining = 350 - (Date.now() - startedAt);
+      if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+    }
+  }
+
+  async resetPassword(
+      username: string, token: string, newPasswordHash: Uint8Array): Promise<boolean> {
+    if (!isPasswordAuthEnabled(this.env) || token.length < 32 || token.length > 160 ||
+        newPasswordHash.byteLength !== 32) return false;
+    const normalized = normalizeUsername(username);
+    const user = this.users.get(this.users.idFromName(normalized));
+    const reset = await user.resetPassword(token, newPasswordHash);
+    if (this.env.PLATFORM_CORE) {
+      await this.env.PLATFORM_CORE.recordPasswordRecovery(
+        normalized,
+        'identity.password_reset_completed',
+        reset ? 'succeeded' : 'failed',
+      );
+    }
+    return reset;
   }
 
   async createAccount(username: string, displayName: string, passwordHash: Uint8Array)

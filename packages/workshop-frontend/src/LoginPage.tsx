@@ -17,8 +17,15 @@ interface LoginPageProps {
 }
 
 export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
+  const resetParams = new URLSearchParams(window.location.search)
+  const resetToken = resetParams.get('reset') ?? ''
+  const resetUser = resetParams.get('user') ?? ''
+  const passwordResetSuccess = resetParams.get('password-reset') === 'success'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [recoveryMode, setRecoveryMode] = useState(Boolean(resetToken && resetUser))
+  const [recoverySent, setRecoverySent] = useState(passwordResetSuccess)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const serverConfig = useServerConfig()
@@ -48,6 +55,39 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No fue posible ingresar')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRecovery = async (e: FormEvent) => {
+    e.preventDefault()
+    if (loading) return
+    setLoading(true)
+    setError(null)
+    try {
+      if (resetToken && resetUser) {
+        if (password.length < 8 || password !== confirmPassword) {
+          setError('Las contraseñas deben coincidir y tener al menos 8 caracteres')
+          return
+        }
+        const changed = await rpcStub.resetPassword(
+          resetUser,
+          resetToken,
+          await hashPassword(resetUser, password),
+        )
+        if (!changed) {
+          setError('Este enlace venció o ya fue utilizado')
+          return
+        }
+        window.location.assign('/?password-reset=success')
+        return
+      }
+      if (!username.trim()) return
+      await rpcStub.requestPasswordReset(username.trim())
+      setRecoverySent(true)
+    } catch {
+      setRecoverySent(true)
     } finally {
       setLoading(false)
     }
@@ -101,11 +141,80 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <NuevaunoIdentity siteName={siteName} size={40} className="mb-3 text-xl text-kumo-default" />
-          <p className="text-sm text-kumo-subtle mt-1">Ingresa a tu cuenta</p>
+          <p className="text-sm text-kumo-subtle mt-1">
+            {recoveryMode ? 'Recupera tu acceso' : 'Ingresa a tu cuenta'}
+          </p>
         </div>
 
         {passwordAuthEnabled && (
           <>
+            {recoverySent && !recoveryMode && (
+              <Banner
+                variant="default"
+                title={passwordResetSuccess ? 'Contraseña actualizada. Ya puedes ingresar.' : 'Si la cuenta existe, recibirás un enlace de recuperación.'}
+                className="mb-4"
+              />
+            )}
+            {recoveryMode ? (
+              <form onSubmit={handleRecovery} className="space-y-4">
+                {!resetToken && (
+                  <Input
+                    className="w-full"
+                    label="Correo o usuario"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoFocus
+                    autoComplete="username"
+                    disabled={loading}
+                    placeholder="tu@empresa.com"
+                  />
+                )}
+                {resetToken && (
+                  <>
+                    <Input
+                      className="w-full"
+                      type="password"
+                      label="Nueva contraseña"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoFocus
+                      autoComplete="new-password"
+                      disabled={loading}
+                      placeholder="Mínimo 8 caracteres"
+                    />
+                    <Input
+                      className="w-full"
+                      type="password"
+                      label="Repite la contraseña"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      autoComplete="new-password"
+                      disabled={loading}
+                      placeholder="Repite tu contraseña"
+                    />
+                  </>
+                )}
+                {error && <Banner variant="error" title={error} />}
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={loading}
+                  disabled={resetToken ? password.length < 8 || password !== confirmPassword : !username.trim()}
+                  className="w-full justify-center"
+                >
+                  {resetToken ? 'Guardar contraseña' : 'Enviar enlace'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setRecoveryMode(false)}
+                  className="w-full justify-center"
+                >
+                  Volver al ingreso
+                </Button>
+              </form>
+            ) : (
+            <>
             {/* Username / password form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
@@ -145,12 +254,22 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
               </Button>
             </form>
 
+            <button
+              type="button"
+              onClick={() => { setRecoveryMode(true); setRecoverySent(false); setError(null) }}
+              className="mt-4 w-full text-center text-sm text-kumo-brand hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+
             <p className="text-center text-sm text-kumo-subtle mt-6">
               ¿Aún no tienes una cuenta?{' '}
-              <Link to="/signup" className="text-kumo-brand hover:underline font-medium">
+              <Link to="/signup" className="text-kumo-brand hover:underline font-normal">
                 Crear cuenta
               </Link>
             </p>
+            </>
+            )}
           </>
         )}
 

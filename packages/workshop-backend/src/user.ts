@@ -82,6 +82,12 @@ type LoginSessionRecord = {
   created: Date,
 }
 
+type PasswordResetRecord = {
+  tokenHash: Uint8Array;
+  expiresAt: number;
+  requestedAt: number;
+};
+
 // Blueprint record stored in the user's `blueprints` collection.
 type BlueprintUserRecord = {
   id: string;
@@ -222,6 +228,7 @@ function makeUserStorage(storage: DurableObjectStorage) {
       //
       // null = password disabled (e.g. because some other auth mechanism is used)
       passwordHashHash: <Uint8Array | null>null,
+      passwordReset: <PasswordResetRecord | null>null,
     }
   });
 }
@@ -445,6 +452,54 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
 
     let newHashHash = new Uint8Array(await crypto.subtle.digest('SHA-256', newHash));
     this.storage.passwordHashHash.put(newHashHash);
+  }
+
+  async beginPasswordReset(): Promise<string | null> {
+    if (!this.storage.created.get() || !this.storage.passwordHashHash.get()) return null;
+    const now = Date.now();
+    const previous = this.storage.passwordReset.get();
+    if (previous && now - previous.requestedAt < 5 * 60_000) return null;
+
+    const tokenBytes = new Uint8Array(32);
+    crypto.getRandomValues(tokenBytes);
+    const token = tokenBytes.toBase64({ alphabet: 'base64url' });
+    const tokenHash = new Uint8Array(await crypto.subtle.digest('SHA-256', tokenBytes));
+    this.storage.passwordReset.put({
+      tokenHash,
+      requestedAt: now,
+      expiresAt: now + 20 * 60_000,
+    });
+    return token;
+  }
+
+  async resetPassword(token: string, newHash: Uint8Array): Promise<boolean> {
+    const reset = this.storage.passwordReset.get();
+    if (!reset || newHash.byteLength !== 32 || reset.expiresAt <= Date.now()) {
+      if (reset?.expiresAt && reset.expiresAt <= Date.now()) {
+        this.storage.passwordReset.put(null);
+      }
+      return false;
+    }
+
+    let provided: Uint8Array;
+    try {
+      provided = Uint8Array.fromBase64(token, {
+        alphabet: 'base64url',
+        lastChunkHandling: 'strict',
+      });
+    } catch {
+      return false;
+    }
+    const providedHash = new Uint8Array(await crypto.subtle.digest('SHA-256', provided));
+    if (!bytesEqual(providedHash, reset.tokenHash)) return false;
+
+    const newHashHash = new Uint8Array(await crypto.subtle.digest('SHA-256', newHash));
+    this.storage.passwordHashHash.put(newHashHash);
+    this.storage.passwordReset.put(null);
+    for (const session of Array.from(this.storage.sessions.list())) {
+      this.storage.sessions.delete(session.tokenId);
+    }
+    return true;
   }
 
   async whoami(): Promise<AiChatAuthorInfo> {
