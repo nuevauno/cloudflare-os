@@ -465,6 +465,8 @@ export interface CommercialDocumentLineView {
   id: string;
   /** Stable parent document identifier. */
   documentId: string;
+  /** Semantic role retained from the source ledger. */
+  lineType: "product" | "tax" | "payment_term" | "rounding" | "other";
   /** Source ordering within the document. */
   sequence: number;
   /** Line description shown to the customer. */

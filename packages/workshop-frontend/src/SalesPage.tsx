@@ -49,7 +49,7 @@ export default function SalesPage() {
               <span className="text-xs text-kumo-subtle">{document.residualMinor ? `${t('sales.balance')}: ${money(document, document.residualMinor, language)}` : t('sales.paid')}</span>
             </button>
             {expanded === document.id && <div className="border-t border-kumo-line bg-kumo-base px-4 py-3 sm:pl-16">
-              {document.lines?.map((line) => <div key={line.id} className="grid gap-1 border-b border-kumo-line py-2 text-xs last:border-b-0 sm:grid-cols-[1fr_auto_auto]"><span className="text-kumo-default">{line.description}</span><span className="text-kumo-subtle">{line.quantity}</span><span className="text-kumo-default">{money(document, line.totalMinor, language)}</span></div>)}
+              {document.lines?.filter((line) => line.lineType === 'product').map((line) => <div key={line.id} className="grid gap-1 border-b border-kumo-line py-2 text-xs last:border-b-0 sm:grid-cols-[1fr_auto_auto]"><span className="text-kumo-default">{line.description}</span><span className="text-kumo-subtle">{line.quantity}</span><span className="text-kumo-default">{money(document, line.totalMinor, language)}</span></div>)}
             </div>}
           </article>
         )) : <p className="p-6 text-sm text-kumo-subtle">{t('sales.empty')}</p>}
