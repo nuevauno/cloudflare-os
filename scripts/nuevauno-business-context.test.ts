@@ -19,7 +19,7 @@ test("support access remains visible and can be ended from every product screen"
 
 test("the release uses the canonical dated version", async () => {
   const release = await readFile("packages/workshop-frontend/src/release.ts", "utf8");
-  assert.match(release, /26\.08\.25\.1/);
+  assert.match(release, /26\.08\.25\.2/);
 });
 
 test("client provisioning accepts email login and hashes its normalized identity", async () => {
@@ -31,4 +31,15 @@ test("client provisioning accepts email login and hashes its normalized identity
   assert.match(menu, /hashPassword\(login, provision\.password\)/);
   assert.match(menu, /Correo de acceso/);
   assert.match(login, /Correo o usuario/);
+});
+
+test("the shell keeps company switching visible and streams canonical activity", async () => {
+  const status = await readFile("packages/workshop-frontend/src/components/AppShell/BottomStatusBar.tsx", "utf8");
+  const activity = await readFile("packages/workshop-frontend/src/components/AppShell/BusinessActivity.tsx", "utf8");
+  const server = await readFile("packages/workshop-backend/src/server.ts", "utf8");
+  assert.match(status, /<select/);
+  assert.doesNotMatch(status, /multipleCompanies/);
+  assert.match(activity, /listBusinessActivity/);
+  assert.match(activity, /POLL_MS = 10_000/);
+  assert.match(server, /PLATFORM_CORE\.listActivity\(this\.#userId\.name!/);
 });

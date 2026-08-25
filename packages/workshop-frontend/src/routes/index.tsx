@@ -5,6 +5,7 @@ import { useKumoToastManager } from "@cloudflare/kumo";
 import { ChatInput } from "../ChatInterface";
 import MeshBackground from "../components/MeshBackground";
 import HomeTaskSuggestions from "../components/AppShell/HomeTaskSuggestions";
+import BusinessActivity from "../components/AppShell/BusinessActivity";
 import { useAuthenticatedApi } from "../AuthContext";
 import { RpcStub } from "capnweb";
 import {
@@ -208,6 +209,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
             setSeed((prev) => ({ text: suggestion, nonce: (prev?.nonce ?? 0) + 1 }))
           }
         />
+        <BusinessActivity />
       </div>
     </div>
   );
