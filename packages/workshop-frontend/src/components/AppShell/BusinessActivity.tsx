@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ActivityEventView } from '@gadgets/workshop-shared/api'
 import { useAuthenticatedApi } from '../../AuthContext'
 import { useI18n } from '../../i18n'
+import NuevaunoIcon from '../NuevaunoIcon'
+import { activityAppIcon } from './activityAppIcon'
 
 const POLL_MS = 10_000
 
@@ -65,7 +67,9 @@ export default function BusinessActivity() {
         <ol className="max-h-64 divide-y divide-kumo-line overflow-y-auto">
           {events.map((event) => (
             <li key={event.id} className="flex gap-3 py-3 first:pt-1">
-              <span aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 border border-[#FE4A23]" />
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-kumo-line bg-kumo-base">
+                <NuevaunoIcon name={activityAppIcon(event)} size={20} />
+              </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-kumo-default">{labelFor(event, language)}</p>
                 <p className="mt-1 text-[11px] text-kumo-subtle">{formatter.format(new Date(event.occurredAt))}</p>

@@ -19,7 +19,7 @@ test("support access remains visible and can be ended from every product screen"
 
 test("the release uses the canonical dated version", async () => {
   const release = await readFile("packages/workshop-frontend/src/release.ts", "utf8");
-  assert.match(release, /26\.08\.25\.3/);
+  assert.match(release, /26\.08\.25\.4/);
 });
 
 test("client provisioning accepts email login and hashes its normalized identity", async () => {
@@ -44,5 +44,6 @@ test("the shell keeps company switching visible and streams canonical activity",
   assert.doesNotMatch(switcher, /organization\.name/);
   assert.match(activity, /listBusinessActivity/);
   assert.match(activity, /POLL_MS = 10_000/);
+  assert.match(activity, /activityAppIcon\(event\)/);
   assert.match(server, /PLATFORM_CORE\.listActivity\(this\.#userId\.name!/);
 });
