@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { CommercialDocumentListView, CommercialDocumentView } from '@gadgets/workshop-shared/api'
+import type { AuthenticatedApi, BusinessSessionView, CommercialDocumentListView, CommercialDocumentView } from '@gadgets/workshop-shared/api'
 import { useAuthenticatedApi } from './AuthContext'
 import { useI18n } from './i18n'
 import NuevaunoIcon from './components/NuevaunoIcon'
@@ -9,6 +9,16 @@ export function resolveSalesScope(session: ReturnType<typeof useAuthenticatedApi
   const companies = session.organizations.flatMap((organization) =>
     organization.companies.map((company) => ({ organizationId: organization.id, companyId: company.id })))
   return companies.find(({ companyId }) => companyId === session.activeCompanyId) ?? companies[0] ?? null
+}
+
+export async function loadCommercialDocuments(
+  authenticatedApi: Pick<AuthenticatedApi, 'getBusinessSession' | 'listCommercialDocuments'>,
+  session: BusinessSessionView | null,
+): Promise<CommercialDocumentListView | null> {
+  const resolvedSession = session ?? await authenticatedApi.getBusinessSession()
+  const scope = resolveSalesScope(resolvedSession)
+  if (!scope) return null
+  return authenticatedApi.listCommercialDocuments(scope.organizationId, scope.companyId, 100)
 }
 
 const stateKey: Record<CommercialDocumentView['state'], 'sales.state.draft' | 'sales.state.posted' | 'sales.state.canceled'> = {
@@ -28,19 +38,15 @@ export default function SalesPage() {
   const [result, setResult] = useState<CommercialDocumentListView | null>(null)
   const [failed, setFailed] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
-  const scope = resolveSalesScope(businessSession)
-  const organizationId = scope?.organizationId
-  const companyId = scope?.companyId
 
   useEffect(() => {
     let alive = true
-    if (!organizationId || !companyId) { setResult(null); return () => { alive = false } }
     setFailed(false)
-    authenticatedApi.listCommercialDocuments(organizationId, companyId, 100)
+    loadCommercialDocuments(authenticatedApi, businessSession)
       .then((next) => { if (alive) setResult(next) })
       .catch(() => { if (alive) { setResult(null); setFailed(true) } })
     return () => { alive = false }
-  }, [authenticatedApi, organizationId, companyId])
+  }, [authenticatedApi, businessSession])
 
   return (
     <div className="mx-auto w-full max-w-6xl px-5 py-8 md:px-8 md:py-10">

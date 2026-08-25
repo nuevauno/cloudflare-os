@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { resolveSalesScope } from './SalesPage'
+import { describe, expect, it, vi } from 'vitest'
+import type { CommercialDocumentListView } from '@gadgets/workshop-shared/api'
+import { loadCommercialDocuments, resolveSalesScope } from './SalesPage'
 
 describe('resolveSalesScope', () => {
   const session = {
@@ -15,5 +16,27 @@ describe('resolveSalesScope', () => {
   it('uses the active authorized company when present', () => {
     expect(resolveSalesScope({ ...session, activeOrganizationId: 'org-rng', activeCompanyId: 'cmp-rng' }))
       .toEqual({ organizationId: 'org-rng', companyId: 'cmp-rng' })
+  })
+
+  it('loads the authorized company when a direct route opens before context is ready', async () => {
+    const result: CommercialDocumentListView = {
+      organizationId: 'org-rng',
+      companyId: 'cmp-rng',
+      documents: [],
+    }
+    const getBusinessSession = vi.fn<() => Promise<typeof session>>().mockResolvedValue(session)
+    const listCommercialDocuments = vi.fn<(
+      organizationId: string,
+      companyId: string,
+      limit?: number,
+    ) => Promise<CommercialDocumentListView>>().mockResolvedValue(result)
+
+    await expect(loadCommercialDocuments({
+      getBusinessSession,
+      listCommercialDocuments,
+    }, null)).resolves.toBe(result)
+
+    expect(getBusinessSession).toHaveBeenCalledOnce()
+    expect(listCommercialDocuments).toHaveBeenCalledWith('org-rng', 'cmp-rng', 100)
   })
 })
