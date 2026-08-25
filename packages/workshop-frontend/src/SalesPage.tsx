@@ -4,6 +4,13 @@ import { useAuthenticatedApi } from './AuthContext'
 import { useI18n } from './i18n'
 import NuevaunoIcon from './components/NuevaunoIcon'
 
+export function resolveSalesScope(session: ReturnType<typeof useAuthenticatedApi>['businessSession']) {
+  if (!session) return null
+  const companies = session.organizations.flatMap((organization) =>
+    organization.companies.map((company) => ({ organizationId: organization.id, companyId: company.id })))
+  return companies.find(({ companyId }) => companyId === session.activeCompanyId) ?? companies[0] ?? null
+}
+
 const stateKey: Record<CommercialDocumentView['state'], 'sales.state.draft' | 'sales.state.posted' | 'sales.state.canceled'> = {
   draft: 'sales.state.draft', posted: 'sales.state.posted', canceled: 'sales.state.canceled',
 }
@@ -19,16 +26,19 @@ export default function SalesPage() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi()
   const { language, t } = useI18n()
   const [result, setResult] = useState<CommercialDocumentListView | null>(null)
+  const [failed, setFailed] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
-  const organizationId = businessSession?.activeOrganizationId
-  const companyId = businessSession?.activeCompanyId
+  const scope = resolveSalesScope(businessSession)
+  const organizationId = scope?.organizationId
+  const companyId = scope?.companyId
 
   useEffect(() => {
     let alive = true
     if (!organizationId || !companyId) { setResult(null); return () => { alive = false } }
+    setFailed(false)
     authenticatedApi.listCommercialDocuments(organizationId, companyId, 100)
       .then((next) => { if (alive) setResult(next) })
-      .catch(() => { if (alive) setResult(null) })
+      .catch(() => { if (alive) { setResult(null); setFailed(true) } })
     return () => { alive = false }
   }, [authenticatedApi, organizationId, companyId])
 
@@ -40,7 +50,7 @@ export default function SalesPage() {
         <p className="mt-2 text-sm text-kumo-subtle">{t('sales.subtitle')}</p>
       </header>
       <div className="overflow-hidden rounded-2xl border border-kumo-line bg-kumo-elevated">
-        {result?.documents.length ? result.documents.map((document) => (
+        {failed ? <p className="p-6 text-sm text-kumo-danger">{t('sales.error')}</p> : result?.documents.length ? result.documents.map((document) => (
           <article key={document.id} className="border-b border-kumo-line last:border-b-0">
             <button type="button" onClick={() => setExpanded(expanded === document.id ? null : document.id)} className="grid w-full cursor-pointer gap-3 p-4 text-left sm:grid-cols-[40px_1fr_auto_auto] sm:items-center">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-kumo-line bg-kumo-base"><NuevaunoIcon name="sale" size={17} /></span>
