@@ -110,6 +110,13 @@ export interface WranglerConfig {
   r2_buckets?: BindingDecl[];
   /** Worker Loader bindings (the Gadget sandbox). */
   worker_loaders?: BindingDecl[];
+  /** Cloudflare Email Service outbound bindings. */
+  send_email?: Array<{
+    name: string;
+    allowed_sender_addresses?: string[];
+    allowed_destination_addresses?: string[];
+    destination_address?: string;
+  }>;
   /** Service bindings; targets become `$WORKER_NAME(<pkg>)` placeholders. */
   services?: ServiceBinding[];
   /** Browser Rendering binding (Gadget PDF exports). */
@@ -233,7 +240,7 @@ export interface WorkerBuild {
 // on a deployable worker needs an explicit decision about how customer instances get it.
 const HANDLED_CONFIG_KEYS = new Set([
   "$schema", "name", "main", "build", "compatibility_date", "compatibility_flags", "rules",
-  "migrations", "observability", "kv_namespaces", "r2_buckets", "worker_loaders", "services",
+  "migrations", "observability", "kv_namespaces", "r2_buckets", "worker_loaders", "send_email", "services",
   "assets", "vars",
   // Browser Rendering (Gadget PDF exports). Unlike artifacts it is generally available, so it
   // passes through to customer instances as a placeholder-free binding, like the AI binding.
@@ -365,6 +372,19 @@ export function buildWorkerEntry(
   }
   for (const loader of config.worker_loaders ?? []) {
     bindings.push({ type: "worker_loader", name: loader.binding });
+  }
+  for (const email of config.send_email ?? []) {
+    bindings.push({
+      type: "send_email",
+      name: email.name,
+      ...(email.allowed_sender_addresses ? {
+        allowed_sender_addresses: email.allowed_sender_addresses,
+      } : {}),
+      ...(email.allowed_destination_addresses ? {
+        allowed_destination_addresses: email.allowed_destination_addresses,
+      } : {}),
+      ...(email.destination_address ? { destination_address: email.destination_address } : {}),
+    });
   }
   for (const svc of config.services ?? []) {
     bindings.push({

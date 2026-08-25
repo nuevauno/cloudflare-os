@@ -107,6 +107,15 @@ export interface PublicApi extends RpcTarget {
   login(username: string, passwordHash: Uint8Array): Promise<string | null>;
 
   /**
+   * Request a password-reset email. The call deliberately has no account-existence result so the
+   * login surface cannot be used to enumerate identities.
+   */
+  requestPasswordReset(identifier: string): Promise<void>;
+
+  /** Consume a short-lived, single-use reset token and replace the password hash. */
+  resetPassword(username: string, token: string, newPasswordHash: Uint8Array): Promise<boolean>;
+
+  /**
    * Create a new account. Returns a token to store in local storage and pass to `authenticate()`
    * in the future.
    *
