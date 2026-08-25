@@ -12,6 +12,8 @@ function labelFor(event: ActivityEventView, language: 'es' | 'en'): string {
   const labels: Record<string, [string, string]> = {
     'pos.order.completed': [`${actor} completó una venta`, `${actor} completed a sale`],
     'sale.invoice.issued': [`${actor} emitió una factura`, `${actor} issued an invoice`],
+    'sale.invoice.imported': [`${actor} incorporó una factura`, `${actor} imported an invoice`],
+    'sale.credit_note.imported': [`${actor} incorporó una nota de crédito`, `${actor} imported a credit note`],
     'crm.lead.created': [`${actor} creó una oportunidad`, `${actor} created an opportunity`],
     'contact.created': [`${actor} agregó un contacto`, `${actor} added a contact`],
     'kodo.task.completed': ['KODO completó una tarea', 'KODO completed a task'],
