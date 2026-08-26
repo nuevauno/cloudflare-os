@@ -13,8 +13,8 @@ describe('loadAgentRuns', () => {
 
   it('does not query agent history without an authorized active company', async () => {
     const session = { actorSubject: 'piero', effectiveSubject: 'piero', organizations: [] }
-    const listAgentRuns = vi.fn()
-    const getBusinessSession = vi.fn()
+    const listAgentRuns = vi.fn<(organizationId: string, companyId: string, limit?: number) => Promise<{ organizationId: string; companyId: string; runs: [] }>>()
+    const getBusinessSession = vi.fn<() => Promise<typeof session>>()
     await expect(loadAgentRuns({ getBusinessSession, listAgentRuns }, session)).resolves.toBeNull()
     expect(listAgentRuns).not.toHaveBeenCalled()
   })
