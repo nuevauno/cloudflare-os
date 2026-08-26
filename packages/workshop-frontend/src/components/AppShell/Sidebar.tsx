@@ -138,6 +138,12 @@ export default function Sidebar({
               icon={<NuevaunoIcon name="nuevauno_billing" />}
               collapsed={collapsed}
             />
+            <SidebarItem
+              to="/certificates"
+              label={t('nav.certificates')}
+              icon={<NuevaunoIcon name="nuevauno_certificates" />}
+              collapsed={collapsed}
+            />
             {/* Gatekeeper management apps (e.g. the Context Library), listed dynamically. */}
             {gatekeeperApps.map((app) => {
               // Escape the icon URL for safe interpolation into a CSS url("…") string.

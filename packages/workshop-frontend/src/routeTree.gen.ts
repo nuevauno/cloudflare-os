@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as BlueprintsRouteImport } from './routes/blueprints'
+import { Route as CertificatesRouteImport } from './routes/certificates'
 import { Route as CollectionsRouteImport } from './routes/collections'
 import { Route as ContextRouteImport } from './routes/context'
 import { Route as ExploreRouteImport } from './routes/explore'
@@ -46,6 +47,11 @@ const BillingRoute = BillingRouteImport.update({
 const BlueprintsRoute = BlueprintsRouteImport.update({
   id: '/blueprints',
   path: '/blueprints',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CertificatesRoute = CertificatesRouteImport.update({
+  id: '/certificates',
+  path: '/certificates',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CollectionsRoute = CollectionsRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/billing': typeof BillingRoute
   '/blueprints': typeof BlueprintsRoute
+  '/certificates': typeof CertificatesRoute
   '/collections': typeof CollectionsRoute
   '/context': typeof ContextRoute
   '/explore': typeof ExploreRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/billing': typeof BillingRoute
   '/blueprints': typeof BlueprintsRoute
+  '/certificates': typeof CertificatesRoute
   '/collections': typeof CollectionsRoute
   '/context': typeof ContextRoute
   '/explore': typeof ExploreRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/billing': typeof BillingRoute
   '/blueprints': typeof BlueprintsRoute
+  '/certificates': typeof CertificatesRoute
   '/collections': typeof CollectionsRoute
   '/context': typeof ContextRoute
   '/explore': typeof ExploreRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/billing'
     | '/blueprints'
+    | '/certificates'
     | '/collections'
     | '/context'
     | '/explore'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/billing'
     | '/blueprints'
+    | '/certificates'
     | '/collections'
     | '/context'
     | '/explore'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/billing'
     | '/blueprints'
+    | '/certificates'
     | '/collections'
     | '/context'
     | '/explore'
@@ -248,6 +260,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   BillingRoute: typeof BillingRoute
   BlueprintsRoute: typeof BlueprintsRoute
+  CertificatesRoute: typeof CertificatesRoute
   CollectionsRoute: typeof CollectionsRoute
   ContextRoute: typeof ContextRoute
   ExploreRoute: typeof ExploreRoute
@@ -292,6 +305,13 @@ declare module '@tanstack/react-router' {
       path: '/blueprints'
       fullPath: '/blueprints'
       preLoaderRoute: typeof BlueprintsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/certificates': {
+      id: '/certificates'
+      path: '/certificates'
+      fullPath: '/certificates'
+      preLoaderRoute: typeof CertificatesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/collections': {
@@ -400,6 +420,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   BillingRoute: BillingRoute,
   BlueprintsRoute: BlueprintsRoute,
+  CertificatesRoute: CertificatesRoute,
   CollectionsRoute: CollectionsRoute,
   ContextRoute: ContextRoute,
   ExploreRoute: ExploreRoute,
