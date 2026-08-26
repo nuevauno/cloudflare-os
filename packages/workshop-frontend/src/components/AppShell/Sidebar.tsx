@@ -150,6 +150,12 @@ export default function Sidebar({
               icon={<NuevaunoIcon name="nuevauno_dte" />}
               collapsed={collapsed}
             />
+            <SidebarItem
+              to="/fiscal"
+              label={t('nav.fiscal')}
+              icon={<NuevaunoIcon name="nuevauno_dte" />}
+              collapsed={collapsed}
+            />
             {/* Gatekeeper management apps (e.g. the Context Library), listed dynamically. */}
             {gatekeeperApps.map((app) => {
               // Escape the icon URL for safe interpolation into a CSS url("…") string.
