@@ -1,10 +1,10 @@
 import { Text, Loader } from '@cloudflare/kumo'
-import { LinkSimple } from '@/components/NuevaunoGlyphs'
 import { VendorDescription } from '@gadgets/workshop-shared/gatekeeper'
-import Avatar from './components/Avatar'
+import { GatekeeperIcon } from './components/GatekeeperIcon'
 
 export interface VendorCardProps {
   vendor: VendorDescription
+  vendorId: string
   onClick: () => void
   /** Whether this vendor is currently being connected */
   loading?: boolean
@@ -14,6 +14,7 @@ export interface VendorCardProps {
 
 export default function VendorCard({
   vendor,
+  vendorId,
   onClick,
   loading = false,
   disabled = false,
@@ -25,12 +26,7 @@ export default function VendorCard({
         disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:border-kumo-brand hover:bg-kumo-tint'
       } ${disabled && !loading ? 'opacity-50' : ''}`}
     >
-      <Avatar
-        src={vendor.logo?.url}
-        background={vendor.color}
-        size={48}
-        fallback={<LinkSimple size={22} />}
-      />
+      <GatekeeperIcon vendorId={vendorId} fallbackText={vendor.displayName} size={22} className="h-12 w-12 rounded-lg" />
       <div className="flex-1">
         <Text variant="body" bold as="span" DANGEROUS_className="block text-base">
           {vendor.displayName}

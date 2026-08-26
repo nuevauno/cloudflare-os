@@ -10,6 +10,7 @@ import {
 } from "@gadgets/workshop-shared/api";
 import { VendorDescription } from "@gadgets/workshop-shared/gatekeeper";
 import { NuevaunoMark } from "./NuevaunoIdentity";
+import { GatekeeperIcon } from "./GatekeeperIcon";
 
 const gradients = [
   "from-[#4A154B] to-[#7C3085]",
@@ -76,14 +77,8 @@ export function BindingBadge({
     : undefined;
 
   let icon: React.ReactNode;
-  if (vendorDescription?.logo?.url) {
-    icon = (
-      <img
-        src={vendorDescription.logo.url}
-        alt=""
-        className="h-3 w-3 object-contain"
-      />
-    );
+  if (badge.vendorKey) {
+    icon = <GatekeeperIcon vendorId={badge.vendorKey} fallbackText={badge.label} size={12} className="h-3 w-3" />;
   } else if (badge.type === "aiModel") {
     icon = <Robot size={11} />;
   } else if (badge.type === "agentSpawner") {

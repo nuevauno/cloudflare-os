@@ -25,6 +25,8 @@ import { useDocumentTitle } from '../useDocumentTitle'
 import { useSiteName } from '../ServerConfigContext'
 import { AccountsSubscriberAdapter } from '../accountsSubscriber'
 import NuevaunoIdentity from '../components/NuevaunoIdentity'
+import { GatekeeperIcon } from '../components/GatekeeperIcon'
+import { useI18n } from '../i18n'
 
 export const Route = createFileRoute('/gatekeepers')({
   component: ConnectorsPage,
@@ -46,37 +48,21 @@ interface VendorEntry {
 }
 
 function VendorIconTile({
-  logoUrl,
-  color,
+  vendorId,
   fallback,
   size = 28,
   className = 'h-12 w-12 rounded-2xl',
 }: {
-  logoUrl?: string
-  color?: string
+  vendorId?: string
   fallback: string
   size?: number
   className?: string
 }) {
-  return (
-    <div
-      className={`relative grid shrink-0 place-items-center ${className}`}
-      style={{ backgroundColor: color ?? 'var(--color-kumo-tint)' }}
-    >
-      {logoUrl ? (
-        <img src={logoUrl} alt="" className="object-contain" style={{ width: size, height: size }} />
-      ) : (
-        <span className="text-[15px] font-semibold text-kumo-strong">
-          {fallback[0]?.toUpperCase() ?? '?'}
-        </span>
-      )}
-    </div>
-  )
+  return <GatekeeperIcon vendorId={vendorId} fallbackText={fallback} size={size} className={className} />
 }
 
 interface ConnectorCardProps {
-  logoUrl?: string
-  color?: string
+  vendorId?: string
   fallback: string
   name: string
   badge?: { label: string; tone: 'new' | 'popular' }
@@ -90,8 +76,7 @@ interface ConnectorCardProps {
 }
 
 function ConnectorCard({
-  logoUrl,
-  color,
+  vendorId,
   fallback,
   name,
   badge,
@@ -171,8 +156,7 @@ function ConnectorCard({
       >
         <div className="relative shrink-0">
           <VendorIconTile
-            logoUrl={logoUrl}
-            color={color}
+            vendorId={vendorId}
             fallback={fallback}
             size={20}
             className="h-9 w-9 rounded-lg"
@@ -207,7 +191,7 @@ function ConnectorCard({
     >
       <div className="self-start">
         <div className="relative">
-          <VendorIconTile logoUrl={logoUrl} color={color} fallback={fallback} />
+          <VendorIconTile vendorId={vendorId} fallback={fallback} />
           {statusDot}
         </div>
       </div>
@@ -267,15 +251,11 @@ function ConnectorsHeroDiagram({
     ...accounts.map((account) => ({
       key: `account-${account.id}`,
       vendorId: account.vendorId,
-      logoUrl: account.vendorDescription.logo?.url,
-      color: account.vendorDescription.color,
       fallback: account.vendorDescription.displayName,
     })),
     ...vendors.map((vendor) => ({
       key: `vendor-${vendor.id}`,
       vendorId: vendor.id,
-      logoUrl: vendor.description.logo?.url,
-      color: vendor.description.color,
       fallback: vendor.description.displayName,
     })),
   ].filter((node) => {
@@ -377,8 +357,7 @@ function ConnectorsHeroDiagram({
             className={`themed-card-hover-shadow absolute grid h-11 w-11 place-items-center rounded-2xl border border-kumo-line bg-kumo-base transition-[border-color,transform,box-shadow] duration-150 ease-out hover:-translate-y-px hover:border-kumo-fill ${sourceNodes[index].className}`}
           >
             <VendorIconTile
-              logoUrl={node.logoUrl}
-              color={node.color}
+              vendorId={node.vendorId}
               fallback={node.fallback}
               size={18}
               className="h-8 w-8 rounded-xl"
@@ -437,7 +416,8 @@ type ModalTarget =
   | null
 
 function ConnectorsPage() {
-  useDocumentTitle('Gatekeepers')
+  const { t } = useI18n()
+  useDocumentTitle(t('connections.title'))
   const siteName = useSiteName()
 
   const { authenticatedApi } = useAuthenticatedApi()
@@ -715,11 +695,10 @@ function ConnectorsPage() {
         <header className="mb-8 grid gap-8 lg:grid-cols-[minmax(0,540px)_444px] lg:items-center lg:justify-between">
           <div>
             <h1 className="m-0 text-3xl font-semibold leading-tight tracking-tight text-kumo-default sm:text-[34px]">
-              Gatekeepers
+              {t('connections.title')}
             </h1>
             <p className="mt-2 text-[14px] leading-[20px] font-normal tracking-[-0.25px] text-kumo-subtle">
-              Add the apps and accounts your workspaces can use. Connect once, then wire
-              them into anything you build.
+              {t('connections.subtitle')}
             </p>
           </div>
           <ConnectorsHeroDiagram accounts={accounts} vendors={vendors} siteName={siteName} />
@@ -735,7 +714,7 @@ function ConnectorsPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search gatekeepers…"
+              placeholder={t('connections.search')}
               className="h-10 w-full rounded-lg border border-kumo-line bg-kumo-base pl-9 pr-4 text-[14px] leading-5 tracking-[-0.25px] text-kumo-default placeholder:text-kumo-inactive transition-[border-color,box-shadow] focus:border-kumo-ring focus:outline-none focus:ring-[3px] focus:ring-kumo-ring/15"
             />
           </div>
@@ -745,23 +724,23 @@ function ConnectorsPage() {
         {loadError && (
           <div className="rounded-2xl border border-kumo-line bg-kumo-base px-4 py-6 text-center">
             <p className="m-0 text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-danger">
-              Something went wrong loading your gatekeepers.
+              {t('connections.errorTitle')}
             </p>
             <p className="mt-1 text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
-              Check your connection and try refreshing the page.
+              {t('connections.errorDescription')}
             </p>
           </div>
         )}
 
         {initialLoading && (
           <div className="rounded-2xl border border-kumo-line bg-kumo-base px-4 py-8 text-center text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
-            Loading gatekeepers...
+            {t('connections.loading')}
           </div>
         )}
 
         {filteredAccounts.length > 0 && (
           <section className="mb-10">
-            <SectionEyebrow label="Connected" count={filteredAccounts.length} />
+            <SectionEyebrow label={t('connections.connected')} count={filteredAccounts.length} />
             <div className={sectionGridClass}>
               {filteredAccounts.map((account) => {
                 const displayName =
@@ -772,8 +751,7 @@ function ConnectorsPage() {
                 return (
                   <ConnectorCard
                     key={account.id}
-                    logoUrl={account.vendorDescription.logo?.url}
-                    color={account.vendorDescription.color}
+                    vendorId={account.vendorId}
                     fallback={account.vendorDescription.displayName}
                     name={account.vendorDescription.displayName}
                     metaLine={
@@ -784,7 +762,7 @@ function ConnectorsPage() {
                       >
                         {account.credentialsValid
                           ? displayName
-                          : 'Credentials expired'}
+                          : t('connections.expired')}
                       </span>
                     }
                     tagline={tagline}
@@ -802,14 +780,13 @@ function ConnectorsPage() {
 
         {filteredAvailable.length > 0 && (
           <section className="mb-10">
-            <SectionEyebrow label="Available" />
+            <SectionEyebrow label={t('connections.available')} />
             <div className={sectionGridClass}>
 
               {filteredAvailable.map((vendor) => (
                 <ConnectorCard
                   key={vendor.id}
-                  logoUrl={vendor.description.logo?.url}
-                  color={vendor.description.color}
+                  vendorId={vendor.id}
                   fallback={vendor.description.displayName}
                   name={vendor.description.displayName}
                   tagline={vendor.description.tagline}
@@ -829,13 +806,13 @@ function ConnectorsPage() {
             <EmptyState
               title={
                 search
-                  ? 'No gatekeepers match'
-                  : 'No gatekeepers yet'
+                  ? t('connections.noMatches')
+                  : t('connections.emptyTitle')
               }
               description={
                 search
-                  ? "We couldn't find anything matching your search."
-                  : 'Gatekeepers will appear here as they become available in your workspace.'
+                  ? t('connections.noMatchesDescription')
+                  : t('connections.emptyDescription')
               }
               icon={Plugs}
             />
@@ -851,9 +828,8 @@ function ConnectorsPage() {
           open={modalTarget !== null}
           mode={modalTarget?.kind === 'manage' ? 'manage' : 'connect'}
           vendorDescription={activeVendor.description}
+          vendorId={activeVendor.id}
           supportedResources={activeVendor.supportedResources}
-          logoUrl={activeVendor.description.logo?.url}
-          color={activeVendor.description.color}
           autoProvisions={isTargetAmbient}
           connecting={connecting}
           onConfirm={handleConfirmConnect}

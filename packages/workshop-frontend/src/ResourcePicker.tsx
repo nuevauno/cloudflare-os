@@ -558,7 +558,6 @@ export default function ResourcePicker({
                     >
                       <GatekeeperIcon
                         vendorId={vendor.id}
-                        logoUrl={vendor.description.logo?.url}
                         fallbackText={vendor.description.displayName}
                         size={14}
                         className="h-6 w-6 rounded-md"

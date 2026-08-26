@@ -1,4 +1,4 @@
-import NuevaunoIcon, { type NuevaunoIconName } from './NuevaunoIcon'
+import NuevaunoIcon, { resolveNuevaunoIconUrl, type NuevaunoIconName } from './NuevaunoIcon'
 
 const VENDOR_ICONS: Record<string, NuevaunoIconName> = {
   cloudflare: 'cloud',
@@ -12,6 +12,19 @@ const VENDOR_ICONS: Record<string, NuevaunoIconName> = {
   mcp_portal: 'connections',
   scheduler: 'automation',
   supabase: 'database',
+}
+
+export function resolveGatekeeperIconName(vendorId?: string): NuevaunoIconName {
+  const normalizedVendor = (vendorId || '').toLowerCase()
+  return VENDOR_ICONS[normalizedVendor]
+    ?? (normalizedVendor.includes('schedule') ? 'automation' : undefined)
+    ?? (normalizedVendor.includes('context') ? 'knowledge' : undefined)
+    ?? (normalizedVendor.includes('custom') ? 'connections' : undefined)
+    ?? 'app'
+}
+
+export function resolveGatekeeperIconUrl(vendorId?: string, mode: 'light' | 'dark' = 'light'): string {
+  return resolveNuevaunoIconUrl(resolveGatekeeperIconName(vendorId), mode)
 }
 
 export function GatekeeperIcon({
@@ -37,12 +50,7 @@ export function GatekeeperIcon({
   size?: number
   className?: string
 }) {
-  const normalizedVendor = (vendorId || '').toLowerCase()
-  const icon = VENDOR_ICONS[normalizedVendor]
-    ?? (normalizedVendor.includes('schedule') ? 'automation' : undefined)
-    ?? (normalizedVendor.includes('context') ? 'knowledge' : undefined)
-    ?? (normalizedVendor.includes('custom') ? 'connections' : undefined)
-    ?? 'app'
+  const icon = resolveGatekeeperIconName(vendorId)
 
   return (
     <div

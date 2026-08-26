@@ -7,14 +7,15 @@ import {
   VendorDescription,
 } from '@gadgets/workshop-shared/gatekeeper'
 import { WorkshopButton, WorkshopIconButton } from './WorkshopControls'
+import { GatekeeperIcon } from './GatekeeperIcon'
+import NuevaunoIcon from './NuevaunoIcon'
 
 interface ConnectConnectorModalProps {
   open: boolean
   mode: 'connect' | 'manage'
   vendorDescription: VendorDescription
+  vendorId: string
   supportedResources: SupportedResource[]
-  logoUrl?: string
-  color?: string
   // True for an auto-provisioning ("ambient") gatekeeper: confirming adds it directly (no OAuth
   // redirect), so the call-to-action reads "Add …" rather than "Continue to …".
   autoProvisions?: boolean
@@ -35,13 +36,20 @@ interface ConnectConnectorModalProps {
   ensuringResourceUrlPatterns?: string[]
 }
 
+function resourceIcon(resource?: SupportedResource) {
+  return (
+    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-kumo-tint text-kumo-strong">
+      <NuevaunoIcon name={resource ? 'connections' : 'app'} size={14} />
+    </div>
+  )
+}
+
 export default function ConnectConnectorModal({
   open,
   mode,
   vendorDescription,
+  vendorId,
   supportedResources,
-  logoUrl,
-  color,
   autoProvisions = false,
   onOpenChange,
   connecting = false,
@@ -178,23 +186,6 @@ export default function ConnectConnectorModal({
 
   const busy = connecting || disconnecting
 
-  // Resource icon helper shared by every resource row.
-  function resourceIcon(resource?: SupportedResource) {
-    const icon = resource?.icon?.url ?? logoUrl
-    return (
-      <div
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-kumo-strong"
-        style={{ backgroundColor: color ?? 'var(--color-kumo-tint)' }}
-      >
-        {icon ? (
-          <img src={icon} alt="" className="h-4 w-4 object-contain" />
-        ) : (
-          <ResourceIconGlyph />
-        )}
-      </div>
-    )
-  }
-
   return (
     <Dialog.Root
       open={open}
@@ -209,18 +200,7 @@ export default function ConnectConnectorModal({
       >
         <div className="shrink-0 flex items-start justify-between gap-4 border-b border-kumo-line px-5 py-4">
           <div className="flex min-w-0 items-start gap-3">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-              style={{ backgroundColor: color ?? 'var(--color-kumo-tint)' }}
-            >
-              {logoUrl ? (
-                <img src={logoUrl} alt="" className="h-5 w-5 object-contain" />
-              ) : (
-                <span className="text-sm font-semibold text-kumo-strong">
-                  {vendorDescription.displayName[0]}
-                </span>
-              )}
-            </div>
+            <GatekeeperIcon vendorId={vendorId} fallbackText={vendorDescription.displayName} size={20} className="h-10 w-10 rounded-xl" />
             <div className="min-w-0">
               <Dialog.Title className="text-[17px] leading-6 font-medium tracking-[-0.35px] text-kumo-default">
                 {headerTitle}
@@ -439,15 +419,5 @@ export default function ConnectConnectorModal({
         </div>
       </Dialog>
     </Dialog.Root>
-  )
-}
-
-function ResourceIconGlyph() {
-  const size = 14
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <circle cx="12" cy="12" r="8" />
-    </svg>
   )
 }

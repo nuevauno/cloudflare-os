@@ -2,6 +2,7 @@ import { logRpcFailure } from './rpcErrors'
 import { useEffect, useState } from 'react'
 import { RpcStub } from 'capnweb'
 import { AuthenticatedApi } from '@gadgets/workshop-shared/api'
+import { resolveGatekeeperIconUrl } from './components/GatekeeperIcon'
 
 /**
  * How a vendor asks to be shown: its logo, and the background that logo was drawn for.
@@ -37,10 +38,7 @@ export function useVendorBranding(
         const vendors = await api.listGatekeeperVendors()
         const map = new Map<string, VendorBranding>()
         for (const vendor of vendors) {
-          const { logo, color } = vendor.description
-          if (logo?.url || color) {
-            map.set(vendor.id, { logoUrl: logo?.url, color })
-          }
+          map.set(vendor.id, { logoUrl: resolveGatekeeperIconUrl(vendor.id), color: 'var(--color-kumo-tint)' })
         }
         return map
       })().catch((err) => {

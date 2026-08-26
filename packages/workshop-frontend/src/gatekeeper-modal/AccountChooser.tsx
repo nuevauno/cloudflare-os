@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Check, Plus, UserCircle } from '@/components/NuevaunoGlyphs'
+import { Check, Plus } from '@/components/NuevaunoGlyphs'
 import { AccountDescription, SupportedResource, VendorDescription } from '@gadgets/workshop-shared/gatekeeper'
+import { GatekeeperIcon } from '../components/GatekeeperIcon'
 
 /**
  * Account info as consumed by the chooser. Matches the shape used by GatekeeperModal and the
@@ -21,13 +22,12 @@ export type AccountOption = {
  * credentials themselves expiring; on load failure we fall back to the vendor logo, then a
  * generic user icon.
  */
-export function AccountAvatar({ avatarUrl, logoUrl }: { avatarUrl: string | undefined, logoUrl: string | undefined }) {
+export function AccountAvatar({ avatarUrl, vendorId }: { avatarUrl: string | undefined, vendorId: string }) {
   const [failed, setFailed] = useState(false)
   if (avatarUrl && !failed) {
     return <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} />
   }
-  if (logoUrl) return <img src={logoUrl} alt="" className="h-4 w-4 object-contain" />
-  return <UserCircle size={17} className="text-kumo-subtle" />
+  return <GatekeeperIcon vendorId={vendorId} size={17} className="h-full w-full rounded-full" />
 }
 
 export function AccountChooser({
@@ -102,7 +102,7 @@ export function AccountChooser({
                       account.vendorDescription.color ?? 'var(--color-kumo-tint)',
                   }}
                 >
-                  <AccountAvatar avatarUrl={account.description.avatar?.url} logoUrl={account.vendorDescription.logo?.url} />
+                  <AccountAvatar avatarUrl={account.description.avatar?.url} vendorId={account.vendorId} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">{name}</p>

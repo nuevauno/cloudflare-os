@@ -15,8 +15,8 @@ import {
   resolveRequestedResource,
 } from '@gadgets/workshop-shared/gatekeeper'
 import { WorkshopButton } from './components/WorkshopControls'
-import Avatar from './components/Avatar'
 import { AccountsSubscriberAdapter } from './accountsSubscriber'
+import { GatekeeperIcon } from './components/GatekeeperIcon'
 
 // Shown when a non-owner opens a shared Gadget that reads data through one or more gatekeeper
 // bindings, and they haven't yet chosen which of their own connected accounts to use for each one.
@@ -343,12 +343,7 @@ export default function ObserverConfigModal({
               return (
                 <div key={need.gatekeeperId} className="rounded-xl border border-kumo-line bg-kumo-base p-4">
                   <div className={`flex items-center gap-3${matching.length === 0 && !need.failure ? '' : ' mb-3'}`}>
-                    <Avatar
-                      src={vendor?.logo?.url}
-                      background={vendor?.color}
-                      size={32}
-                      fallback={<Plus size={16} />}
-                    />
+                    <GatekeeperIcon vendorId={need.vendorId} fallbackText={vendorName} size={16} className="h-8 w-8 rounded-lg" />
                     <div className="min-w-0 flex-1">
                       <div className="text-[14px] font-medium text-kumo-default truncate">
                         {need.resourceTitle}
