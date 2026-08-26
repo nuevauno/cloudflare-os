@@ -8,6 +8,7 @@ const APP_ICON_BY_NAMESPACE: Readonly<Record<string, NuevaunoIconName>> = {
   certificate: 'nuevauno_certificates',
   contact: 'contacts',
   dispatch: 'nuevauno_dte',
+  fiscal: 'nuevauno_dte',
   crm: 'crm',
   kodo: 'nuevauno_kodo',
   pos: 'point_of_sale',

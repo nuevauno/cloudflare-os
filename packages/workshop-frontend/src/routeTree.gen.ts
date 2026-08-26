@@ -18,6 +18,7 @@ import { Route as CollectionsRouteImport } from './routes/collections'
 import { Route as ContextRouteImport } from './routes/context'
 import { Route as DispatchRouteImport } from './routes/dispatch'
 import { Route as ExploreRouteImport } from './routes/explore'
+import { Route as FiscalRouteImport } from './routes/fiscal'
 import { Route as GatekeepersRouteImport } from './routes/gatekeepers'
 import { Route as OutputsRouteImport } from './routes/outputs'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -73,6 +74,11 @@ const DispatchRoute = DispatchRouteImport.update({
 const ExploreRoute = ExploreRouteImport.update({
   id: '/explore',
   path: '/explore',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FiscalRoute = FiscalRouteImport.update({
+  id: '/fiscal',
+  path: '/fiscal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GatekeepersRoute = GatekeepersRouteImport.update({
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/context': typeof ContextRoute
   '/dispatch': typeof DispatchRoute
   '/explore': typeof ExploreRoute
+  '/fiscal': typeof FiscalRoute
   '/gatekeepers': typeof GatekeepersRoute
   '/outputs': typeof OutputsRoute
   '/profile': typeof ProfileRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/context': typeof ContextRoute
   '/dispatch': typeof DispatchRoute
   '/explore': typeof ExploreRoute
+  '/fiscal': typeof FiscalRoute
   '/gatekeepers': typeof GatekeepersRoute
   '/outputs': typeof OutputsRoute
   '/profile': typeof ProfileRoute
@@ -186,6 +194,7 @@ export interface FileRoutesById {
   '/context': typeof ContextRoute
   '/dispatch': typeof DispatchRoute
   '/explore': typeof ExploreRoute
+  '/fiscal': typeof FiscalRoute
   '/gatekeepers': typeof GatekeepersRoute
   '/outputs': typeof OutputsRoute
   '/profile': typeof ProfileRoute
@@ -210,6 +219,7 @@ export interface FileRouteTypes {
     | '/context'
     | '/dispatch'
     | '/explore'
+    | '/fiscal'
     | '/gatekeepers'
     | '/outputs'
     | '/profile'
@@ -232,6 +242,7 @@ export interface FileRouteTypes {
     | '/context'
     | '/dispatch'
     | '/explore'
+    | '/fiscal'
     | '/gatekeepers'
     | '/outputs'
     | '/profile'
@@ -254,6 +265,7 @@ export interface FileRouteTypes {
     | '/context'
     | '/dispatch'
     | '/explore'
+    | '/fiscal'
     | '/gatekeepers'
     | '/outputs'
     | '/profile'
@@ -277,6 +289,7 @@ export interface RootRouteChildren {
   ContextRoute: typeof ContextRoute
   DispatchRoute: typeof DispatchRoute
   ExploreRoute: typeof ExploreRoute
+  FiscalRoute: typeof FiscalRoute
   GatekeepersRoute: typeof GatekeepersRoute
   OutputsRoute: typeof OutputsRoute
   ProfileRoute: typeof ProfileRoute
@@ -353,6 +366,13 @@ declare module '@tanstack/react-router' {
       path: '/explore'
       fullPath: '/explore'
       preLoaderRoute: typeof ExploreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fiscal': {
+      id: '/fiscal'
+      path: '/fiscal'
+      fullPath: '/fiscal'
+      preLoaderRoute: typeof FiscalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gatekeepers': {
@@ -445,6 +465,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContextRoute: ContextRoute,
   DispatchRoute: DispatchRoute,
   ExploreRoute: ExploreRoute,
+  FiscalRoute: FiscalRoute,
   GatekeepersRoute: GatekeepersRoute,
   OutputsRoute: OutputsRoute,
   ProfileRoute: ProfileRoute,

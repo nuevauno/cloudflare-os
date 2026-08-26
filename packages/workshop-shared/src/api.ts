@@ -695,6 +695,19 @@ export interface DispatchListView {
   documents: DispatchDocumentView[];
 }
 
+export interface FiscalFileView { id: string; name: string; mimeType: string; bytes: number; role: string }
+export interface FiscalReferenceView { id: string; sequence: number; documentCode?: string; folio?: string; reasonCode?: string; reason?: string; referenceDate?: string }
+export interface FiscalDocumentView {
+  id: string; organizationId: string; companyId: string; contactId: string; commercialDocumentId?: string;
+  documentCode: string; documentName: string; folio?: string; state: "issued" | "queued" | "error";
+  coverageState: "complete" | "summary"; issueDate: string; currencyCode: string; currencyExponent: number;
+  amountNetMinor: number; amountTaxMinor: number; amountExemptMinor: number; amountTotalMinor: number;
+  contactDisplayName?: string; trackId?: string; errorMessage?: string; issuedAt?: string;
+  references?: FiscalReferenceView[]; files?: FiscalFileView[];
+}
+export interface FiscalDocumentListView { organizationId: string; companyId: string; documents: FiscalDocumentView[] }
+export interface FiscalFileContentView { name: string; mimeType: string; bytes: Uint8Array }
+
 /** User-entered payment applied to one canonical commercial document. */
 export interface RecordCommercialPaymentRequest {
   /** Stable client-generated key retained across a retried submission. */
@@ -851,6 +864,11 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Read authorized dispatch documents for one company. */
   listDispatchDocuments(organizationId: string, companyId: string, limit?: number): Promise<DispatchListView>;
+
+  /** Read authorized fiscal documents for one company. */
+  listFiscalDocuments(organizationId: string, companyId: string, limit?: number): Promise<FiscalDocumentListView>;
+  /** Download one file after server-side company and fiscal permission checks. */
+  readFiscalFile(organizationId: string, companyId: string, fileId: string): Promise<FiscalFileContentView>;
 
   /** Apply a payment to one authorized company invoice. */
   recordCommercialPayment(input: RecordCommercialPaymentRequest): Promise<RecordCommercialPaymentResultView>;
