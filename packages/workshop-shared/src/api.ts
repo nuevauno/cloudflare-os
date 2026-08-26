@@ -56,6 +56,12 @@ export interface PublicApi extends RpcTarget {
    */
   getServerConfig(): Promise<ServerConfig>;
 
+  /** Unlock a public vault link with the secret URL token and its separate PIN. */
+  openPublicVaultShare(token: string, pin: string): Promise<PublicVaultShareView>;
+
+  /** Download one file when the share is active and explicitly allows downloads. */
+  readPublicVaultFile(token: string, pin: string, fileId: string): Promise<VaultFileContentView>;
+
   /**
    * Begin a sign-in via an authentication gatekeeper (e.g. "google", "github", "cloudflare").
    * Returns a `url` the client opens in a new tab (the gatekeeper's OAuth popup, which self-closes)
@@ -786,6 +792,23 @@ export interface VaultFileContentView {
   bytes: Uint8Array;
 }
 
+/** Public metadata exposed only after a valid token and PIN pair. */
+export interface PublicVaultShareView {
+  shareId: string;
+  label?: string;
+  collectionName: string;
+  allowDownload: boolean;
+  expiresAt?: string;
+  files: Array<Pick<VaultFileView, "id" | "name" | "mimeType" | "bytes">>;
+}
+
+/** Secrets returned once when an authorized user creates or rotates a public link. */
+export interface CreatedVaultShareView {
+  share: VaultShareView;
+  token: string;
+  pin: string;
+}
+
 /** User-entered payment applied to one canonical commercial document. */
 export interface RecordCommercialPaymentRequest {
   /** Stable client-generated key retained across a retried submission. */
@@ -953,6 +976,12 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Download one vault file after server-side organization and company checks. */
   readVaultFile(organizationId: string, companyId: string, fileId: string): Promise<VaultFileContentView>;
+
+  /** Create or rotate a public link; token and PIN are returned exactly once. */
+  createVaultShare(input: { organizationId: string; companyId: string; collectionId: string; label?: string; allowDownload?: boolean; expiresAt?: string }): Promise<CreatedVaultShareView>;
+
+  /** Revoke a public link and erase its reusable credential derivations. */
+  revokeVaultShare(organizationId: string, companyId: string, shareId: string): Promise<VaultShareView>;
 
   /** Apply a payment to one authorized company invoice. */
   recordCommercialPayment(input: RecordCommercialPaymentRequest): Promise<RecordCommercialPaymentResultView>;
