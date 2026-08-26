@@ -98,6 +98,7 @@ interface PlatformCoreBinding {
   listActivity(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').ActivityFeedView>;
   listCommercialDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').CommercialDocumentListView>;
   listCertificates(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').CertificateListView>;
+  listDispatchDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').DispatchListView>;
   recordCommercialPayment(input: import('@gadgets/workshop-shared/api').RecordCommercialPaymentRequest & { idempotencyKey: string; actorSubject: string }): Promise<{ operationId: string; payment: { id: string }; residualMinor: number; paymentState: import('@gadgets/workshop-shared/api').CommercialDocumentView['paymentState'] }>;
   beginSupportSession(input: BeginSupportSessionRequest & { idempotencyKey: string; actorSubject: string }): Promise<unknown>;
   listSupportTargets(actorSubject: string): Promise<SupportTargetView[]>;
@@ -211,6 +212,10 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   async listCertificates(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').CertificateListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.listCertificates(this.#userId.name!, organizationId, companyId, limit);
+  }
+  async listDispatchDocuments(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').DispatchListView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.listDispatchDocuments(this.#userId.name!, organizationId, companyId, limit);
   }
   async recordCommercialPayment(input: import('@gadgets/workshop-shared/api').RecordCommercialPaymentRequest): Promise<import('@gadgets/workshop-shared/api').RecordCommercialPaymentResultView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");

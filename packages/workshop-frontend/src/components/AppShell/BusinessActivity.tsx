@@ -24,6 +24,10 @@ function labelFor(event: ActivityEventView, language: 'es' | 'en'): string {
     'certificate.created': [`${actor} creó un certificado`, `${actor} created a certificate`],
     'certificate.issued': [`${actor} emitió un certificado`, `${actor} issued a certificate`],
     'certificate.cancelled': [`${actor} anuló un certificado`, `${actor} cancelled a certificate`],
+    'dispatch.imported': [`${actor} incorporó una guía`, `${actor} imported a dispatch document`],
+    'dispatch.created': [`${actor} creó una guía`, `${actor} created a dispatch document`],
+    'dispatch.issued': [`${actor} emitió una guía`, `${actor} issued a dispatch document`],
+    'dispatch.cancelled': [`${actor} anuló una guía`, `${actor} cancelled a dispatch document`],
   }
   const translated = labels[event.activityKey ?? event.eventType]
   if (translated) return translated[language === 'es' ? 0 : 1]
