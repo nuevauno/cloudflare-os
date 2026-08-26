@@ -97,6 +97,7 @@ interface PlatformCoreBinding {
   requestSubscriptionCancellation(actorSubject: string, organizationId: string): Promise<import('@gadgets/workshop-shared/api').BillingOverviewView>;
   listActivity(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').ActivityFeedView>;
   listCommercialDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').CommercialDocumentListView>;
+  recordCommercialPayment(input: import('@gadgets/workshop-shared/api').RecordCommercialPaymentRequest & { idempotencyKey: string; actorSubject: string }): Promise<{ operationId: string; payment: { id: string }; residualMinor: number; paymentState: import('@gadgets/workshop-shared/api').CommercialDocumentView['paymentState'] }>;
   beginSupportSession(input: BeginSupportSessionRequest & { idempotencyKey: string; actorSubject: string }): Promise<unknown>;
   listSupportTargets(actorSubject: string): Promise<SupportTargetView[]>;
   endSupportSession(actorSubject: string, sessionId: string): Promise<unknown>;
@@ -205,6 +206,20 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   async listCommercialDocuments(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').CommercialDocumentListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.listCommercialDocuments(this.#userId.name!, organizationId, companyId, limit);
+  }
+  async recordCommercialPayment(input: import('@gadgets/workshop-shared/api').RecordCommercialPaymentRequest): Promise<import('@gadgets/workshop-shared/api').RecordCommercialPaymentResultView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    const result = await this.env.PLATFORM_CORE.recordCommercialPayment({
+      ...input,
+      actorSubject: this.#userId.name!,
+      idempotencyKey: `collection:${this.#userId.name}:${input.requestId}`,
+    });
+    return {
+      operationId: result.operationId,
+      paymentId: result.payment.id,
+      residualMinor: result.residualMinor,
+      paymentState: result.paymentState,
+    };
   }
   async beginSupportSession(input: BeginSupportSessionRequest): Promise<BusinessSessionView> {
     if (!this.#isAdmin()) throw new Error("permission_denied");

@@ -10,6 +10,7 @@ describe('activityAppIcon', () => {
     ['kodo.task.completed', 'nuevauno_kodo'],
     ['catalog.imported', 'stock'],
     ['billing.snapshot_imported', 'nuevauno_billing'],
+    ['collection.payment.recorded', 'nuevauno_billing'],
   ] as const)('maps %s to its canonical app icon', (activityKey, icon) => {
     expect(activityAppIcon({ activityKey, eventType: activityKey })).toBe(icon)
   })

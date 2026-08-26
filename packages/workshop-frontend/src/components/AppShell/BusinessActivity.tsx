@@ -19,6 +19,7 @@ function labelFor(event: ActivityEventView, language: 'es' | 'en'): string {
     'kodo.task.completed': ['KODO completó una tarea', 'KODO completed a task'],
     'catalog.imported': [`${actor} actualizó contactos y productos`, `${actor} updated contacts and products`],
     'billing.snapshot_imported': [`${actor} actualizó el plan`, `${actor} updated the plan`],
+    'collection.payment.recorded': [`${actor} registró un pago`, `${actor} recorded a payment`],
   }
   const translated = labels[event.activityKey ?? event.eventType]
   if (translated) return translated[language === 'es' ? 0 : 1]
