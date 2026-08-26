@@ -37,6 +37,7 @@ export default function CollectionsPage() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi()
   const { language, t } = useI18n()
   const [result, setResult] = useState<CommercialDocumentListView | null>(null)
+  const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('all')
   const [paying, setPaying] = useState<CommercialDocumentView | null>(null)
   const [amount, setAmount] = useState('')
@@ -50,10 +51,19 @@ export default function CollectionsPage() {
   const today = new Date().toISOString().slice(0, 10)
 
   const load = async () => {
+    setLoading(true)
     const session = businessSession ?? await authenticatedApi.getBusinessSession()
     const scope = resolveSalesScope(session)
-    if (!scope) return setResult(null)
-    setResult(await authenticatedApi.listCommercialDocuments(scope.organizationId, scope.companyId, 100))
+    if (!scope) {
+      setResult(null)
+      setLoading(false)
+      return
+    }
+    try {
+      setResult(await authenticatedApi.listCommercialDocuments(scope.organizationId, scope.companyId, 100))
+    } finally {
+      setLoading(false)
+    }
   }
   useEffect(() => {
     let alive = true
@@ -111,7 +121,7 @@ export default function CollectionsPage() {
     {sample && <div className="mb-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{cards.map(([label, value]) => <div key={label} className="rounded-2xl border border-kumo-line bg-kumo-elevated p-4"><span className="text-xs text-kumo-subtle">{label}</span><span className="mt-2 block text-xl text-kumo-default">{formatMoney(sample, value, language)}</span></div>)}</div>}
     <div className="mb-4 flex flex-wrap gap-2">{(['all', 'overdue', 'dueSoon', 'current', 'paid'] as Filter[]).map((item) => <button key={item} type="button" onClick={() => setFilter(item)} className={`cursor-pointer rounded-xl border px-3 py-2 text-xs ${filter === item ? 'border-[#FE4A23] bg-[#FE4A23] text-white' : 'border-kumo-line bg-kumo-elevated text-kumo-default'}`}>{t(`collections.${item}`)}</button>)}</div>
     <div className="overflow-hidden rounded-2xl border border-kumo-line bg-kumo-elevated">
-      {failed ? <p className="p-6 text-sm text-kumo-danger">{t('collections.error')}</p> : visible.length ? visible.map((document) => <article key={document.id} className="grid gap-3 border-b border-kumo-line p-4 last:border-b-0 sm:grid-cols-[40px_1fr_auto_auto] sm:items-center">
+      {loading ? <p className="p-6 text-sm text-kumo-subtle">{t('common.loading')}</p> : failed ? <p className="p-6 text-sm text-kumo-danger">{t('collections.error')}</p> : visible.length ? visible.map((document) => <article key={document.id} className="grid gap-3 border-b border-kumo-line p-4 last:border-b-0 sm:grid-cols-[40px_1fr_auto_auto] sm:items-center">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-kumo-line bg-kumo-base"><NuevaunoIcon name="nuevauno_billing" size={17} /></span>
         <span><span className="block text-sm text-kumo-default">{document.number} · {document.contactDisplayName}</span><span className="mt-1 block text-xs text-kumo-subtle">{document.dueDate ? `${t('collections.due')} ${document.dueDate}` : t('collections.noDue')}</span></span>
         <span className="text-sm text-kumo-default">{formatMoney(document, document.residualMinor, language)}</span>
