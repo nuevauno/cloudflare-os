@@ -20,6 +20,7 @@ import { Route as DispatchRouteImport } from './routes/dispatch'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as FiscalRouteImport } from './routes/fiscal'
 import { Route as GatekeepersRouteImport } from './routes/gatekeepers'
+import { Route as KodoRouteImport } from './routes/kodo'
 import { Route as OutputsRouteImport } from './routes/outputs'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ProvidersRouteImport } from './routes/providers'
@@ -86,6 +87,11 @@ const FiscalRoute = FiscalRouteImport.update({
 const GatekeepersRoute = GatekeepersRouteImport.update({
   id: '/gatekeepers',
   path: '/gatekeepers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KodoRoute = KodoRouteImport.update({
+  id: '/kodo',
+  path: '/kodo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OutputsRoute = OutputsRouteImport.update({
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/explore': typeof ExploreRoute
   '/fiscal': typeof FiscalRoute
   '/gatekeepers': typeof GatekeepersRoute
+  '/kodo': typeof KodoRoute
   '/outputs': typeof OutputsRoute
   '/profile': typeof ProfileRoute
   '/providers': typeof ProvidersRoute
@@ -186,6 +193,7 @@ export interface FileRoutesByTo {
   '/explore': typeof ExploreRoute
   '/fiscal': typeof FiscalRoute
   '/gatekeepers': typeof GatekeepersRoute
+  '/kodo': typeof KodoRoute
   '/outputs': typeof OutputsRoute
   '/profile': typeof ProfileRoute
   '/providers': typeof ProvidersRoute
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/explore': typeof ExploreRoute
   '/fiscal': typeof FiscalRoute
   '/gatekeepers': typeof GatekeepersRoute
+  '/kodo': typeof KodoRoute
   '/outputs': typeof OutputsRoute
   '/profile': typeof ProfileRoute
   '/providers': typeof ProvidersRoute
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/explore'
     | '/fiscal'
     | '/gatekeepers'
+    | '/kodo'
     | '/outputs'
     | '/profile'
     | '/providers'
@@ -264,6 +274,7 @@ export interface FileRouteTypes {
     | '/explore'
     | '/fiscal'
     | '/gatekeepers'
+    | '/kodo'
     | '/outputs'
     | '/profile'
     | '/providers'
@@ -289,6 +300,7 @@ export interface FileRouteTypes {
     | '/explore'
     | '/fiscal'
     | '/gatekeepers'
+    | '/kodo'
     | '/outputs'
     | '/profile'
     | '/providers'
@@ -315,6 +327,7 @@ export interface RootRouteChildren {
   ExploreRoute: typeof ExploreRoute
   FiscalRoute: typeof FiscalRoute
   GatekeepersRoute: typeof GatekeepersRoute
+  KodoRoute: typeof KodoRoute
   OutputsRoute: typeof OutputsRoute
   ProfileRoute: typeof ProfileRoute
   ProvidersRoute: typeof ProvidersRoute
@@ -406,6 +419,13 @@ declare module '@tanstack/react-router' {
       path: '/gatekeepers'
       fullPath: '/gatekeepers'
       preLoaderRoute: typeof GatekeepersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kodo': {
+      id: '/kodo'
+      path: '/kodo'
+      fullPath: '/kodo'
+      preLoaderRoute: typeof KodoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/outputs': {
@@ -507,6 +527,7 @@ const rootRouteChildren: RootRouteChildren = {
   ExploreRoute: ExploreRoute,
   FiscalRoute: FiscalRoute,
   GatekeepersRoute: GatekeepersRoute,
+  KodoRoute: KodoRoute,
   OutputsRoute: OutputsRoute,
   ProfileRoute: ProfileRoute,
   ProvidersRoute: ProvidersRoute,

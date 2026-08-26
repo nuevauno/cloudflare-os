@@ -96,6 +96,7 @@ interface PlatformCoreBinding {
   getBillingOverview(actorSubject: string, organizationId: string): Promise<import('@gadgets/workshop-shared/api').BillingOverviewView>;
   requestSubscriptionCancellation(actorSubject: string, organizationId: string): Promise<import('@gadgets/workshop-shared/api').BillingOverviewView>;
   listActivity(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').ActivityFeedView>;
+  listAgentRuns(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').AgentRunListView>;
   listCommercialDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').CommercialDocumentListView>;
   listCertificates(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').CertificateListView>;
   listDispatchDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').DispatchListView>;
@@ -212,6 +213,10 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   async listBusinessActivity(organizationId: string, companyId: string, limit = 20): Promise<import('@gadgets/workshop-shared/api').ActivityFeedView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.listActivity(this.#userId.name!, organizationId, companyId, limit);
+  }
+  async listAgentRuns(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').AgentRunListView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.listAgentRuns(this.#userId.name!, organizationId, companyId, limit);
   }
   async listCommercialDocuments(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').CommercialDocumentListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
