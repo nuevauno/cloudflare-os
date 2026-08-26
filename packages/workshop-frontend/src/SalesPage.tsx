@@ -36,15 +36,18 @@ export default function SalesPage() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi()
   const { language, t } = useI18n()
   const [result, setResult] = useState<CommercialDocumentListView | null>(null)
+  const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
     setFailed(false)
+    setLoading(true)
     loadCommercialDocuments(authenticatedApi, businessSession)
       .then((next) => { if (alive) setResult(next) })
       .catch(() => { if (alive) { setResult(null); setFailed(true) } })
+      .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [authenticatedApi, businessSession])
 
@@ -56,7 +59,7 @@ export default function SalesPage() {
         <p className="mt-2 text-sm text-kumo-subtle">{t('sales.subtitle')}</p>
       </header>
       <div className="overflow-hidden rounded-2xl border border-kumo-line bg-kumo-elevated">
-        {failed ? <p className="p-6 text-sm text-kumo-danger">{t('sales.error')}</p> : result?.documents.length ? result.documents.map((document) => (
+        {loading ? <p className="p-6 text-sm text-kumo-subtle">{t('common.loading')}</p> : failed ? <p className="p-6 text-sm text-kumo-danger">{t('sales.error')}</p> : result?.documents.length ? result.documents.map((document) => (
           <article key={document.id} className="border-b border-kumo-line last:border-b-0">
             <button type="button" onClick={() => setExpanded(expanded === document.id ? null : document.id)} className="grid w-full cursor-pointer gap-3 p-4 text-left sm:grid-cols-[40px_1fr_auto_auto] sm:items-center">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-kumo-line bg-kumo-base"><NuevaunoIcon name="sale" size={17} /></span>

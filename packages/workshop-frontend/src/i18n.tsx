@@ -4,7 +4,7 @@ import { getUserLanguage, getUserTimeZone, type UserLanguage } from './userPrefe
 const messages = {
   es: {
     'nav.primary': 'Principal', 'nav.home': 'Inicio', 'nav.workspaces': 'Espacios',
-    'nav.blueprints': 'Plantillas', 'nav.outputs': 'Resultados', 'nav.sales': 'Ventas', 'nav.collections': 'Cobranza', 'nav.explore': 'Explorar',
+    'common.loading': 'Cargando…', 'nav.blueprints': 'Plantillas', 'nav.outputs': 'Resultados', 'nav.sales': 'Ventas', 'nav.collections': 'Cobranza', 'nav.explore': 'Explorar',
     'nav.search': 'Buscar', 'nav.collapse': 'Contraer barra lateral', 'nav.expand': 'Expandir barra lateral',
     'nav.openMenu': 'Abrir menú', 'nav.closeMenu': 'Cerrar menú',
     'sidebar.favorites': 'Favoritos', 'sidebar.recent': 'Espacios recientes',
@@ -100,7 +100,7 @@ const messages = {
   },
   en: {
     'nav.primary': 'Primary', 'nav.home': 'Home', 'nav.workspaces': 'Workspaces',
-    'nav.blueprints': 'Templates', 'nav.outputs': 'Outputs', 'nav.sales': 'Sales', 'nav.collections': 'Collections', 'nav.explore': 'Explore',
+    'common.loading': 'Loading…', 'nav.blueprints': 'Templates', 'nav.outputs': 'Outputs', 'nav.sales': 'Sales', 'nav.collections': 'Collections', 'nav.explore': 'Explore',
     'nav.search': 'Search', 'nav.collapse': 'Collapse sidebar', 'nav.expand': 'Expand sidebar',
     'nav.openMenu': 'Open menu', 'nav.closeMenu': 'Close menu',
     'sidebar.favorites': 'Favorites', 'sidebar.recent': 'Recent workspaces',
