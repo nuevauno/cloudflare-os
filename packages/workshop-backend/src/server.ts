@@ -103,6 +103,10 @@ interface PlatformCoreBinding {
   readFiscalFile(actorSubject: string, organizationId: string, companyId: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').FiscalFileContentView>;
   listVault(actorSubject: string, organizationId: string, companyId: string): Promise<import('@gadgets/workshop-shared/api').VaultView>;
   readVaultFile(actorSubject: string, organizationId: string, companyId: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').VaultFileContentView>;
+  createVaultShare(input: { actorSubject: string; organizationId: string; companyId: string; collectionId: string; label?: string; allowDownload?: boolean; expiresAt?: string }): Promise<import('@gadgets/workshop-shared/api').CreatedVaultShareView>;
+  revokeVaultShare(actorSubject: string, organizationId: string, companyId: string, shareId: string): Promise<import('@gadgets/workshop-shared/api').VaultShareView>;
+  openPublicVaultShare(token: string, pin: string): Promise<import('@gadgets/workshop-shared/api').PublicVaultShareView>;
+  readPublicVaultFile(token: string, pin: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').VaultFileContentView>;
   recordCommercialPayment(input: import('@gadgets/workshop-shared/api').RecordCommercialPaymentRequest & { idempotencyKey: string; actorSubject: string }): Promise<{ operationId: string; payment: { id: string }; residualMinor: number; paymentState: import('@gadgets/workshop-shared/api').CommercialDocumentView['paymentState'] }>;
   beginSupportSession(input: BeginSupportSessionRequest & { idempotencyKey: string; actorSubject: string }): Promise<unknown>;
   listSupportTargets(actorSubject: string): Promise<SupportTargetView[]>;
@@ -245,6 +249,14 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   async readVaultFile(organizationId: string, companyId: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').VaultFileContentView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.readVaultFile(this.#userId.name!, organizationId, companyId, fileId);
+  }
+  async createVaultShare(input: { organizationId: string; companyId: string; collectionId: string; label?: string; allowDownload?: boolean; expiresAt?: string }): Promise<import('@gadgets/workshop-shared/api').CreatedVaultShareView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.createVaultShare({ ...input, actorSubject: this.#userId.name! });
+  }
+  async revokeVaultShare(organizationId: string, companyId: string, shareId: string): Promise<import('@gadgets/workshop-shared/api').VaultShareView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.revokeVaultShare(this.#userId.name!, organizationId, companyId, shareId);
   }
   async recordCommercialPayment(input: import('@gadgets/workshop-shared/api').RecordCommercialPaymentRequest): Promise<import('@gadgets/workshop-shared/api').RecordCommercialPaymentResultView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
@@ -827,6 +839,16 @@ class PublicApiImpl extends RpcTarget implements PublicApi {
 
   async getServerConfig(): Promise<ServerConfig> {
     return getServerConfig(this.env);
+  }
+
+  async openPublicVaultShare(token: string, pin: string): Promise<import('@gadgets/workshop-shared/api').PublicVaultShareView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.openPublicVaultShare(token, pin);
+  }
+
+  async readPublicVaultFile(token: string, pin: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').VaultFileContentView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.readPublicVaultFile(token, pin, fileId);
   }
 
   async startGatekeeperLogin(vendorId: string): Promise<{ url: string; attempt: RpcStub<LoginAttempt> }> {

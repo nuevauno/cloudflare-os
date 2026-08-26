@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { AuthenticatedApi, BusinessSessionView, VaultCollectionView, VaultView } from '@gadgets/workshop-shared/api'
+import type { AuthenticatedApi, BusinessSessionView, CreatedVaultShareView, VaultCollectionView, VaultView } from '@gadgets/workshop-shared/api'
 import { useAuthenticatedApi } from './AuthContext'
 import { useI18n } from './i18n'
 import { resolveSalesScope } from './SalesPage'
@@ -26,6 +26,13 @@ export default function VaultPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareLabel, setShareLabel] = useState('')
+  const [shareExpiry, setShareExpiry] = useState('')
+  const [allowDownload, setAllowDownload] = useState(true)
+  const [creatingShare, setCreatingShare] = useState(false)
+  const [shareFailed, setShareFailed] = useState(false)
+  const [createdShare, setCreatedShare] = useState<CreatedVaultShareView | null>(null)
   useEffect(() => { let alive = true; setLoading(true); setFailed(false); loadVault(authenticatedApi, businessSession).then((next) => { if (!alive) return; setResult(next); setSelectedId((current) => current ?? next?.collections[0]?.id ?? null) }).catch(() => { if (alive) setFailed(true) }).finally(() => { if (alive) setLoading(false) }); return () => { alive = false } }, [authenticatedApi, businessSession])
   const selected = result?.collections.find((collection) => collection.id === selectedId) ?? null
   const depths = useMemo(() => {
@@ -39,15 +46,26 @@ export default function VaultPage() {
     const link = document.createElement('a'); link.href = url; link.download = file.name; link.click(); URL.revokeObjectURL(url)
   }
   const formatBytes = (bytes: number) => new Intl.NumberFormat(language === 'es' ? 'es-CL' : 'en-US', { maximumFractionDigits: 1 }).format(bytes < 1024 * 1024 ? bytes / 1024 : bytes / (1024 * 1024)) + (bytes < 1024 * 1024 ? ' KB' : ' MB')
+  const createShare = async () => {
+    if (!result || !selected) return
+    setCreatingShare(true); setShareFailed(false)
+    try {
+      const created = await authenticatedApi.createVaultShare({ organizationId: result.organizationId, companyId: result.companyId, collectionId: selected.id, ...(shareLabel.trim() ? { label: shareLabel.trim() } : {}), allowDownload, ...(shareExpiry ? { expiresAt: new Date(shareExpiry).toISOString() } : {}) })
+      setCreatedShare(created)
+      setResult(await authenticatedApi.listVault(result.organizationId, result.companyId))
+    } catch { setShareFailed(true) } finally { setCreatingShare(false) }
+  }
+  const shareUrl = createdShare ? `${window.location.origin}/share/vault/${createdShare.token}` : ''
 
   return <div className="mx-auto w-full max-w-6xl px-5 py-8 md:px-8 md:py-10">
     <header className="mb-8"><p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-[#FE4A23]">{t('vault.eyebrow')}</p><h1 className="text-3xl font-normal text-kumo-default">{t('vault.title')}</h1><p className="mt-2 text-sm text-kumo-subtle">{t('vault.subtitle')}</p></header>
     {loading ? <p className="rounded-2xl border border-kumo-line bg-kumo-elevated p-6 text-sm text-kumo-subtle">{t('common.loading')}</p> : failed ? <p className="rounded-2xl border border-kumo-line bg-kumo-elevated p-6 text-sm text-kumo-danger">{t('vault.error')}</p> : !result?.collections.length ? <p className="rounded-2xl border border-kumo-line bg-kumo-elevated p-6 text-sm text-kumo-subtle">{t('vault.empty')}</p> : <div className="grid overflow-hidden rounded-2xl border border-kumo-line bg-kumo-elevated md:grid-cols-[280px_1fr]">
       <aside className="border-b border-kumo-line p-3 md:border-b-0 md:border-r"><p className="px-3 pb-2 text-[11px] uppercase tracking-[0.12em] text-kumo-subtle">{t('vault.folders')}</p>{result.collections.map((collection) => <CollectionRow key={collection.id} collection={collection} depth={depths.get(collection.id) ?? 0} selected={collection.id === selectedId} onSelect={() => setSelectedId(collection.id)} />)}</aside>
-      <section className="min-w-0 p-5"><div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-kumo-subtle">{selected?.completeName}</p><h2 className="mt-1 text-xl font-normal text-kumo-default">{selected?.name}</h2></div>{selected && selected.activeShareCount > 0 && <span className="rounded-full border border-kumo-line px-3 py-1 text-xs text-kumo-subtle">{t('vault.shared', { count: selected.activeShareCount })}</span>}</div>
+      <section className="min-w-0 p-5"><div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-kumo-subtle">{selected?.completeName}</p><h2 className="mt-1 text-xl font-normal text-kumo-default">{selected?.name}</h2></div><div className="flex items-center gap-2">{selected && selected.activeShareCount > 0 && <span className="rounded-full border border-kumo-line px-3 py-1 text-xs text-kumo-subtle">{t('vault.shared', { count: selected.activeShareCount })}</span>}{selected && <button type="button" onClick={() => { setCreatedShare(null); setShareFailed(false); setShareOpen(true) }} className="cursor-pointer rounded-xl bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{result.shares.some((share) => share.collectionId === selected.id && share.status === 'rotation_required') ? t('vault.rotate') : t('vault.share')}</button>}</div></div>
         {selected?.files.length ? <div className="divide-y divide-kumo-line rounded-xl border border-kumo-line bg-kumo-base">{selected.files.map((file) => <button key={file.id} type="button" onClick={() => void download(file.id)} className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left hover:bg-kumo-elevated"><NuevaunoIcon name="documentos" size={18} /><span className="min-w-0 flex-1"><span className="block truncate text-sm text-kumo-default">{file.name}</span><span className="mt-0.5 block text-xs text-kumo-subtle">{formatBytes(file.bytes)}</span></span><NuevaunoIcon name="download" size={16} /></button>)}</div> : <p className="rounded-xl border border-dashed border-kumo-line p-5 text-sm text-kumo-subtle">{t('vault.folderEmpty')}</p>}
         {result.shares.some((share) => share.collectionId === selected?.id && share.status === 'rotation_required') && <p className="mt-4 rounded-xl border border-[#FE4A23]/30 bg-[#FE4A23]/5 px-4 py-3 text-xs text-kumo-subtle">{t('vault.rotation')}</p>}
       </section>
     </div>}
+    {shareOpen && selected && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5" role="dialog" aria-modal="true"><div className="w-full max-w-lg rounded-2xl border border-kumo-line bg-kumo-base p-6 shadow-xl"><div className="flex items-start justify-between gap-4"><div><p className="text-[11px] uppercase tracking-[0.12em] text-[#FE4A23]">{t('vault.share')}</p><h2 className="mt-1 text-2xl font-normal text-kumo-default">{selected.name}</h2></div><button type="button" onClick={() => setShareOpen(false)} className="cursor-pointer text-sm text-kumo-subtle">{t('vault.close')}</button></div>{createdShare ? <div className="mt-6 space-y-4"><p className="text-sm text-kumo-subtle">{t('vault.shareOnce')}</p><label className="block text-xs text-kumo-subtle">{t('vault.link')}<input readOnly value={shareUrl} className="mt-1 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3 py-2 text-sm text-kumo-default" /></label><label className="block text-xs text-kumo-subtle">{t('vault.pin')}<input readOnly value={createdShare.pin} className="mt-1 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3 py-2 text-lg tracking-[0.2em] text-kumo-default" /></label></div> : <div className="mt-6 space-y-4"><label className="block text-xs text-kumo-subtle">{t('vault.shareLabel')}<input value={shareLabel} onChange={(event) => setShareLabel(event.target.value)} className="mt-1 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3 py-2 text-sm text-kumo-default" /></label><label className="block text-xs text-kumo-subtle">{t('vault.expires')}<input type="datetime-local" value={shareExpiry} onChange={(event) => setShareExpiry(event.target.value)} className="mt-1 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3 py-2 text-sm text-kumo-default" /></label><label className="flex items-center gap-2 text-sm text-kumo-subtle"><input type="checkbox" checked={allowDownload} onChange={(event) => setAllowDownload(event.target.checked)} />{t('vault.allowDownload')}</label>{shareFailed && <p className="text-sm text-kumo-danger">{t('vault.shareError')}</p>}<button type="button" disabled={creatingShare} onClick={() => void createShare()} className="w-full cursor-pointer rounded-xl bg-[#FE4A23] px-4 py-3 text-sm font-normal text-white disabled:opacity-50">{t('vault.createShare')}</button></div>}</div></div>}
   </div>
 }
