@@ -20,6 +20,10 @@ function labelFor(event: ActivityEventView, language: 'es' | 'en'): string {
     'catalog.imported': [`${actor} actualizó contactos y productos`, `${actor} updated contacts and products`],
     'billing.snapshot_imported': [`${actor} actualizó el plan`, `${actor} updated the plan`],
     'collection.payment.recorded': [`${actor} registró un pago`, `${actor} recorded a payment`],
+    'certificate.imported': [`${actor} incorporó un certificado`, `${actor} imported a certificate`],
+    'certificate.created': [`${actor} creó un certificado`, `${actor} created a certificate`],
+    'certificate.issued': [`${actor} emitió un certificado`, `${actor} issued a certificate`],
+    'certificate.cancelled': [`${actor} anuló un certificado`, `${actor} cancelled a certificate`],
   }
   const translated = labels[event.activityKey ?? event.eventType]
   if (translated) return translated[language === 'es' ? 0 : 1]

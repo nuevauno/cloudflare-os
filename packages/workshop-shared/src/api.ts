@@ -537,6 +537,90 @@ export interface CommercialDocumentListView {
   documents: CommercialDocumentView[];
 }
 
+/** One material or treatment line retained by a company certificate. */
+export interface CertificateItemView {
+  /** Stable canonical item identifier. */
+  id: string;
+  /** Stable parent certificate identifier. */
+  certificateId: string;
+  /** Canonical material type when the line represents recycling. */
+  wasteTypeId?: string;
+  /** Material name shown in the product UI. */
+  wasteTypeName?: string;
+  /** Collection date in ISO calendar format. */
+  pickupDate: string;
+  /** Source ordering within the certificate. */
+  sequence: number;
+  /** Optional source description. */
+  description?: string;
+  /** Collected mass represented exactly in grams. */
+  weightGrams: number;
+  /** Avoided emissions represented exactly in grams. */
+  co2Grams: number;
+  /** Saved energy represented exactly in watt-hours. */
+  energyWh: number;
+  /** Saved water represented exactly in millilitres. */
+  waterMilliliters: number;
+  /** Saved trees represented in millionths. */
+  treesMicros: number;
+}
+
+/** One authorized certificate belonging to exactly one company. */
+export interface CertificateView {
+  /** Stable canonical certificate identifier. */
+  id: string;
+  /** Owning organization identifier. */
+  organizationId: string;
+  /** Owning company identifier. */
+  companyId: string;
+  /** Shared customer contact when the source relation was available. */
+  contactId?: string;
+  /** Human certificate number. */
+  number: string;
+  /** Current lifecycle state. */
+  state: "draft" | "issued" | "cancelled";
+  /** Operational vertical producing the document. */
+  vertical: "recycling" | "pest_control";
+  /** Rendered document kind. */
+  documentType: "certificate" | "report";
+  /** Issue date in ISO calendar format. */
+  issueDate: string;
+  /** Issuing company snapshot retained with the document. */
+  issuerName: string;
+  /** Customer snapshot retained with the document. */
+  clientName: string;
+  /** Whether the source marked the document for SINADER. */
+  sinaderEnabled: boolean;
+  /** Total collected mass represented exactly in grams. */
+  totalWeightGrams: number;
+  /** Total avoided emissions represented exactly in grams. */
+  totalCo2Grams: number;
+  /** Total saved energy represented exactly in watt-hours. */
+  totalEnergyWh: number;
+  /** Total saved water represented exactly in millilitres. */
+  totalWaterMilliliters: number;
+  /** Total saved trees represented in millionths. */
+  totalTreesMicros: number;
+  /** Opaque public verification token. */
+  accessToken: string;
+  /** Source issue timestamp, when issued. */
+  issuedAt?: string;
+  /** Source cancellation timestamp, when cancelled. */
+  cancelledAt?: string;
+  /** Canonical certificate lines in source order. */
+  items?: CertificateItemView[];
+}
+
+/** Server-authorized certificates for exactly one company. */
+export interface CertificateListView {
+  /** Organization owning every returned certificate. */
+  organizationId: string;
+  /** Company owning every returned certificate. */
+  companyId: string;
+  /** Newest certificates first. */
+  certificates: CertificateView[];
+}
+
 /** User-entered payment applied to one canonical commercial document. */
 export interface RecordCommercialPaymentRequest {
   /** Stable client-generated key retained across a retried submission. */
@@ -687,6 +771,9 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Read authorized invoices and credit notes for one company. */
   listCommercialDocuments(organizationId: string, companyId: string, limit?: number): Promise<CommercialDocumentListView>;
+
+  /** Read authorized certificates for one company. */
+  listCertificates(organizationId: string, companyId: string, limit?: number): Promise<CertificateListView>;
 
   /** Apply a payment to one authorized company invoice. */
   recordCommercialPayment(input: RecordCommercialPaymentRequest): Promise<RecordCommercialPaymentResultView>;
