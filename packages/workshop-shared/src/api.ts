@@ -465,6 +465,28 @@ export interface ActivityFeedView {
   events: ActivityEventView[];
 }
 
+/** One ordered, non-secret event emitted while an enterprise agent run executes. */
+export interface AgentRunEventView {
+  id: string; runId: string; sequence: number;
+  level: "debug" | "info" | "warning" | "error";
+  eventType: string; message?: string; occurredAt: string;
+}
+
+/** Auditable agent execution owned by exactly one organization and company. */
+export interface AgentRunView {
+  id: string; organizationId: string; companyId: string; agentKey: string;
+  number?: string; name: string;
+  state: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+  toolKey?: string; channelKey?: string; requestSummary?: string; resultSummary?: string;
+  errorSummary?: string; externalRunRef?: string; startedAt?: string; completedAt?: string;
+  createdAt: string; events?: AgentRunEventView[];
+}
+
+/** Company-scoped agent history resolved by the private business kernel. */
+export interface AgentRunListView {
+  organizationId: string; companyId: string; runs: AgentRunView[];
+}
+
 /** One line belonging to a company commercial document. */
 export interface CommercialDocumentLineView {
   /** Stable canonical line identifier. */
@@ -956,6 +978,9 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Read the newest authorized events for one company. */
   listBusinessActivity(organizationId: string, companyId: string, limit?: number): Promise<ActivityFeedView>;
+
+  /** Read the authorized KODO and future agent executions for one company. */
+  listAgentRuns(organizationId: string, companyId: string, limit?: number): Promise<AgentRunListView>;
 
   /** Read authorized invoices and credit notes for one company. */
   listCommercialDocuments(organizationId: string, companyId: string, limit?: number): Promise<CommercialDocumentListView>;

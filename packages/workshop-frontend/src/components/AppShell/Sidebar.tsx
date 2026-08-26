@@ -162,6 +162,12 @@ export default function Sidebar({
               icon={<NuevaunoIcon name="nuevauno_vault" />}
               collapsed={collapsed}
             />
+            <SidebarItem
+              to="/kodo"
+              label={t('nav.kodo')}
+              icon={<NuevaunoIcon name="nuevauno_kodo" />}
+              collapsed={collapsed}
+            />
             {/* Gatekeeper management apps (e.g. the Context Library), listed dynamically. */}
             {gatekeeperApps.map((app) => {
               // Escape the icon URL for safe interpolation into a CSS url("…") string.
