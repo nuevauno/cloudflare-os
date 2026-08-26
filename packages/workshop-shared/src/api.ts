@@ -621,6 +621,80 @@ export interface CertificateListView {
   certificates: CertificateView[];
 }
 
+/** One exact line belonging to a dispatch document. */
+export interface DispatchLineView {
+  /** Stable canonical line identifier. */
+  id: string;
+  /** Stable parent dispatch document identifier. */
+  dispatchDocumentId: string;
+  /** Optional shared product variant. */
+  productVariantId?: string;
+  /** Source ordering within the document. */
+  sequence: number;
+  /** Optional item code retained from the source. */
+  code?: string;
+  /** Item description shown to the customer. */
+  name: string;
+  /** Source unit label. */
+  unitName?: string;
+  /** Quantity represented in thousandths. */
+  quantityMilli: number;
+  /** Unit price represented in currency minor units. */
+  priceUnitMinor: number;
+  /** Line subtotal represented in currency minor units. */
+  priceSubtotalMinor: number;
+}
+
+/** One authorized dispatch document belonging to exactly one company. */
+export interface DispatchDocumentView {
+  /** Stable canonical document identifier. */
+  id: string;
+  /** Owning organization identifier. */
+  organizationId: string;
+  /** Owning company identifier. */
+  companyId: string;
+  /** Shared recipient contact. */
+  contactId: string;
+  /** Human document number. */
+  number: string;
+  /** Fiscal folio when issued. */
+  folio?: string;
+  /** Current lifecycle state. */
+  state: "draft" | "issued" | "cancelled";
+  /** Issue date in ISO calendar format. */
+  issueDate: string;
+  /** ISO currency code. */
+  currencyCode: string;
+  /** Number of decimal places used by minor amounts. */
+  currencyExponent: number;
+  /** Fiscal transfer reason code. */
+  transferType: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
+  /** Destination address retained from the source. */
+  destinationAddress?: string;
+  /** Destination commune retained from the source. */
+  destinationCommune?: string;
+  /** Optional customer or purchase reference. */
+  reference?: string;
+  /** Whether the document affects tax. */
+  affectsTax: boolean;
+  /** Source coverage retained for later file migration. */
+  coverageState: "complete" | "xml_only" | "pdf_only" | "summary";
+  /** Total represented in currency minor units. */
+  amountTotalMinor: number;
+  /** Canonical lines in source order. */
+  lines?: DispatchLineView[];
+}
+
+/** Server-authorized dispatch documents for exactly one company. */
+export interface DispatchListView {
+  /** Organization owning every returned document. */
+  organizationId: string;
+  /** Company owning every returned document. */
+  companyId: string;
+  /** Newest dispatch documents first. */
+  documents: DispatchDocumentView[];
+}
+
 /** User-entered payment applied to one canonical commercial document. */
 export interface RecordCommercialPaymentRequest {
   /** Stable client-generated key retained across a retried submission. */
@@ -774,6 +848,9 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Read authorized certificates for one company. */
   listCertificates(organizationId: string, companyId: string, limit?: number): Promise<CertificateListView>;
+
+  /** Read authorized dispatch documents for one company. */
+  listDispatchDocuments(organizationId: string, companyId: string, limit?: number): Promise<DispatchListView>;
 
   /** Apply a payment to one authorized company invoice. */
   recordCommercialPayment(input: RecordCommercialPaymentRequest): Promise<RecordCommercialPaymentResultView>;

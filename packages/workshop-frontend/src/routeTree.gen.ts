@@ -16,6 +16,7 @@ import { Route as BlueprintsRouteImport } from './routes/blueprints'
 import { Route as CertificatesRouteImport } from './routes/certificates'
 import { Route as CollectionsRouteImport } from './routes/collections'
 import { Route as ContextRouteImport } from './routes/context'
+import { Route as DispatchRouteImport } from './routes/dispatch'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as GatekeepersRouteImport } from './routes/gatekeepers'
 import { Route as OutputsRouteImport } from './routes/outputs'
@@ -62,6 +63,11 @@ const CollectionsRoute = CollectionsRouteImport.update({
 const ContextRoute = ContextRouteImport.update({
   id: '/context',
   path: '/context',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DispatchRoute = DispatchRouteImport.update({
+  id: '/dispatch',
+  path: '/dispatch',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExploreRoute = ExploreRouteImport.update({
@@ -133,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/certificates': typeof CertificatesRoute
   '/collections': typeof CollectionsRoute
   '/context': typeof ContextRoute
+  '/dispatch': typeof DispatchRoute
   '/explore': typeof ExploreRoute
   '/gatekeepers': typeof GatekeepersRoute
   '/outputs': typeof OutputsRoute
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/certificates': typeof CertificatesRoute
   '/collections': typeof CollectionsRoute
   '/context': typeof ContextRoute
+  '/dispatch': typeof DispatchRoute
   '/explore': typeof ExploreRoute
   '/gatekeepers': typeof GatekeepersRoute
   '/outputs': typeof OutputsRoute
@@ -176,6 +184,7 @@ export interface FileRoutesById {
   '/certificates': typeof CertificatesRoute
   '/collections': typeof CollectionsRoute
   '/context': typeof ContextRoute
+  '/dispatch': typeof DispatchRoute
   '/explore': typeof ExploreRoute
   '/gatekeepers': typeof GatekeepersRoute
   '/outputs': typeof OutputsRoute
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/certificates'
     | '/collections'
     | '/context'
+    | '/dispatch'
     | '/explore'
     | '/gatekeepers'
     | '/outputs'
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/certificates'
     | '/collections'
     | '/context'
+    | '/dispatch'
     | '/explore'
     | '/gatekeepers'
     | '/outputs'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/certificates'
     | '/collections'
     | '/context'
+    | '/dispatch'
     | '/explore'
     | '/gatekeepers'
     | '/outputs'
@@ -263,6 +275,7 @@ export interface RootRouteChildren {
   CertificatesRoute: typeof CertificatesRoute
   CollectionsRoute: typeof CollectionsRoute
   ContextRoute: typeof ContextRoute
+  DispatchRoute: typeof DispatchRoute
   ExploreRoute: typeof ExploreRoute
   GatekeepersRoute: typeof GatekeepersRoute
   OutputsRoute: typeof OutputsRoute
@@ -326,6 +339,13 @@ declare module '@tanstack/react-router' {
       path: '/context'
       fullPath: '/context'
       preLoaderRoute: typeof ContextRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dispatch': {
+      id: '/dispatch'
+      path: '/dispatch'
+      fullPath: '/dispatch'
+      preLoaderRoute: typeof DispatchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/explore': {
@@ -423,6 +443,7 @@ const rootRouteChildren: RootRouteChildren = {
   CertificatesRoute: CertificatesRoute,
   CollectionsRoute: CollectionsRoute,
   ContextRoute: ContextRoute,
+  DispatchRoute: DispatchRoute,
   ExploreRoute: ExploreRoute,
   GatekeepersRoute: GatekeepersRoute,
   OutputsRoute: OutputsRoute,
