@@ -1,7 +1,7 @@
 import { RpcStub, RpcTarget, newHttpBatchRpcResponse, newWebSocketRpcSession, RpcSessionOptions } from "capnweb";
 import { validateRpc } from "capnweb-validate";
 import type { JWTPayload } from "jose";
-import { PublicApi, AuthenticatedApi, Overseer, GadgetMetadataWithTimestamps, AiChatAuthorInfo, AiModelConfig, AiGatewayInfo, AiModelProvider, ConnectedAccountsSubscriber, ConnectedAccountsFilter, GatekeeperVendorFilter, ObserverConfigCallback, BlueprintLibrarySummary, BlueprintPublicInfo, BlueprintUserSummary, BlueprintBindingAssignment, AgentSpawnerConfig, WorkpieceId, BLUEPRINT_SCREENSHOT_PATH_PREFIX, BLUEPRINT_SCREENSHOT_R2_PREFIX, blueprintScreenshotUrl, ServerConfig, CloudflareUsageInfo, CloudflareAccountOption, LoginAttempt, GatekeeperAppInfo, AdminApi, GatekeeperVendorInfo, OutputFormatOffer, ListOutputsResult, createOpenGadgetError, getOpenGadgetErrorCode, OPEN_GADGET_ERROR_CODES, AUTH_ERROR_CODES, createAuthError, type BeginSupportSessionRequest, type BusinessSessionView, type ProvisionBusinessOwnerRequest, type SupportTargetView } from '@gadgets/workshop-shared/api';
+import { PublicApi, AuthenticatedApi, Overseer, GadgetMetadataWithTimestamps, AiChatAuthorInfo, AiModelConfig, AiGatewayInfo, AiModelProvider, ConnectedAccountsSubscriber, ConnectedAccountsFilter, GatekeeperVendorFilter, ObserverConfigCallback, BlueprintLibrarySummary, BlueprintPublicInfo, BlueprintUserSummary, BlueprintBindingAssignment, AgentSpawnerConfig, WorkpieceId, BLUEPRINT_SCREENSHOT_PATH_PREFIX, BLUEPRINT_SCREENSHOT_R2_PREFIX, blueprintScreenshotUrl, ServerConfig, CloudflareUsageInfo, CloudflareAccountOption, LoginAttempt, GatekeeperAppInfo, AdminApi, GatekeeperVendorInfo, OutputFormatOffer, ListOutputsResult, createOpenGadgetError, getOpenGadgetErrorCode, OPEN_GADGET_ERROR_CODES, AUTH_ERROR_CODES, createAuthError, type BeginSupportSessionRequest, type BusinessSessionView, type ProvisionBusinessCompanyRequest, type ProvisionBusinessOwnerRequest, type SupportTargetView } from '@gadgets/workshop-shared/api';
 import type { UiFeatureFlags } from "@gadgets/workshop-shared/feature-flags";
 import { getServerConfig } from "./deployment-config.js";
 import { isPasswordAuthEnabled, getAuthGatekeeperAllowlist } from "./auth/config.js";
@@ -118,6 +118,12 @@ interface PlatformCoreBinding {
     organization: { slug: string; name: string };
     company: { slug: string; legalName: string; displayName?: string; countryCode: string; currencyCode: string; timezone: string };
   }): Promise<unknown>;
+  addCompany(input: {
+    idempotencyKey: string;
+    actorSubject: string;
+    organizationId: string;
+    company: { slug: string; legalName: string; displayName?: string; countryCode: string; currencyCode: string; timezone: string };
+  }): Promise<CoreOrganizationContext>;
   getPasswordRecoveryTarget(identifier: string): Promise<{
     subject: string;
     email: string;
@@ -304,6 +310,31 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     });
     const target = this.users.get(this.users.idFromName(username));
     await target.createAccount(username, input.displayName, input.passwordHash);
+  }
+  async provisionBusinessCompany(input: ProvisionBusinessCompanyRequest): Promise<BusinessSessionView> {
+    if (!this.#isAdmin()) throw new Error("permission_denied");
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    const ownerSubject = normalizeUsername(input.ownerSubject);
+    const organizationId = input.organizationId.trim();
+    const companySlug = input.companySlug.trim().toLowerCase();
+    const legalName = input.companyLegalName.trim();
+    if (!ownerSubject || !organizationId || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(companySlug) || legalName.length < 2) {
+      throw new Error("validation_failed");
+    }
+    await this.env.PLATFORM_CORE.addCompany({
+      idempotencyKey: `company:${organizationId}:${companySlug}`,
+      actorSubject: ownerSubject,
+      organizationId,
+      company: {
+        slug: companySlug,
+        legalName,
+        ...(input.companyDisplayName?.trim() ? { displayName: input.companyDisplayName.trim() } : {}),
+        countryCode: "CL",
+        currencyCode: "CLP",
+        timezone: "America/Santiago",
+      },
+    });
+    return businessSessionView(await this.env.PLATFORM_CORE.getBusinessSession(ownerSubject));
   }
   async endSupportSession(): Promise<BusinessSessionView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");

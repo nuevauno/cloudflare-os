@@ -959,6 +959,20 @@ export interface ProvisionBusinessOwnerRequest {
   companyDisplayName?: string;
 }
 
+/** Atomic input for adding a company to an existing owner's organization. */
+export interface ProvisionBusinessCompanyRequest {
+  /** Existing owner's stable login subject. */
+  ownerSubject: string;
+  /** Existing organization that will own the company. */
+  organizationId: string;
+  /** URL-safe company key. */
+  companySlug: string;
+  /** Registered legal name. */
+  companyLegalName: string;
+  /** Optional shorter name shown in the product UI. */
+  companyDisplayName?: string;
+}
+
 /** Top-level API exposed to the user after they have authenticated. */
 export interface AuthenticatedApi extends RpcTarget {
   /** Get profile info for the user who is logged in. */
@@ -1019,6 +1033,9 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Provision one owner, organization and first company through the private idempotent core. */
   provisionBusinessOwner(input: ProvisionBusinessOwnerRequest): Promise<void>;
+
+  /** Add one company to an existing owner organization through the private idempotent core. */
+  provisionBusinessCompany(input: ProvisionBusinessCompanyRequest): Promise<BusinessSessionView>;
 
   /** End the current audited support session immediately. */
   endSupportSession(): Promise<BusinessSessionView>;
