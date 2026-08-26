@@ -4,6 +4,7 @@ import type { NuevaunoIconName } from '../NuevaunoIcon'
 const APP_ICON_BY_NAMESPACE: Readonly<Record<string, NuevaunoIconName>> = {
   billing: 'nuevauno_billing',
   catalog: 'stock',
+  collection: 'nuevauno_billing',
   contact: 'contacts',
   crm: 'crm',
   kodo: 'nuevauno_kodo',

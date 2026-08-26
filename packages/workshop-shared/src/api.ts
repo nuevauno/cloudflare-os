@@ -537,6 +537,38 @@ export interface CommercialDocumentListView {
   documents: CommercialDocumentView[];
 }
 
+/** User-entered payment applied to one canonical commercial document. */
+export interface RecordCommercialPaymentRequest {
+  /** Stable client-generated key retained across a retried submission. */
+  requestId: string;
+  /** Organization owning the selected company and document. */
+  organizationId: string;
+  /** Company whose receivable is reduced. */
+  companyId: string;
+  /** Posted invoice receiving the payment. */
+  documentId: string;
+  /** Positive amount in the document currency's minor unit. */
+  amountMinor: number;
+  /** Payment date in ISO calendar format. */
+  paidOn: string;
+  /** Customer payment channel. */
+  method: "bank_transfer" | "card" | "cash" | "check" | "other";
+  /** Optional bank, receipt or internal reference. */
+  reference?: string;
+}
+
+/** Authoritative balance after recording a commercial payment. */
+export interface RecordCommercialPaymentResultView {
+  /** Stable operation identifier in the private business kernel. */
+  operationId: string;
+  /** Canonical payment identifier. */
+  paymentId: string;
+  /** Document balance after the payment. */
+  residualMinor: number;
+  /** Derived document payment state after the payment. */
+  paymentState: CommercialDocumentView["paymentState"];
+}
+
 /** One organization and its authorized companies in the active business session. */
 export interface BusinessOrganizationSummary {
   /** Stable platform-core organization identifier. */
@@ -655,6 +687,9 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Read authorized invoices and credit notes for one company. */
   listCommercialDocuments(organizationId: string, companyId: string, limit?: number): Promise<CommercialDocumentListView>;
+
+  /** Apply a payment to one authorized company invoice. */
+  recordCommercialPayment(input: RecordCommercialPaymentRequest): Promise<RecordCommercialPaymentResultView>;
 
   /** Start a short, visible and audited support session. Deployment administrators only. */
   beginSupportSession(input: BeginSupportSessionRequest): Promise<BusinessSessionView>;
