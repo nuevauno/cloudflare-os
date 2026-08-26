@@ -21,6 +21,7 @@ import { WorkshopButton, WorkshopIconButton } from './components/WorkshopControl
 import { MENU_CONTENT, MENU_ITEM, MENU_ITEM_DANGER } from './components/menuStyles'
 import { useDocumentTitle } from './useDocumentTitle'
 import { AccountsSubscriberAdapter } from './accountsSubscriber'
+import { GatekeeperIcon } from './components/GatekeeperIcon'
 import { useDialogSelectPortalContainer } from './useDialogSelectPortalContainer'
 
 interface Props {
@@ -1214,11 +1215,7 @@ function BindingIconTile({
 
   if (binding.type === 'gatekeeper') {
     fallback = vendor?.description.displayName[0]?.toUpperCase() ?? binding.gatekeeperName[0]?.toUpperCase() ?? '?'
-    icon = vendor?.description.logo?.url ? (
-      <img src={vendor.description.logo.url} alt="" className="h-5 w-5 object-contain" />
-    ) : (
-      <span className="text-[13px] font-semibold text-kumo-subtle">{fallback}</span>
-    )
+    icon = <GatekeeperIcon vendorId={vendor?.id} fallbackText={fallback} size={18} className="h-5 w-5" />
   } else if (binding.type === 'aiModel') {
     icon = <Robot size={16} className="text-kumo-subtle" />
   } else {

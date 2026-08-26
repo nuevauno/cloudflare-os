@@ -911,7 +911,6 @@ export default function AdminPage() {
                       <GatekeeperIcon
                         vendorId={vendor.vendorId}
                         fallbackText={vendor.displayName}
-                        logoUrl={vendor.logo?.url}
                         size={16}
                         className={`h-7 w-7 rounded-md transition-opacity ${mode === 'disabled' ? 'opacity-40' : ''}`}
                       />
@@ -964,7 +963,6 @@ export default function AdminPage() {
                   <GatekeeperIcon
                     vendorId={vendor.vendorId}
                     fallbackText={vendor.displayName}
-                    logoUrl={vendor.logo?.url}
                     size={16}
                     className={`h-7 w-7 rounded-md transition-opacity ${vendor.enabled ? '' : 'opacity-40'}`}
                   />

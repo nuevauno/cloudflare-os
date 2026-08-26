@@ -35,6 +35,7 @@ import { matchesResourceUrl } from './resourceMatching'
 import { reportIssue } from './errorReporting'
 import { useSiteName } from './ServerConfigContext'
 import { AccountsSubscriberAdapter } from './accountsSubscriber'
+import { resolveGatekeeperIconUrl } from './components/GatekeeperIcon'
 import { useDialogSelectPortalContainer } from './useDialogSelectPortalContainer'
 
 export interface GatekeeperModalProps {
@@ -156,9 +157,9 @@ function connectionForResource(vendor: VendorOption, resource: SupportedResource
     vendor: vendor.description.displayName,
     description: resource.description,
     icon: Database,
-    iconUrl: resource.icon?.url,
-    logoUrl: vendor.description.logo?.url,
-    accent: vendor.description.color,
+    iconUrl: resolveGatekeeperIconUrl(vendor.id),
+    logoUrl: resolveGatekeeperIconUrl(vendor.id),
+    accent: 'var(--color-kumo-tint)',
     resourceUrlPattern: resource.urlPattern,
     grantable: Boolean(resource.grantable),
   }

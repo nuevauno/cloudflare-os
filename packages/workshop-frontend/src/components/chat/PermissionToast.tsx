@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@cloudflare/kumo'
 import { Badge } from '@cloudflare/kumo'
 import { Text } from '@cloudflare/kumo'
-import { Shield, X, Check } from '@/components/NuevaunoGlyphs'
+import { CaretDown, Shield, X, Check } from '@/components/NuevaunoGlyphs'
 import { samplePermissions, type PermissionRequest } from '../../data/chat'
 import { logoComponents } from '../ConnectionLogos'
 
@@ -54,15 +54,7 @@ function PermissionCard({
           <Badge variant="secondary">
             {perm.scopes.length} {perm.scopes.length === 1 ? 'scope' : 'scopes'}
           </Badge>
-          <svg
-            className={`w-3.5 h-3.5 text-kumo-subtle transition-transform ${showScopes ? 'rotate-180' : ''}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
+          <CaretDown size={14} className={`text-kumo-subtle transition-transform ${showScopes ? 'rotate-180' : ''}`} />
         </div>
       </button>
 

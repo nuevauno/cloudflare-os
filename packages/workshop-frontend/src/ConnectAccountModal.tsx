@@ -92,6 +92,7 @@ export default function ConnectAccountModal({
               <VendorCard
                 key={vendor.id}
                 vendor={vendor.description}
+                vendorId={vendor.id}
                 onClick={() => handleConnect(vendor.id)}
                 loading={connecting === vendor.id}
                 disabled={connecting !== null && connecting !== vendor.id}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { RpcStub } from 'capnweb'
 import { PublicApi, AuthVendorInfo } from '@gadgets/workshop-shared/api'
 import { Button, Banner } from '@cloudflare/kumo'
+import { GatekeeperIcon } from '../GatekeeperIcon'
 
 interface OAuthButtonsProps {
   rpcStub: RpcStub<PublicApi>
@@ -105,14 +106,7 @@ export default function OAuthButtons({ rpcStub, vendors, onSuccess }: OAuthButto
           disabled={pending !== null}
           className="w-full justify-center"
         >
-          {vendor.logo && (
-            <img
-              src={vendor.logo.url}
-              alt=""
-              className="mr-1"
-              style={{ height: 18, width: 'auto' }}
-            />
-          )}
+          <GatekeeperIcon vendorId={vendor.vendorId} size={18} className="mr-1 h-[18px] w-[18px]" />
           Continue with {vendor.displayName}
         </Button>
       ))}
