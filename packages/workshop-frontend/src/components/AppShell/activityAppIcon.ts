@@ -13,6 +13,7 @@ const APP_ICON_BY_NAMESPACE: Readonly<Record<string, NuevaunoIconName>> = {
   kodo: 'nuevauno_kodo',
   pos: 'point_of_sale',
   sale: 'sale',
+  vault: 'nuevauno_vault',
 }
 
 /** Resolves an activity event to the canonical icon of the app that produced it. */

@@ -25,6 +25,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ProvidersRouteImport } from './routes/providers'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as VaultRouteImport } from './routes/vault'
 import { Route as WorkspacesRouteImport } from './routes/workspaces'
 import { Route as BlueprintIdRouteImport } from './routes/blueprint.$id'
 import { Route as GadgetIdRouteImport } from './routes/gadget.$id'
@@ -111,6 +112,11 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VaultRoute = VaultRouteImport.update({
+  id: '/vault',
+  path: '/vault',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WorkspacesRoute = WorkspacesRouteImport.update({
   id: '/workspaces',
   path: '/workspaces',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/providers': typeof ProvidersRoute
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
+  '/vault': typeof VaultRoute
   '/workspaces': typeof WorkspacesRoute
   '/blueprint/$id': typeof BlueprintIdRoute
   '/gadget/$id': typeof GadgetIdRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/providers': typeof ProvidersRoute
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
+  '/vault': typeof VaultRoute
   '/workspaces': typeof WorkspacesRoute
   '/blueprint/$id': typeof BlueprintIdRoute
   '/gadget/$id': typeof GadgetIdRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/providers': typeof ProvidersRoute
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
+  '/vault': typeof VaultRoute
   '/workspaces': typeof WorkspacesRoute
   '/blueprint/$id': typeof BlueprintIdRoute
   '/gadget/$id': typeof GadgetIdRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/providers'
     | '/sales'
     | '/signup'
+    | '/vault'
     | '/workspaces'
     | '/blueprint/$id'
     | '/gadget/$id'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/providers'
     | '/sales'
     | '/signup'
+    | '/vault'
     | '/workspaces'
     | '/blueprint/$id'
     | '/gadget/$id'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/providers'
     | '/sales'
     | '/signup'
+    | '/vault'
     | '/workspaces'
     | '/blueprint/$id'
     | '/gadget/$id'
@@ -296,6 +308,7 @@ export interface RootRouteChildren {
   ProvidersRoute: typeof ProvidersRoute
   SalesRoute: typeof SalesRoute
   SignupRoute: typeof SignupRoute
+  VaultRoute: typeof VaultRoute
   WorkspacesRoute: typeof WorkspacesRoute
   BlueprintIdRoute: typeof BlueprintIdRoute
   GadgetIdRoute: typeof GadgetIdRoute
@@ -417,6 +430,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/vault': {
+      id: '/vault'
+      path: '/vault'
+      fullPath: '/vault'
+      preLoaderRoute: typeof VaultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/workspaces': {
       id: '/workspaces'
       path: '/workspaces'
@@ -472,6 +492,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProvidersRoute: ProvidersRoute,
   SalesRoute: SalesRoute,
   SignupRoute: SignupRoute,
+  VaultRoute: VaultRoute,
   WorkspacesRoute: WorkspacesRoute,
   BlueprintIdRoute: BlueprintIdRoute,
   GadgetIdRoute: GadgetIdRoute,

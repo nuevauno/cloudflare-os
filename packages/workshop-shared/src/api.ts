@@ -708,6 +708,84 @@ export interface FiscalDocumentView {
 export interface FiscalDocumentListView { organizationId: string; companyId: string; documents: FiscalDocumentView[] }
 export interface FiscalFileContentView { name: string; mimeType: string; bytes: Uint8Array }
 
+/** One file linked to an authorized company collection. */
+export interface VaultFileView {
+  /** Stable canonical file identifier. */
+  id: string;
+  /** Original display name. */
+  name: string;
+  /** Validated media type. */
+  mimeType: string;
+  /** Exact object size in bytes. */
+  bytes: number;
+  /** File role within the collection. */
+  role: string;
+}
+
+/** One folder in the authorized company's hierarchical vault. */
+export interface VaultCollectionView {
+  /** Stable canonical collection identifier. */
+  id: string;
+  /** Owning organization identifier. */
+  organizationId: string;
+  /** Owning company identifier. */
+  companyId: string;
+  /** Folder's local name. */
+  name: string;
+  /** Server-computed breadcrumb path. */
+  completeName: string;
+  /** Parent folder, omitted for roots. */
+  parentId?: string;
+  /** Direct child folder count. */
+  childCount: number;
+  /** Currently usable public link count. */
+  activeShareCount: number;
+  /** Files directly linked to this folder. */
+  files: VaultFileView[];
+}
+
+/** Metadata for one public vault link; bearer tokens and PINs are never returned here. */
+export interface VaultShareView {
+  /** Stable canonical share identifier. */
+  id: string;
+  /** Shared root collection. */
+  collectionId: string;
+  /** Optional human label. */
+  label?: string;
+  /** Whether recipients may download files. */
+  allowDownload: boolean;
+  /** Current lifecycle, including links that must be securely regenerated after migration. */
+  status: "rotation_required" | "active" | "revoked" | "expired";
+  /** Optional ISO expiry timestamp. */
+  expiresAt?: string;
+  /** Historical successful access count. */
+  accessCount: number;
+  /** ISO creation timestamp. */
+  createdAt: string;
+}
+
+/** Complete authorized vault view for exactly one company. */
+export interface VaultView {
+  /** Organization owning every returned record. */
+  organizationId: string;
+  /** Company owning every returned record. */
+  companyId: string;
+  /** Collections ordered by their server-computed path. */
+  collections: VaultCollectionView[];
+  /** Public-link metadata without reusable secrets. */
+  shares: VaultShareView[];
+}
+
+/** Download payload returned only after server-side company and vault permission checks. */
+export interface VaultFileContentView {
+  /** Download filename. */
+  name: string;
+  /** Response media type. */
+  mimeType: string;
+  /** Exact file bytes. */
+  bytes: Uint8Array;
+}
+
 /** User-entered payment applied to one canonical commercial document. */
 export interface RecordCommercialPaymentRequest {
   /** Stable client-generated key retained across a retried submission. */
@@ -869,6 +947,12 @@ export interface AuthenticatedApi extends RpcTarget {
   listFiscalDocuments(organizationId: string, companyId: string, limit?: number): Promise<FiscalDocumentListView>;
   /** Download one file after server-side company and fiscal permission checks. */
   readFiscalFile(organizationId: string, companyId: string, fileId: string): Promise<FiscalFileContentView>;
+
+  /** Read the folder tree, file metadata and share state for one authorized company. */
+  listVault(organizationId: string, companyId: string): Promise<VaultView>;
+
+  /** Download one vault file after server-side organization and company checks. */
+  readVaultFile(organizationId: string, companyId: string, fileId: string): Promise<VaultFileContentView>;
 
   /** Apply a payment to one authorized company invoice. */
   recordCommercialPayment(input: RecordCommercialPaymentRequest): Promise<RecordCommercialPaymentResultView>;
