@@ -221,7 +221,15 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   }
   async listFiscalDocuments(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').FiscalDocumentListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.listFiscalDocuments(this.#userId.name!, organizationId, companyId, limit);
+    const result = await this.env.PLATFORM_CORE.listFiscalDocuments(this.#userId.name!, organizationId, companyId, limit);
+    return {
+      organizationId: result.organizationId,
+      companyId: result.companyId,
+      documents: result.documents.map((document) => ({
+        ...document,
+        files: (document.files ?? []).map(({ id, name, mimeType, bytes, role }) => ({ id, name, mimeType, bytes, role })),
+      })),
+    };
   }
   async readFiscalFile(organizationId: string, companyId: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').FiscalFileContentView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
