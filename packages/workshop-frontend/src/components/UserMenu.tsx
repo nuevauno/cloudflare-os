@@ -22,6 +22,11 @@ export default function UserMenu() {
   const [provisionBusy, setProvisionBusy] = useState(false)
   const [provisionError, setProvisionError] = useState('')
   const [provision, setProvision] = useState({ username: '', email: '', displayName: '', password: '', organizationSlug: '', organizationName: '', companySlug: '', companyLegalName: '', companyDisplayName: '' })
+  const [companyOpen, setCompanyOpen] = useState(false)
+  const [companyBusy, setCompanyBusy] = useState(false)
+  const [companyError, setCompanyError] = useState('')
+  const [companyTarget, setCompanyTarget] = useState('')
+  const [company, setCompany] = useState({ slug: '', legalName: '', displayName: '' })
 
   const openSupport = async () => {
     setSupportError('')
@@ -75,6 +80,41 @@ export default function UserMenu() {
     }
   }
 
+  const openCompany = async () => {
+    setCompanyError('')
+    try {
+      const targets = await authenticatedApi.listSupportTargets()
+      const organizations = targets.filter((target, index, all) =>
+        all.findIndex((candidate) => candidate.subject === target.subject && candidate.organizationId === target.organizationId) === index)
+      setSupportTargets(organizations)
+      setCompanyTarget(organizations[0] ? `${organizations[0].subject}|${organizations[0].organizationId}` : '')
+      setCompanyOpen(true)
+    } catch {
+      setCompanyError('No pudimos cargar los clientes. Inténtalo nuevamente.')
+      setCompanyOpen(true)
+    }
+  }
+
+  const createCompany = async () => {
+    const [ownerSubject, organizationId] = companyTarget.split('|')
+    if (!ownerSubject || !organizationId || !company.slug || company.legalName.trim().length < 2) return
+    setCompanyBusy(true)
+    setCompanyError('')
+    try {
+      await authenticatedApi.provisionBusinessCompany({
+        ownerSubject, organizationId, companySlug: company.slug,
+        companyLegalName: company.legalName,
+        ...(company.displayName ? { companyDisplayName: company.displayName } : {}),
+      })
+      setCompanyOpen(false)
+      setCompany({ slug: '', legalName: '', displayName: '' })
+    } catch {
+      setCompanyError('No pudimos agregar la empresa. Revisa los datos o si ya existe.')
+    } finally {
+      setCompanyBusy(false)
+    }
+  }
+
   const avatarUrl = useAvatar(authenticatedApi, currentUser?.id)
 
   const initials = currentUser?.name
@@ -120,6 +160,11 @@ export default function UserMenu() {
         {isAdmin && (
           <DropdownMenu.Item onClick={() => setProvisionOpen(true)} className={MENU_ITEM}>
             Crear cliente
+          </DropdownMenu.Item>
+        )}
+        {isAdmin && (
+          <DropdownMenu.Item onClick={() => void openCompany()} className={MENU_ITEM}>
+            Agregar empresa
           </DropdownMenu.Item>
         )}
         {isAdmin && (
@@ -189,6 +234,34 @@ export default function UserMenu() {
             <button type="button" onClick={() => setProvisionOpen(false)} className="rounded-xl border border-kumo-line px-4 py-2">Cancelar</button>
             <button type="button" disabled={provisionBusy || provision.password.length < 8} onClick={() => void createClient()} className="rounded-xl bg-[#FE4A23] px-4 py-2 text-white disabled:opacity-40">
               {provisionBusy ? 'Creando…' : 'Crear cliente'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    {companyOpen && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="Agregar empresa">
+        <div className="w-full max-w-lg rounded-2xl border border-kumo-line bg-kumo-base p-5 text-kumo-default shadow-xl">
+          <h2 className="text-2xl">Agregar empresa</h2>
+          <p className="mt-1 text-sm text-kumo-subtle">La empresa compartirá la cuenta del propietario, pero mantendrá sus datos y permisos separados.</p>
+          <label className="mt-5 block text-xs uppercase tracking-[0.12em] text-kumo-subtle" htmlFor="company-target">Cliente</label>
+          <select id="company-target" value={companyTarget} onChange={(event) => setCompanyTarget(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3">
+            {supportTargets.map((target) => (
+              <option key={`${target.subject}:${target.organizationId}`} value={`${target.subject}|${target.organizationId}`}>
+                {target.displayName} · {target.organizationName}
+              </option>
+            ))}
+          </select>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label><span className="text-xs uppercase tracking-[0.12em] text-kumo-subtle">ID de empresa</span><input value={company.slug} placeholder="servicios" onChange={(event) => setCompany((current) => ({ ...current, slug: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3" /></label>
+            <label><span className="text-xs uppercase tracking-[0.12em] text-kumo-subtle">Nombre visible</span><input value={company.displayName} placeholder="Servicios" onChange={(event) => setCompany((current) => ({ ...current, displayName: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3" /></label>
+            <label className="sm:col-span-2"><span className="text-xs uppercase tracking-[0.12em] text-kumo-subtle">Razón social</span><input value={company.legalName} placeholder="NUEVAUNO SERVICIOS SPA" onChange={(event) => setCompany((current) => ({ ...current, legalName: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3" /></label>
+          </div>
+          {companyError && <p className="mt-3 text-sm text-[#FE4A23]" role="alert">{companyError}</p>}
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" onClick={() => setCompanyOpen(false)} className="rounded-xl border border-kumo-line px-4 py-2">Cancelar</button>
+            <button type="button" disabled={companyBusy || !companyTarget || !company.slug || company.legalName.trim().length < 2} onClick={() => void createCompany()} className="rounded-xl bg-[#FE4A23] px-4 py-2 text-white disabled:opacity-40">
+              {companyBusy ? 'Agregando…' : 'Agregar empresa'}
             </button>
           </div>
         </div>
