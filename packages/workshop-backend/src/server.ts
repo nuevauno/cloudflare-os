@@ -101,6 +101,8 @@ interface PlatformCoreBinding {
   listDispatchDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').DispatchListView>;
   listFiscalDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').FiscalDocumentListView>;
   readFiscalFile(actorSubject: string, organizationId: string, companyId: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').FiscalFileContentView>;
+  listVault(actorSubject: string, organizationId: string, companyId: string): Promise<import('@gadgets/workshop-shared/api').VaultView>;
+  readVaultFile(actorSubject: string, organizationId: string, companyId: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').VaultFileContentView>;
   recordCommercialPayment(input: import('@gadgets/workshop-shared/api').RecordCommercialPaymentRequest & { idempotencyKey: string; actorSubject: string }): Promise<{ operationId: string; payment: { id: string }; residualMinor: number; paymentState: import('@gadgets/workshop-shared/api').CommercialDocumentView['paymentState'] }>;
   beginSupportSession(input: BeginSupportSessionRequest & { idempotencyKey: string; actorSubject: string }): Promise<unknown>;
   listSupportTargets(actorSubject: string): Promise<SupportTargetView[]>;
@@ -234,6 +236,15 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   async readFiscalFile(organizationId: string, companyId: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').FiscalFileContentView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.readFiscalFile(this.#userId.name!, organizationId, companyId, fileId);
+  }
+  async listVault(organizationId: string, companyId: string): Promise<import('@gadgets/workshop-shared/api').VaultView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    const result = await this.env.PLATFORM_CORE.listVault(this.#userId.name!, organizationId, companyId);
+    return { ...result, collections: result.collections.map((collection) => ({ ...collection, files: collection.files.map(({ id, name, mimeType, bytes, role }) => ({ id, name, mimeType, bytes, role })) })) };
+  }
+  async readVaultFile(organizationId: string, companyId: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').VaultFileContentView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.readVaultFile(this.#userId.name!, organizationId, companyId, fileId);
   }
   async recordCommercialPayment(input: import('@gadgets/workshop-shared/api').RecordCommercialPaymentRequest): Promise<import('@gadgets/workshop-shared/api').RecordCommercialPaymentResultView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");

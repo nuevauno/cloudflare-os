@@ -12,7 +12,7 @@ export type NuevaunoIconName =
   | 'link' | 'list' | 'lock' | 'refresh' | 'robot' | 'rows' | 'shield' | 'stack'
   | 'success' | 'swap' | 'terminal' | 'undo' | 'upload' | 'user' | 'user_add'
   | 'users' | 'view'
-  | 'contacts' | 'crm' | 'nuevauno_billing' | 'nuevauno_certificates' | 'nuevauno_dte' | 'nuevauno_kodo' | 'point_of_sale'
+  | 'contacts' | 'crm' | 'nuevauno_billing' | 'nuevauno_certificates' | 'nuevauno_dte' | 'nuevauno_kodo' | 'nuevauno_vault' | 'point_of_sale'
   | 'sale' | 'stock'
 
 export function resolveNuevaunoIconUrl(name: NuevaunoIconName, mode: 'light' | 'dark'): string {
