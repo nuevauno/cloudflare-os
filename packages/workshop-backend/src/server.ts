@@ -81,7 +81,7 @@ type CoreOrganizationContext = {
   organization: { id: string; slug: string; name: string };
   membership: { role: "owner" | "admin" | "member" | "viewer" };
   companies: Array<{
-    company: { id: string; organizationId: string; slug: string; legalName: string; displayName: string; currencyCode: string; timezone: string; status: "active" | "migration" | "suspended" };
+    company: { id: string; organizationId: string; slug: string; legalName: string; displayName: string; countryCode: string; currencyCode: string; timezone: string; status: "active" | "migration" | "suspended" };
     access: { access: "manage" | "operate" | "read" };
   }>;
 };
@@ -116,6 +116,8 @@ interface PlatformCoreBinding {
   recordCommercialPayment(input: import('@gadgets/workshop-shared/api').RecordCommercialPaymentRequest & { idempotencyKey: string; actorSubject: string }): Promise<{ operationId: string; payment: { id: string }; residualMinor: number; paymentState: import('@gadgets/workshop-shared/api').CommercialDocumentView['paymentState'] }>;
   beginSupportSession(input: BeginSupportSessionRequest & { idempotencyKey: string; actorSubject: string }): Promise<unknown>;
   listSupportTargets(actorSubject: string): Promise<SupportTargetView[]>;
+  getAccountingLocalization(actorSubject: string, organizationId: string, companyId: string): Promise<import('@gadgets/workshop-shared/api').AccountingLocalizationView | null>;
+  installAccountingLocalization(input: { idempotencyKey: string; actorSubject: string; organizationId: string; companyId: string; countryCode: string }): Promise<import('@gadgets/workshop-shared/api').AccountingLocalizationView>;
   endSupportSession(actorSubject: string, sessionId: string): Promise<unknown>;
   provisionOrganization(input: {
     idempotencyKey: string;
@@ -326,6 +328,14 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.listSupportTargets(this.#userId.name!);
   }
+  async getAccountingLocalization(organizationId: string, companyId: string): Promise<import('@gadgets/workshop-shared/api').AccountingLocalizationView | null> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.getAccountingLocalization(this.#userId.name!, organizationId, companyId);
+  }
+  async installAccountingLocalization(input: import('@gadgets/workshop-shared/api').InstallAccountingLocalizationRequest): Promise<import('@gadgets/workshop-shared/api').AccountingLocalizationView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.installAccountingLocalization({ ...input, actorSubject: this.#userId.name!, idempotencyKey: `accounting:${input.companyId}:${input.countryCode}:${crypto.randomUUID()}` });
+  }
   async provisionBusinessOwner(input: ProvisionBusinessOwnerRequest): Promise<void> {
     if (!this.#isAdmin()) throw new Error("permission_denied");
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
@@ -335,7 +345,7 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
       idempotencyKey: `provision:${input.organizationSlug}:${username}`,
       identity: { subject: username, ...(input.email ? { email: input.email } : {}), displayName: input.displayName, locale: "es-CL", timezone: "America/Santiago" },
       organization: { slug: input.organizationSlug, name: input.organizationName },
-      company: { slug: input.companySlug, legalName: input.companyLegalName, ...(input.companyDisplayName ? { displayName: input.companyDisplayName } : {}), countryCode: "CL", currencyCode: "CLP", timezone: "America/Santiago" },
+      company: { slug: input.companySlug, legalName: input.companyLegalName, ...(input.companyDisplayName ? { displayName: input.companyDisplayName } : {}), countryCode: input.countryCode ?? "CL", currencyCode: input.currencyCode ?? "CLP", timezone: input.timezone ?? "America/Santiago" },
     });
     const target = this.users.get(this.users.idFromName(username));
     await target.createAccount(username, input.displayName, input.passwordHash);
@@ -358,9 +368,9 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
         slug: companySlug,
         legalName,
         ...(input.companyDisplayName?.trim() ? { displayName: input.companyDisplayName.trim() } : {}),
-        countryCode: "CL",
-        currencyCode: "CLP",
-        timezone: "America/Santiago",
+        countryCode: input.countryCode ?? "CL",
+        currencyCode: input.currencyCode ?? "CLP",
+        timezone: input.timezone ?? "America/Santiago",
       },
     });
     return businessSessionView(await this.env.PLATFORM_CORE.getBusinessSession(ownerSubject));

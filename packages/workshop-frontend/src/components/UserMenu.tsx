@@ -21,12 +21,12 @@ export default function UserMenu() {
   const [provisionOpen, setProvisionOpen] = useState(false)
   const [provisionBusy, setProvisionBusy] = useState(false)
   const [provisionError, setProvisionError] = useState('')
-  const [provision, setProvision] = useState({ username: '', email: '', displayName: '', password: '', organizationSlug: '', organizationName: '', companySlug: '', companyLegalName: '', companyDisplayName: '' })
+  const [provision, setProvision] = useState({ username: '', email: '', displayName: '', password: '', organizationSlug: '', organizationName: '', companySlug: '', companyLegalName: '', companyDisplayName: '', countryCode: 'CL' })
   const [companyOpen, setCompanyOpen] = useState(false)
   const [companyBusy, setCompanyBusy] = useState(false)
   const [companyError, setCompanyError] = useState('')
   const [companyTarget, setCompanyTarget] = useState('')
-  const [company, setCompany] = useState({ slug: '', legalName: '', displayName: '' })
+  const [company, setCompany] = useState({ slug: '', legalName: '', displayName: '', countryCode: 'CL' })
 
   const openSupport = async () => {
     setSupportError('')
@@ -69,10 +69,11 @@ export default function UserMenu() {
         displayName: provision.displayName, passwordHash: await hashPassword(login, provision.password),
         organizationSlug: provision.organizationSlug, organizationName: provision.organizationName,
         companySlug: provision.companySlug, companyLegalName: provision.companyLegalName,
+        countryCode: provision.countryCode,
         ...(provision.companyDisplayName ? { companyDisplayName: provision.companyDisplayName } : {}),
       })
       setProvisionOpen(false)
-      setProvision({ username: '', email: '', displayName: '', password: '', organizationSlug: '', organizationName: '', companySlug: '', companyLegalName: '', companyDisplayName: '' })
+      setProvision({ username: '', email: '', displayName: '', password: '', organizationSlug: '', organizationName: '', companySlug: '', companyLegalName: '', companyDisplayName: '', countryCode: 'CL' })
     } catch {
       setProvisionError('No pudimos crear el cliente. Revisa los datos o si el usuario ya existe.')
     } finally {
@@ -104,10 +105,11 @@ export default function UserMenu() {
       await authenticatedApi.provisionBusinessCompany({
         ownerSubject, organizationId, companySlug: company.slug,
         companyLegalName: company.legalName,
+        countryCode: company.countryCode,
         ...(company.displayName ? { companyDisplayName: company.displayName } : {}),
       })
       setCompanyOpen(false)
-      setCompany({ slug: '', legalName: '', displayName: '' })
+      setCompany({ slug: '', legalName: '', displayName: '', countryCode: 'CL' })
     } catch {
       setCompanyError('No pudimos agregar la empresa. Revisa los datos o si ya existe.')
     } finally {
@@ -197,6 +199,12 @@ export default function UserMenu() {
                 {target.displayName} · {target.companyName}
               </option>
             ))}
+            <label className="sm:col-span-2">
+              <span className="text-xs uppercase tracking-[0.12em] text-kumo-subtle">País de la empresa</span>
+              <select value={provision.countryCode} onChange={(event) => setProvision((current) => ({ ...current, countryCode: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3">
+                <CountryOptions />
+              </select>
+            </label>
           </select>
           <label className="mt-4 block text-xs uppercase tracking-[0.12em] text-kumo-subtle" htmlFor="support-reason">Motivo</label>
           <textarea id="support-reason" value={supportReason} onChange={(event) => setSupportReason(event.target.value)} placeholder="Ejemplo: revisión solicitada por Piero" className="mt-1 min-h-24 w-full rounded-xl border border-kumo-line bg-kumo-elevated p-3" />
@@ -256,6 +264,7 @@ export default function UserMenu() {
             <label><span className="text-xs uppercase tracking-[0.12em] text-kumo-subtle">ID de empresa</span><input value={company.slug} placeholder="servicios" onChange={(event) => setCompany((current) => ({ ...current, slug: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3" /></label>
             <label><span className="text-xs uppercase tracking-[0.12em] text-kumo-subtle">Nombre visible</span><input value={company.displayName} placeholder="Servicios" onChange={(event) => setCompany((current) => ({ ...current, displayName: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3" /></label>
             <label className="sm:col-span-2"><span className="text-xs uppercase tracking-[0.12em] text-kumo-subtle">Razón social</span><input value={company.legalName} placeholder="NUEVAUNO SERVICIOS SPA" onChange={(event) => setCompany((current) => ({ ...current, legalName: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3" /></label>
+            <label className="sm:col-span-2"><span className="text-xs uppercase tracking-[0.12em] text-kumo-subtle">País de la empresa</span><select value={company.countryCode} onChange={(event) => setCompany((current) => ({ ...current, countryCode: event.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-kumo-line bg-kumo-elevated px-3"><CountryOptions /></select></label>
           </div>
           {companyError && <p className="mt-3 text-sm text-[#FE4A23]" role="alert">{companyError}</p>}
           <div className="mt-5 flex justify-end gap-2">
@@ -269,4 +278,16 @@ export default function UserMenu() {
     )}
     </>
   )
+}
+
+function CountryOptions() {
+  return <>
+    <option value="AR">Argentina</option><option value="BO">Bolivia</option><option value="BR">Brasil</option>
+    <option value="CL">Chile</option><option value="CO">Colombia</option><option value="CR">Costa Rica</option>
+    <option value="DO">República Dominicana</option><option value="EC">Ecuador</option><option value="GT">Guatemala</option>
+    <option value="HN">Honduras</option><option value="MX">México</option><option value="NI">Nicaragua</option>
+    <option value="PA">Panamá</option><option value="PY">Paraguay</option><option value="PE">Perú</option>
+    <option value="US">Estados Unidos</option><option value="UY">Uruguay</option><option value="VE">Venezuela</option>
+    <option value="CA">Canadá</option><option value="ES">España</option><option value="GB">Reino Unido</option>
+  </>
 }
