@@ -5,7 +5,9 @@ import test from "node:test";
 test("business context derives authority from the authenticated server identity", async () => {
   const source = await readFile("packages/workshop-backend/src/server.ts", "utf8");
   assert.match(source, /getBusinessSession\(this\.#userId\.name!/);
-  assert.match(source, /if \(!this\.#isAdmin\(\)\) throw new Error\("permission_denied"\)/);
+  assert.match(source, /#isEffectiveAdmin/);
+  assert.match(source, /return !session\.support/);
+  assert.match(source, /if \(!await this\.#isEffectiveAdmin\(\)\) throw new Error\("permission_denied"\)/);
   assert.match(source, /idempotencyKey: `support:\$\{this\.#userId\.name\}/);
   assert.doesNotMatch(source, /input\.actorSubject/);
 });
@@ -16,6 +18,18 @@ test("support access remains visible and can be ended from every product screen"
   assert.match(shell, /Atendiendo a/);
   assert.match(shell, />\s*Salir\s*</);
   assert.match(shell, /endSupportSession/);
+});
+
+test("support mode cannot expose owner or personal workspace surfaces", async () => {
+  const shell = await readFile("packages/workshop-frontend/src/components/AppShell/AppShell.tsx", "utf8");
+  const sidebar = await readFile("packages/workshop-frontend/src/components/AppShell/Sidebar.tsx", "utf8");
+  const clients = await readFile("packages/workshop-frontend/src/OwnerClientsPage.tsx", "utf8");
+  assert.match(shell, /isBusinessSupportRoute/);
+  assert.match(shell, /navigate\(\{ to: '\/sales', replace: true \}\)/);
+  assert.match(sidebar, /supportMode/);
+  assert.match(sidebar, /!supportMode && <SidebarItem/);
+  assert.match(clients, /businessSession\?\.support/);
+  assert.match(clients, /if \(businessSession\?\.support\) return null/);
 });
 
 test("the release uses the canonical dated version", async () => {

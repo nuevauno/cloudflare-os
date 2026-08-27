@@ -47,9 +47,11 @@ export function AuthProvider({ children, authenticatedApi, onLogout }: AuthProvi
   }
   const beginSupportSession = async (input: BeginSupportSessionRequest) => {
     setBusinessSession(await authenticatedApi.beginSupportSession(input))
+    setIsAdmin(await authenticatedApi.amIAdmin())
   }
   const endSupportSession = async () => {
     setBusinessSession(await authenticatedApi.endSupportSession())
+    setIsAdmin(await authenticatedApi.amIAdmin())
   }
 
   useEffect(() => {
