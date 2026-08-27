@@ -98,8 +98,13 @@ interface PlatformCoreBinding {
   listActivity(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').ActivityFeedView>;
   listAgentRuns(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').AgentRunListView>;
   listCommercialDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').CommercialDocumentListView>;
+  listDocumentEditorOptions(actorSubject: string, organizationId: string, companyId: string): Promise<import('@gadgets/workshop-shared/api').DocumentEditorOptionsView>;
+  saveCommercialDocument(input: Omit<import('@gadgets/workshop-shared/api').SaveCommercialDocumentRequest, 'requestId'> & { idempotencyKey: string; actorSubject: string }): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').CommercialDocumentView>>;
+  changeCommercialDocumentState(input: Omit<import('@gadgets/workshop-shared/api').ChangeCommercialDocumentStateRequest, 'requestId'> & { idempotencyKey: string; actorSubject: string }): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').CommercialDocumentView>>;
   listCertificates(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').CertificateListView>;
   listDispatchDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').DispatchListView>;
+  saveDispatchDocument(input: Omit<import('@gadgets/workshop-shared/api').SaveDispatchDocumentRequest, 'requestId'> & { idempotencyKey: string; actorSubject: string }): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').DispatchDocumentView>>;
+  requestFiscalIssue(input: Omit<import('@gadgets/workshop-shared/api').RequestFiscalIssueRequest, 'requestId'> & { idempotencyKey: string; actorSubject: string }): Promise<import('@gadgets/workshop-shared/api').FiscalIssueRequestResultView>;
   listFiscalDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').FiscalDocumentListView>;
   readFiscalFile(actorSubject: string, organizationId: string, companyId: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').FiscalFileContentView>;
   listVault(actorSubject: string, organizationId: string, companyId: string): Promise<import('@gadgets/workshop-shared/api').VaultView>;
@@ -228,6 +233,20 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.listCommercialDocuments(this.#userId.name!, organizationId, companyId, limit);
   }
+  async listDocumentEditorOptions(organizationId: string, companyId: string): Promise<import('@gadgets/workshop-shared/api').DocumentEditorOptionsView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.listDocumentEditorOptions(this.#userId.name!, organizationId, companyId);
+  }
+  async saveCommercialDocument(input: import('@gadgets/workshop-shared/api').SaveCommercialDocumentRequest): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').CommercialDocumentView>> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    const { requestId, ...document } = input;
+    return this.env.PLATFORM_CORE.saveCommercialDocument({ ...document, actorSubject: this.#userId.name!, idempotencyKey: `sale:save:${this.#userId.name}:${requestId}` });
+  }
+  async changeCommercialDocumentState(input: import('@gadgets/workshop-shared/api').ChangeCommercialDocumentStateRequest): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').CommercialDocumentView>> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    const { requestId, ...document } = input;
+    return this.env.PLATFORM_CORE.changeCommercialDocumentState({ ...document, actorSubject: this.#userId.name!, idempotencyKey: `sale:state:${this.#userId.name}:${requestId}` });
+  }
   async listCertificates(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').CertificateListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.listCertificates(this.#userId.name!, organizationId, companyId, limit);
@@ -235,6 +254,16 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   async listDispatchDocuments(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').DispatchListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.listDispatchDocuments(this.#userId.name!, organizationId, companyId, limit);
+  }
+  async saveDispatchDocument(input: import('@gadgets/workshop-shared/api').SaveDispatchDocumentRequest): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').DispatchDocumentView>> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    const { requestId, ...document } = input;
+    return this.env.PLATFORM_CORE.saveDispatchDocument({ ...document, actorSubject: this.#userId.name!, idempotencyKey: `dispatch:save:${this.#userId.name}:${requestId}` });
+  }
+  async requestFiscalIssue(input: import('@gadgets/workshop-shared/api').RequestFiscalIssueRequest): Promise<import('@gadgets/workshop-shared/api').FiscalIssueRequestResultView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    const { requestId, ...document } = input;
+    return this.env.PLATFORM_CORE.requestFiscalIssue({ ...document, actorSubject: this.#userId.name!, idempotencyKey: `fiscal:issue:${this.#userId.name}:${requestId}` });
   }
   async listFiscalDocuments(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').FiscalDocumentListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { AuthenticatedApi, BusinessSessionView, CommercialDocumentListView, CommercialDocumentView } from '@gadgets/workshop-shared/api'
+import { useEffect, useState, type FormEvent } from 'react'
+import type { AuthenticatedApi, BusinessSessionView, CommercialDocumentListView, CommercialDocumentView, DocumentEditorOptionsView } from '@gadgets/workshop-shared/api'
 import { useAuthenticatedApi } from './AuthContext'
 import { useI18n } from './i18n'
 import NuevaunoIcon from './components/NuevaunoIcon'
@@ -39,6 +39,10 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [options, setOptions] = useState<DocumentEditorOptionsView | null>(null)
+  const [editing, setEditing] = useState<CommercialDocumentView | 'new' | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [draftLines, setDraftLines] = useState<Array<{ id?: string; description: string; quantity: string; unitPriceMinor: number }>>([])
 
   useEffect(() => {
     let alive = true
@@ -51,13 +55,66 @@ export default function SalesPage() {
     return () => { alive = false }
   }, [authenticatedApi, businessSession])
 
+  const scope = resolveSalesScope(businessSession)
+  const refresh = async () => setResult(await loadCommercialDocuments(authenticatedApi, businessSession))
+  const openEditor = async (document: CommercialDocumentView | 'new') => {
+    if (!scope) return
+    setOptions(await authenticatedApi.listDocumentEditorOptions(scope.organizationId, scope.companyId))
+    setDraftLines(document === 'new' ? [{ description: '', quantity: '1', unitPriceMinor: 0 }] : (document.lines ?? []).filter((line) => line.lineType === 'product').map((line) => ({ id: line.id, description: line.description, quantity: line.quantity, unitPriceMinor: line.unitPriceMinor })))
+    setEditing(document)
+  }
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!scope) return
+    const form = new FormData(event.currentTarget), current = editing === 'new' ? undefined : editing ?? undefined
+    setSaving(true)
+    try {
+      await authenticatedApi.saveCommercialDocument({
+        requestId: crypto.randomUUID(), organizationId: scope.organizationId, companyId: scope.companyId,
+        ...(current ? { documentId: current.id } : {}), contactId: String(form.get('contactId') ?? ''),
+        kind: String(form.get('kind')) as 'invoice' | 'credit_note', reference: String(form.get('reference') ?? ''),
+        issueDate: String(form.get('issueDate') ?? ''), dueDate: String(form.get('dueDate') ?? '') || undefined,
+        currencyCode: 'CLP', currencyExponent: 0,
+        lines: draftLines.map((line) => ({ ...line, taxBasisPoints: 1900 })),
+      })
+      setEditing(null); await refresh()
+    } finally { setSaving(false) }
+  }
+  const changeState = async (document: CommercialDocumentView, action: 'post' | 'cancel') => {
+    if (!scope || (action === 'post' && !window.confirm(t('sales.confirmPost')))) return
+    await authenticatedApi.changeCommercialDocumentState({ requestId: crypto.randomUUID(), organizationId: scope.organizationId, companyId: scope.companyId, documentId: document.id, action })
+    await refresh()
+  }
+  const issue = async (document: CommercialDocumentView) => {
+    if (!scope || !window.confirm(t('sales.confirmIssue'))) return
+    await authenticatedApi.requestFiscalIssue({ requestId: crypto.randomUUID(), organizationId: scope.organizationId, companyId: scope.companyId, sourceType: 'commercial_document', sourceId: document.id, documentCode: document.kind === 'invoice' ? '33' : '61', confirmation: 'ISSUE' })
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl px-5 py-8 md:px-8 md:py-10">
-      <header className="mb-8">
+      <header className="mb-8 flex items-end justify-between gap-4">
+        <div>
         <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-[#FE4A23]">{t('sales.eyebrow')}</p>
         <h1 className="text-3xl font-normal text-kumo-default">{t('sales.title')}</h1>
         <p className="mt-2 text-sm text-kumo-subtle">{t('sales.subtitle')}</p>
+        </div>
+        <button type="button" onClick={() => void openEditor('new')} className="cursor-pointer rounded-xl bg-[#FE4A23] px-4 py-2 text-sm font-normal text-white">{t('sales.new')}</button>
       </header>
+      {editing && options && <form onSubmit={(event) => void save(event)} className="mb-6 grid gap-4 rounded-2xl border border-kumo-line bg-kumo-elevated p-5 md:grid-cols-2">
+        <label className="text-xs text-kumo-subtle">{t('sales.customer')}<select name="contactId" required defaultValue={editing === 'new' ? '' : editing.contactId} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default"><option value="">{t('sales.choose')}</option>{options.contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.displayName}{contact.taxIdentifier ? ` · ${contact.taxIdentifier}` : ''}</option>)}</select></label>
+        <label className="text-xs text-kumo-subtle">{t('sales.kind')}<select name="kind" defaultValue={editing === 'new' ? 'invoice' : editing.kind} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default"><option value="invoice">{t('sales.invoice')}</option><option value="credit_note">{t('sales.creditNote')}</option></select></label>
+        <label className="text-xs text-kumo-subtle">{t('sales.issueDate')}<input name="issueDate" type="date" required defaultValue={editing === 'new' ? new Date().toISOString().slice(0, 10) : editing.issueDate} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default" /></label>
+        <label className="text-xs text-kumo-subtle">{t('sales.dueDate')}<input name="dueDate" type="date" defaultValue={editing === 'new' ? '' : editing.dueDate} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default" /></label>
+        <label className="text-xs text-kumo-subtle md:col-span-2">{t('sales.reference')}<input name="reference" defaultValue={editing === 'new' ? '' : editing.reference} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default" /></label>
+        <div className="grid gap-3 md:col-span-2">{draftLines.map((line, index) => <div key={line.id ?? index} className="grid gap-3 rounded-xl border border-kumo-line p-3 md:grid-cols-[1fr_120px_150px_auto]">
+          <label className="text-xs text-kumo-subtle">{t('sales.description')}<input required value={line.description} onChange={(event) => setDraftLines((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, description: event.target.value } : row))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default" /></label>
+          <label className="text-xs text-kumo-subtle">{t('sales.quantity')}<input inputMode="decimal" required value={line.quantity} onChange={(event) => setDraftLines((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: event.target.value } : row))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default" /></label>
+          <label className="text-xs text-kumo-subtle">{t('sales.unitPrice')}<input type="number" min="0" required value={line.unitPriceMinor} onChange={(event) => setDraftLines((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, unitPriceMinor: Number(event.target.value) } : row))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default" /></label>
+          <button type="button" disabled={draftLines.length === 1} onClick={() => setDraftLines((rows) => rows.filter((_, rowIndex) => rowIndex !== index))} className="mt-6 cursor-pointer rounded-xl border border-kumo-line px-3 py-2 text-xs text-kumo-default disabled:opacity-40">{t('sales.removeLine')}</button>
+        </div>)}</div>
+        <button type="button" onClick={() => setDraftLines((rows) => [...rows, { description: '', quantity: '1', unitPriceMinor: 0 }])} className="cursor-pointer justify-self-start rounded-xl border border-kumo-line px-3 py-2 text-xs text-kumo-default md:col-span-2">{t('sales.addLine')}</button>
+        <div className="flex justify-end gap-2 md:col-span-2"><button type="button" onClick={() => setEditing(null)} className="cursor-pointer rounded-xl border border-kumo-line px-4 py-2 text-sm text-kumo-default">{t('common.cancel')}</button><button disabled={saving} className="cursor-pointer rounded-xl bg-[#FE4A23] px-4 py-2 text-sm font-normal text-white disabled:opacity-50">{t('common.save')}</button></div>
+      </form>}
       <div className="overflow-hidden rounded-2xl border border-kumo-line bg-kumo-elevated">
         {loading ? <p className="p-6 text-sm text-kumo-subtle">{t('common.loading')}</p> : failed ? <p className="p-6 text-sm text-kumo-danger">{t('sales.error')}</p> : result?.documents.length ? result.documents.map((document) => (
           <article key={document.id} className="border-b border-kumo-line last:border-b-0">
@@ -69,6 +126,7 @@ export default function SalesPage() {
             </button>
             {expanded === document.id && <div className="border-t border-kumo-line bg-kumo-base px-4 py-3 sm:pl-16">
               {document.lines?.filter((line) => line.lineType === 'product').map((line) => <div key={line.id} className="grid gap-1 border-b border-kumo-line py-2 text-xs last:border-b-0 sm:grid-cols-[1fr_auto_auto]"><span className="text-kumo-default">{line.description}</span><span className="text-kumo-subtle">{line.quantity}</span><span className="text-kumo-default">{money(document, line.totalMinor, language)}</span></div>)}
+              <div className="mt-3 flex flex-wrap justify-end gap-2">{document.state === 'draft' && <><button type="button" onClick={() => void openEditor(document)} className="cursor-pointer rounded-xl border border-kumo-line px-3 py-2 text-xs text-kumo-default">{t('common.edit')}</button><button type="button" onClick={() => void changeState(document, 'cancel')} className="cursor-pointer rounded-xl border border-kumo-line px-3 py-2 text-xs text-kumo-default">{t('common.cancel')}</button><button type="button" onClick={() => void changeState(document, 'post')} className="cursor-pointer rounded-xl bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{t('sales.post')}</button></>}{document.state === 'posted' && <button type="button" onClick={() => void issue(document)} className="cursor-pointer rounded-xl bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{t('sales.issueFiscal')}</button>}</div>
             </div>}
           </article>
         )) : <p className="p-6 text-sm text-kumo-subtle">{t('sales.empty')}</p>}

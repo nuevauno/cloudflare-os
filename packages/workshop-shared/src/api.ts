@@ -565,6 +565,26 @@ export interface CommercialDocumentListView {
   documents: CommercialDocumentView[];
 }
 
+export interface DocumentEditorOptionsView {
+  organizationId: string;
+  companyId: string;
+  contacts: Array<{ id: string; displayName: string; taxIdentifier?: string }>;
+  products: Array<{ id: string; name: string; sku?: string; unitCode: string; priceMinor: number; currencyCode: string }>;
+}
+
+export interface SaveCommercialDocumentRequest {
+  requestId: string; organizationId: string; companyId: string; documentId?: string; contactId: string;
+  kind: "invoice" | "credit_note"; reference?: string; issueDate: string; dueDate?: string;
+  currencyCode: string; currencyExponent: number;
+  lines: Array<{ id?: string; productVariantId?: string; description: string; quantity: string; unitPriceMinor: number; taxBasisPoints?: number }>;
+}
+
+export interface ChangeCommercialDocumentStateRequest {
+  requestId: string; organizationId: string; companyId: string; documentId: string; action: "post" | "cancel";
+}
+
+export interface DocumentMutationResultView<T> { operationId: string; document: T }
+
 /** One material or treatment line retained by a company certificate. */
 export interface CertificateItemView {
   /** Stable canonical item identifier. */
@@ -721,6 +741,24 @@ export interface DispatchListView {
   companyId: string;
   /** Newest dispatch documents first. */
   documents: DispatchDocumentView[];
+}
+
+export interface SaveDispatchDocumentRequest {
+  requestId: string; organizationId: string; companyId: string; documentId?: string; contactId: string;
+  commercialDocumentId?: string; issueDate: string; transferType: DispatchDocumentView["transferType"];
+  dispatchType?: "1" | "2" | "3"; destinationAddress?: string; destinationCommune?: string;
+  reference?: string; note?: string; transporterTaxId?: string; vehiclePlate?: string;
+  driverTaxId?: string; driverName?: string; affectsTax: boolean; currencyCode: string;
+  currencyExponent: number; lines: Array<{ id?: string; productVariantId?: string; code?: string; name: string; unitName?: string; quantityMilli: number; priceUnitMinor: number }>;
+}
+
+export interface RequestFiscalIssueRequest {
+  requestId: string; organizationId: string; companyId: string; sourceType: "commercial_document" | "dispatch_document";
+  sourceId: string; documentCode: "33" | "52" | "61"; confirmation: "ISSUE";
+}
+
+export interface FiscalIssueRequestResultView {
+  operationId: string; fiscalDocument: FiscalDocumentView; status: "queued";
 }
 
 export interface FiscalFileView { id: string; name: string; mimeType: string; bytes: number; role: string }
@@ -998,12 +1036,17 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Read authorized invoices and credit notes for one company. */
   listCommercialDocuments(organizationId: string, companyId: string, limit?: number): Promise<CommercialDocumentListView>;
+  listDocumentEditorOptions(organizationId: string, companyId: string): Promise<DocumentEditorOptionsView>;
+  saveCommercialDocument(input: SaveCommercialDocumentRequest): Promise<DocumentMutationResultView<CommercialDocumentView>>;
+  changeCommercialDocumentState(input: ChangeCommercialDocumentStateRequest): Promise<DocumentMutationResultView<CommercialDocumentView>>;
 
   /** Read authorized certificates for one company. */
   listCertificates(organizationId: string, companyId: string, limit?: number): Promise<CertificateListView>;
 
   /** Read authorized dispatch documents for one company. */
   listDispatchDocuments(organizationId: string, companyId: string, limit?: number): Promise<DispatchListView>;
+  saveDispatchDocument(input: SaveDispatchDocumentRequest): Promise<DocumentMutationResultView<DispatchDocumentView>>;
+  requestFiscalIssue(input: RequestFiscalIssueRequest): Promise<FiscalIssueRequestResultView>;
 
   /** Read authorized fiscal documents for one company. */
   listFiscalDocuments(organizationId: string, companyId: string, limit?: number): Promise<FiscalDocumentListView>;
