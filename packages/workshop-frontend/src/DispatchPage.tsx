@@ -61,6 +61,14 @@ export default function DispatchPage() {
     await authenticatedApi.requestFiscalIssue({ requestId: crypto.randomUUID(), organizationId: scope.organizationId, companyId: scope.companyId, sourceType: 'dispatch_document', sourceId: document.id, documentCode: '52', confirmation: 'ISSUE' })
     await refresh()
   }
+  const download = async (dispatch: DispatchDocumentView, file: NonNullable<DispatchDocumentView['files']>[number]) => {
+    if (!scope) return
+    const content = file.source === 'fiscal'
+      ? await authenticatedApi.readFiscalFile(scope.organizationId, scope.companyId, file.id)
+      : await authenticatedApi.readDispatchFile(scope.organizationId, scope.companyId, dispatch.id, file.role)
+    const url = URL.createObjectURL(new Blob([content.bytes as BlobPart], { type: content.mimeType }))
+    const link = document.createElement('a'); link.href = url; link.download = content.name; link.click(); URL.revokeObjectURL(url)
+  }
 
   const locale = language === 'es' ? 'es-CL' : 'en-US'
   const date = (value: string) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`))
@@ -95,7 +103,7 @@ export default function DispatchPage() {
           <span className="min-w-0"><span className="block text-sm text-kumo-default">{document.number}{document.folio ? ` · ${t('dispatch.folio')} ${document.folio}` : ''}</span><span className="mt-1 block text-xs text-kumo-subtle">{date(document.issueDate)} · {t(stateKey[document.state])}</span></span>
           <span className="text-sm text-kumo-default">{money(document)}</span><span className="text-xs text-kumo-subtle">{document.lines?.length ?? 0} {t('dispatch.items')}</span>
         </button>
-        {expanded === document.id && <div className="border-t border-kumo-line bg-kumo-base px-4 py-3 sm:pl-16">{document.lines?.map((line) => <div key={line.id} className="grid gap-1 border-b border-kumo-line py-2 text-xs last:border-b-0 sm:grid-cols-[1fr_auto_auto]"><span className="text-kumo-default">{line.name}</span><span className="text-kumo-subtle">{quantity(line.quantityMilli)} {line.unitName ?? ''}</span><span className="text-kumo-default">{new Intl.NumberFormat(locale, { style: 'currency', currency: document.currencyCode, maximumFractionDigits: document.currencyExponent }).format(line.priceSubtotalMinor / (10 ** document.currencyExponent))}</span></div>)}{document.state === 'draft' && <div className="mt-3 flex justify-end gap-2"><button type="button" onClick={() => void openEditor(document)} className="cursor-pointer rounded-xl border border-kumo-line px-3 py-2 text-xs text-kumo-default">{t('common.edit')}</button><button type="button" onClick={() => void issue(document)} className="cursor-pointer rounded-xl bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{t('dispatch.issue')}</button></div>}</div>}
+        {expanded === document.id && <div className="border-t border-kumo-line bg-kumo-base px-4 py-3 sm:pl-16">{document.files?.length ? <div className="mb-3 flex flex-wrap items-center gap-2"><span className="text-xs text-kumo-subtle">{t('dispatch.files')}</span>{document.files.map((file) => <button key={file.id} type="button" onClick={() => void download(document, file)} className="cursor-pointer rounded-lg border border-kumo-line px-2 py-1 text-xs text-kumo-default hover:border-[#FE4A23]">{t(file.role === 'pdf' ? 'dispatch.downloadPdf' : 'dispatch.downloadXml')}</button>)}</div> : document.state === 'issued' ? <p className="mb-3 text-xs text-kumo-subtle">{t('dispatch.noFiles')}</p> : null}{document.lines?.map((line) => <div key={line.id} className="grid gap-1 border-b border-kumo-line py-2 text-xs last:border-b-0 sm:grid-cols-[1fr_auto_auto]"><span className="text-kumo-default">{line.name}</span><span className="text-kumo-subtle">{quantity(line.quantityMilli)} {line.unitName ?? ''}</span><span className="text-kumo-default">{new Intl.NumberFormat(locale, { style: 'currency', currency: document.currencyCode, maximumFractionDigits: document.currencyExponent }).format(line.priceSubtotalMinor / (10 ** document.currencyExponent))}</span></div>)}{document.state === 'draft' && <div className="mt-3 flex justify-end gap-2"><button type="button" onClick={() => void openEditor(document)} className="cursor-pointer rounded-xl border border-kumo-line px-3 py-2 text-xs text-kumo-default">{t('common.edit')}</button><button type="button" onClick={() => void issue(document)} className="cursor-pointer rounded-xl bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{t('dispatch.issue')}</button></div>}</div>}
       </article>) : <p className="p-6 text-sm text-kumo-subtle">{t('dispatch.empty')}</p>}
     </div>
   </div>
