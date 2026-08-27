@@ -13,7 +13,8 @@ test("business context derives authority from the authenticated server identity"
 test("support access remains visible and can be ended from every product screen", async () => {
   const shell = await readFile("packages/workshop-frontend/src/components/AppShell/AppShell.tsx", "utf8");
   assert.match(shell, /businessSession\?\.support/);
-  assert.match(shell, /Salir del cliente/);
+  assert.match(shell, /Atendiendo a/);
+  assert.match(shell, />\s*Salir\s*</);
   assert.match(shell, /endSupportSession/);
 });
 
@@ -45,5 +46,6 @@ test("the shell keeps company switching visible and streams canonical activity",
   assert.match(activity, /listBusinessActivity/);
   assert.match(activity, /POLL_MS = 10_000/);
   assert.match(activity, /activityAppIcon\(event\)/);
-  assert.match(server, /PLATFORM_CORE\.listActivity\(this\.#userId\.name!/);
+  assert.match(server, /PLATFORM_CORE\.listActivity\(await this\.#businessSubject/);
+  assert.match(server, /support_scope_invalid/);
 });

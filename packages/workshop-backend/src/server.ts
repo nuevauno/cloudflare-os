@@ -203,6 +203,19 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     return admins.includes(name);
   }
 
+  async #businessSubject(organizationId: string, companyId: string): Promise<string> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    const session = await this.env.PLATFORM_CORE.getBusinessSession(this.#userId.name!);
+    const company = session.organizations
+      .find((organization) => organization.organization.id === organizationId)
+      ?.companies.find((entry) => entry.company.id === companyId);
+    if (!company) throw new Error("permission_denied");
+    if (session.support && (session.activeOrganizationId !== organizationId || session.activeCompanyId !== companyId)) {
+      throw new Error("support_scope_invalid");
+    }
+    return session.effectiveSubject;
+  }
+
   whoami(): Promise<AiChatAuthorInfo> {
     // Pure-read delegations retry once across a user-DO reset (see retryOnDoReset); writes never do.
     return retryOnDoReset(() => this.#user.whoami());
@@ -225,51 +238,51 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   }
   async listBusinessActivity(organizationId: string, companyId: string, limit = 20): Promise<import('@gadgets/workshop-shared/api').ActivityFeedView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.listActivity(this.#userId.name!, organizationId, companyId, limit);
+    return this.env.PLATFORM_CORE.listActivity(await this.#businessSubject(organizationId, companyId), organizationId, companyId, limit);
   }
   async listAgentRuns(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').AgentRunListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.listAgentRuns(this.#userId.name!, organizationId, companyId, limit);
+    return this.env.PLATFORM_CORE.listAgentRuns(await this.#businessSubject(organizationId, companyId), organizationId, companyId, limit);
   }
   async listCommercialDocuments(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').CommercialDocumentListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.listCommercialDocuments(this.#userId.name!, organizationId, companyId, limit);
+    return this.env.PLATFORM_CORE.listCommercialDocuments(await this.#businessSubject(organizationId, companyId), organizationId, companyId, limit);
   }
   async listDocumentEditorOptions(organizationId: string, companyId: string): Promise<import('@gadgets/workshop-shared/api').DocumentEditorOptionsView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.listDocumentEditorOptions(this.#userId.name!, organizationId, companyId);
+    return this.env.PLATFORM_CORE.listDocumentEditorOptions(await this.#businessSubject(organizationId, companyId), organizationId, companyId);
   }
   async saveCommercialDocument(input: import('@gadgets/workshop-shared/api').SaveCommercialDocumentRequest): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').CommercialDocumentView>> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     const { requestId, ...document } = input;
-    return this.env.PLATFORM_CORE.saveCommercialDocument({ ...document, actorSubject: this.#userId.name!, idempotencyKey: `sale:save:${this.#userId.name}:${requestId}` });
+    return this.env.PLATFORM_CORE.saveCommercialDocument({ ...document, actorSubject: await this.#businessSubject(document.organizationId, document.companyId), idempotencyKey: `sale:save:${this.#userId.name}:${requestId}` });
   }
   async changeCommercialDocumentState(input: import('@gadgets/workshop-shared/api').ChangeCommercialDocumentStateRequest): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').CommercialDocumentView>> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     const { requestId, ...document } = input;
-    return this.env.PLATFORM_CORE.changeCommercialDocumentState({ ...document, actorSubject: this.#userId.name!, idempotencyKey: `sale:state:${this.#userId.name}:${requestId}` });
+    return this.env.PLATFORM_CORE.changeCommercialDocumentState({ ...document, actorSubject: await this.#businessSubject(document.organizationId, document.companyId), idempotencyKey: `sale:state:${this.#userId.name}:${requestId}` });
   }
   async listCertificates(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').CertificateListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.listCertificates(this.#userId.name!, organizationId, companyId, limit);
+    return this.env.PLATFORM_CORE.listCertificates(await this.#businessSubject(organizationId, companyId), organizationId, companyId, limit);
   }
   async listDispatchDocuments(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').DispatchListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.listDispatchDocuments(this.#userId.name!, organizationId, companyId, limit);
+    return this.env.PLATFORM_CORE.listDispatchDocuments(await this.#businessSubject(organizationId, companyId), organizationId, companyId, limit);
   }
   async saveDispatchDocument(input: import('@gadgets/workshop-shared/api').SaveDispatchDocumentRequest): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').DispatchDocumentView>> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     const { requestId, ...document } = input;
-    return this.env.PLATFORM_CORE.saveDispatchDocument({ ...document, actorSubject: this.#userId.name!, idempotencyKey: `dispatch:save:${this.#userId.name}:${requestId}` });
+    return this.env.PLATFORM_CORE.saveDispatchDocument({ ...document, actorSubject: await this.#businessSubject(document.organizationId, document.companyId), idempotencyKey: `dispatch:save:${this.#userId.name}:${requestId}` });
   }
   async requestFiscalIssue(input: import('@gadgets/workshop-shared/api').RequestFiscalIssueRequest): Promise<import('@gadgets/workshop-shared/api').FiscalIssueRequestResultView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     const { requestId, ...document } = input;
-    return this.env.PLATFORM_CORE.requestFiscalIssue({ ...document, actorSubject: this.#userId.name!, idempotencyKey: `fiscal:issue:${this.#userId.name}:${requestId}` });
+    return this.env.PLATFORM_CORE.requestFiscalIssue({ ...document, actorSubject: await this.#businessSubject(document.organizationId, document.companyId), idempotencyKey: `fiscal:issue:${this.#userId.name}:${requestId}` });
   }
   async listFiscalDocuments(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').FiscalDocumentListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    const result = await this.env.PLATFORM_CORE.listFiscalDocuments(this.#userId.name!, organizationId, companyId, limit);
+    const result = await this.env.PLATFORM_CORE.listFiscalDocuments(await this.#businessSubject(organizationId, companyId), organizationId, companyId, limit);
     return {
       organizationId: result.organizationId,
       companyId: result.companyId,
@@ -281,30 +294,30 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   }
   async readFiscalFile(organizationId: string, companyId: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').FiscalFileContentView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.readFiscalFile(this.#userId.name!, organizationId, companyId, fileId);
+    return this.env.PLATFORM_CORE.readFiscalFile(await this.#businessSubject(organizationId, companyId), organizationId, companyId, fileId);
   }
   async listVault(organizationId: string, companyId: string): Promise<import('@gadgets/workshop-shared/api').VaultView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    const result = await this.env.PLATFORM_CORE.listVault(this.#userId.name!, organizationId, companyId);
+    const result = await this.env.PLATFORM_CORE.listVault(await this.#businessSubject(organizationId, companyId), organizationId, companyId);
     return { ...result, collections: result.collections.map((collection) => ({ ...collection, files: collection.files.map(({ id, name, mimeType, bytes, role }) => ({ id, name, mimeType, bytes, role })) })) };
   }
   async readVaultFile(organizationId: string, companyId: string, fileId: string): Promise<import('@gadgets/workshop-shared/api').VaultFileContentView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.readVaultFile(this.#userId.name!, organizationId, companyId, fileId);
+    return this.env.PLATFORM_CORE.readVaultFile(await this.#businessSubject(organizationId, companyId), organizationId, companyId, fileId);
   }
   async createVaultShare(input: { organizationId: string; companyId: string; collectionId: string; label?: string; allowDownload?: boolean; expiresAt?: string }): Promise<import('@gadgets/workshop-shared/api').CreatedVaultShareView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.createVaultShare({ ...input, actorSubject: this.#userId.name! });
+    return this.env.PLATFORM_CORE.createVaultShare({ ...input, actorSubject: await this.#businessSubject(input.organizationId, input.companyId) });
   }
   async revokeVaultShare(organizationId: string, companyId: string, shareId: string): Promise<import('@gadgets/workshop-shared/api').VaultShareView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.revokeVaultShare(this.#userId.name!, organizationId, companyId, shareId);
+    return this.env.PLATFORM_CORE.revokeVaultShare(await this.#businessSubject(organizationId, companyId), organizationId, companyId, shareId);
   }
   async recordCommercialPayment(input: import('@gadgets/workshop-shared/api').RecordCommercialPaymentRequest): Promise<import('@gadgets/workshop-shared/api').RecordCommercialPaymentResultView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     const result = await this.env.PLATFORM_CORE.recordCommercialPayment({
       ...input,
-      actorSubject: this.#userId.name!,
+      actorSubject: await this.#businessSubject(input.organizationId, input.companyId),
       idempotencyKey: `collection:${this.#userId.name}:${input.requestId}`,
     });
     return {
@@ -330,11 +343,11 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   }
   async getAccountingLocalization(organizationId: string, companyId: string): Promise<import('@gadgets/workshop-shared/api').AccountingLocalizationView | null> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.getAccountingLocalization(this.#userId.name!, organizationId, companyId);
+    return this.env.PLATFORM_CORE.getAccountingLocalization(await this.#businessSubject(organizationId, companyId), organizationId, companyId);
   }
   async installAccountingLocalization(input: import('@gadgets/workshop-shared/api').InstallAccountingLocalizationRequest): Promise<import('@gadgets/workshop-shared/api').AccountingLocalizationView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
-    return this.env.PLATFORM_CORE.installAccountingLocalization({ ...input, actorSubject: this.#userId.name!, idempotencyKey: `accounting:${input.companyId}:${input.countryCode}:${crypto.randomUUID()}` });
+    return this.env.PLATFORM_CORE.installAccountingLocalization({ ...input, actorSubject: await this.#businessSubject(input.organizationId, input.companyId), idempotencyKey: `accounting:${input.companyId}:${input.countryCode}:${crypto.randomUUID()}` });
   }
   async provisionBusinessOwner(input: ProvisionBusinessOwnerRequest): Promise<void> {
     if (!this.#isAdmin()) throw new Error("permission_denied");
