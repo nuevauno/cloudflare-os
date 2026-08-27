@@ -35,7 +35,8 @@ export default function Sidebar({
 }) {
   const siteName = useSiteName()
   const { t } = useI18n()
-  const { isAdmin } = useAuthenticatedApi()
+  const { isAdmin, businessSession } = useAuthenticatedApi()
+  const supportMode = Boolean(businessSession?.support)
   // Gatekeeper-served management apps the user can reach now (one per gatekeeper that provides a UI
   // and is connected / enabled for everyone). Disabled or not-yet-connected ones aren't returned, so
   // they simply don't appear. The set is fully dynamic — no gatekeeper is hardcoded.
@@ -104,30 +105,30 @@ export default function Sidebar({
         <div className="flex shrink-0 flex-col gap-3 pt-3">
           {/* Primary nav */}
           <nav className="flex flex-col gap-0.5 px-2">
-            <SidebarItem
+            {!supportMode && <SidebarItem
               to="/"
               label={t('nav.home')}
               icon={<NuevaunoIcon name="base" />}
               collapsed={collapsed}
-            />
-            <SidebarItem
+            />}
+            {!supportMode && <SidebarItem
               to="/workspaces"
               label={t('nav.workspaces')}
               icon={<NuevaunoIcon name="project" />}
               collapsed={collapsed}
-            />
-            <SidebarItem
+            />}
+            {!supportMode && <SidebarItem
               to="/blueprints"
               label={t('nav.blueprints')}
               icon={<NuevaunoIcon name="automation" />}
               collapsed={collapsed}
-            />
-            <SidebarItem
+            />}
+            {!supportMode && <SidebarItem
               to="/outputs"
               label={t('nav.outputs')}
               icon={<NuevaunoIcon name="documentos" />}
               collapsed={collapsed}
-            />
+            />}
             {isAdmin && (
               <SidebarItem
                 to="/clients"
@@ -185,7 +186,7 @@ export default function Sidebar({
               collapsed={collapsed}
             />
             {/* Gatekeeper management apps (e.g. the Context Library), listed dynamically. */}
-            {gatekeeperApps.map((app) => {
+            {!supportMode && gatekeeperApps.map((app) => {
               // Escape the icon URL for safe interpolation into a CSS url("…") string.
               const maskUrl = app.icon
                 ? `url("${app.icon.url.replace(/[\\"]/g, '\\$&')}")`
@@ -223,23 +224,23 @@ export default function Sidebar({
               />
               )
             })}
-            <SidebarItem
+            {!supportMode && <SidebarItem
               to="/explore"
               label={t('nav.explore')}
               icon={<NuevaunoIcon name="knowledge" />}
               collapsed={collapsed}
-            />
+            />}
           </nav>
 
           {/* Workspace tools: search. Pinned so it's always reachable. */}
-          <SidebarWorkspacesTools collapsed={collapsed} />
+          {!supportMode && <SidebarWorkspacesTools collapsed={collapsed} />}
         </div>
 
         {/* Scrolling middle: only the Favorites / Recent workspaces / Recent blueprints lists.
             min-h-0 lets flex children compute scroll height correctly. */}
-        <div className="sidebar-scroll mt-1 min-h-0 flex-1 overflow-y-auto">
+        {!supportMode && <div className="sidebar-scroll mt-1 min-h-0 flex-1 overflow-y-auto">
           <SidebarWorkspacesLists collapsed={collapsed} />
-        </div>
+        </div>}
       </SidebarWorkspacesProvider>
 
       <SidebarUtilityStrip collapsed={collapsed} />

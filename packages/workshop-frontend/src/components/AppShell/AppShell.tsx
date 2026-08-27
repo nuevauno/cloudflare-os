@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouterState } from '@tanstack/react-router'
+import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { List, X } from '@/components/NuevaunoGlyphs'
 import TopBarNotice from '../../TopBarNotice'
 import ReconnectingChip from '../ReconnectingChip'
@@ -12,6 +12,11 @@ import { useAuthenticatedApi } from '../../AuthContext'
 import BottomStatusBar from './BottomStatusBar'
 
 const STORAGE_KEY_COLLAPSED = 'gadgets:sidebar-collapsed'
+const BUSINESS_SUPPORT_ROUTES = ['/sales', '/collections', '/accounting', '/certificates', '/dispatch', '/fiscal', '/vault', '/kodo', '/billing']
+
+export function isBusinessSupportRoute(pathname: string): boolean {
+  return BUSINESS_SUPPORT_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+}
 
 // Read synchronously for the initial state so the rail doesn't flash open then collapse.
 function readCollapsed(): boolean {
@@ -32,6 +37,7 @@ function readCollapsed(): boolean {
  * is simpler and matches how the rest of the app handles small screens.
  */
 export default function AppShell({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsed)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -92,6 +98,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMobileOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    if (!businessSession?.support) return
+    if (!isBusinessSupportRoute(pathname)) {
+      void navigate({ to: '/sales', replace: true })
+    }
+  }, [businessSession?.support, navigate, pathname])
 
   // Global ⌘K / Ctrl+K opens the command palette; the rail's search button opens it via a custom
   // event so it doesn't have to prop-drill into the palette.

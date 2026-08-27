@@ -203,6 +203,13 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     return admins.includes(name);
   }
 
+  async #isEffectiveAdmin(): Promise<boolean> {
+    if (!this.#isAdmin()) return false;
+    if (!this.env.PLATFORM_CORE) return true;
+    const session = await this.env.PLATFORM_CORE.getBusinessSession(this.#userId.name!);
+    return !session.support;
+  }
+
   async #businessSubject(organizationId: string, companyId: string): Promise<string> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     const session = await this.env.PLATFORM_CORE.getBusinessSession(this.#userId.name!);
@@ -328,7 +335,7 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     };
   }
   async beginSupportSession(input: BeginSupportSessionRequest): Promise<BusinessSessionView> {
-    if (!this.#isAdmin()) throw new Error("permission_denied");
+    if (!await this.#isEffectiveAdmin()) throw new Error("permission_denied");
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     await this.env.PLATFORM_CORE.beginSupportSession({
       ...input, actorSubject: this.#userId.name!,
@@ -337,7 +344,7 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     return businessSessionView(await this.env.PLATFORM_CORE.getBusinessSession(this.#userId.name!));
   }
   async listSupportTargets(): Promise<SupportTargetView[]> {
-    if (!this.#isAdmin()) throw new Error("permission_denied");
+    if (!await this.#isEffectiveAdmin()) throw new Error("permission_denied");
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.listSupportTargets(this.#userId.name!);
   }
@@ -350,7 +357,7 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     return this.env.PLATFORM_CORE.installAccountingLocalization({ ...input, actorSubject: await this.#businessSubject(input.organizationId, input.companyId), idempotencyKey: `accounting:${input.companyId}:${input.countryCode}:${crypto.randomUUID()}` });
   }
   async provisionBusinessOwner(input: ProvisionBusinessOwnerRequest): Promise<void> {
-    if (!this.#isAdmin()) throw new Error("permission_denied");
+    if (!await this.#isEffectiveAdmin()) throw new Error("permission_denied");
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     const username = normalizeUsername(input.username);
     if (input.passwordHash.byteLength !== 32 || input.displayName.trim().length < 2) throw new Error("validation_failed");
@@ -364,7 +371,7 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     await target.createAccount(username, input.displayName, input.passwordHash);
   }
   async provisionBusinessCompany(input: ProvisionBusinessCompanyRequest): Promise<BusinessSessionView> {
-    if (!this.#isAdmin()) throw new Error("permission_denied");
+    if (!await this.#isEffectiveAdmin()) throw new Error("permission_denied");
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     const ownerSubject = normalizeUsername(input.ownerSubject);
     const organizationId = input.organizationId.trim();
@@ -860,17 +867,17 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     let app = accounts.find((account: (typeof accounts)[number]) => account.vendorId === id && account.description.providesUi);
     if (!app) return null;
     // isAdmin is supplied fresh per open so admin-gated features reflect the user's current status.
-    return user.startAccountAppUi(app.accountId, { isAdmin: this.#isAdmin() });
+    return user.startAccountAppUi(app.accountId, { isAdmin: await this.#isEffectiveAdmin() });
   }
 
   // --- Deployment admin ---
 
   async amIAdmin(): Promise<boolean> {
-    return this.#isAdmin();
+    return this.#isEffectiveAdmin();
   }
 
   async getAdminApi(): Promise<RpcStub<AdminApi> | null> {
-    if (!this.#isAdmin()) return null;
+    if (!await this.#isEffectiveAdmin()) return null;
     // #isAdmin() guarantees a non-empty user id name. Forwarded to gatekeepers when listing the
     // resource catalog so RBAC-gated ones still surface for this admin.
     let adminUserId = this.#userId.name!;

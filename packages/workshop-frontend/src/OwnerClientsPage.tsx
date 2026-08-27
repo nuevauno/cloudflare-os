@@ -45,7 +45,7 @@ export function groupSupportTargets(targets: SupportTargetView[]): OwnerClient[]
 }
 
 export default function OwnerClientsPage() {
-  const { authenticatedApi, isAdmin, beginSupportSession } = useAuthenticatedApi()
+  const { authenticatedApi, isAdmin, businessSession, beginSupportSession } = useAuthenticatedApi()
   const { t } = useI18n()
   const navigate = useNavigate()
   const [targets, setTargets] = useState<SupportTargetView[]>([])
@@ -61,6 +61,12 @@ export default function OwnerClientsPage() {
   const filtered = useMemo(() => filterClients(clients, query), [clients, query])
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  useEffect(() => {
+    if (businessSession?.support) {
+      void navigate({ to: '/sales', replace: true })
+    }
+  }, [businessSession?.support, navigate])
 
   useEffect(() => {
     if (!isAdmin) { setLoading(false); return }
@@ -84,7 +90,7 @@ export default function OwnerClientsPage() {
         reason: reason.trim(),
         durationMinutes: 30,
       })
-      navigate({ to: '/' })
+      navigate({ to: '/sales', replace: true })
     } catch {
       setSupportError(true)
     } finally {
@@ -92,6 +98,7 @@ export default function OwnerClientsPage() {
     }
   }
 
+  if (businessSession?.support) return null
   if (!isAdmin) return <div className="mx-auto max-w-5xl p-6 text-kumo-default"><p>{t('clients.denied')}</p></div>
 
   return (
