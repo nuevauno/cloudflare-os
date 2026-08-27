@@ -103,6 +103,7 @@ interface PlatformCoreBinding {
   changeCommercialDocumentState(input: Omit<import('@gadgets/workshop-shared/api').ChangeCommercialDocumentStateRequest, 'requestId'> & { idempotencyKey: string; actorSubject: string }): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').CommercialDocumentView>>;
   listCertificates(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').CertificateListView>;
   listDispatchDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').DispatchListView>;
+  readDispatchFile(actorSubject: string, organizationId: string, companyId: string, dispatchDocumentId: string, role: "pdf" | "xml"): Promise<import('@gadgets/workshop-shared/api').DispatchFileContentView>;
   saveDispatchDocument(input: Omit<import('@gadgets/workshop-shared/api').SaveDispatchDocumentRequest, 'requestId'> & { idempotencyKey: string; actorSubject: string }): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').DispatchDocumentView>>;
   requestFiscalIssue(input: Omit<import('@gadgets/workshop-shared/api').RequestFiscalIssueRequest, 'requestId'> & { idempotencyKey: string; actorSubject: string }): Promise<import('@gadgets/workshop-shared/api').FiscalIssueRequestResultView>;
   listFiscalDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').FiscalDocumentListView>;
@@ -276,6 +277,10 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   async listDispatchDocuments(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').DispatchListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.listDispatchDocuments(await this.#businessSubject(organizationId, companyId), organizationId, companyId, limit);
+  }
+  async readDispatchFile(organizationId: string, companyId: string, dispatchDocumentId: string, role: "pdf" | "xml"): Promise<import('@gadgets/workshop-shared/api').DispatchFileContentView> {
+    if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
+    return this.env.PLATFORM_CORE.readDispatchFile(await this.#businessSubject(organizationId, companyId), organizationId, companyId, dispatchDocumentId, role);
   }
   async saveDispatchDocument(input: import('@gadgets/workshop-shared/api').SaveDispatchDocumentRequest): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').DispatchDocumentView>> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
