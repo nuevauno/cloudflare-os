@@ -149,6 +149,12 @@ export default function Sidebar({
               collapsed={collapsed}
             />
             <SidebarItem
+              to="/accounting"
+              label={t('nav.accounting')}
+              icon={<NuevaunoIcon name="chart" />}
+              collapsed={collapsed}
+            />
+            <SidebarItem
               to="/certificates"
               label={t('nav.certificates')}
               icon={<NuevaunoIcon name="nuevauno_certificates" />}

@@ -393,6 +393,8 @@ export interface BusinessCompanySummary {
   displayName: string;
   /** ISO 4217 currency used by the company. */
   currencyCode: string;
+  /** ISO 3166-1 alpha-2 country that determines the accounting package. */
+  countryCode?: string;
   /** IANA time zone used for company-facing dates and schedules. */
   timezone: string;
   /** Current operating state. */
@@ -975,6 +977,18 @@ export interface SupportTargetView {
   companyName: string;
 }
 
+export interface AccountingLocalizationView {
+  id: string; organizationId: string; companyId: string; countryCode: string;
+  packageCode: string; packageVersion: string; status: "active" | "replaced"; installedAt: string;
+  accounts: Array<{ id: string; companyId: string; code: string; name: string; kind: "asset" | "liability" | "equity" | "income" | "expense"; reconcilable: boolean }>;
+  journals: Array<{ id: string; companyId: string; code: string; name: string; kind: "sale" | "purchase" | "bank" | "cash" | "general"; currencyCode: string }>;
+  taxes: Array<{ id: string; code: string; name: string; rateBasisPoints: number; usage: "sale" | "purchase" | "both" }>;
+}
+
+export interface InstallAccountingLocalizationRequest {
+  organizationId: string; companyId: string; countryCode: string;
+}
+
 /** Atomic input for creating an owner, organization, first company and login account. */
 export interface ProvisionBusinessOwnerRequest {
   /** Login name; normalized and validated by the server. */
@@ -995,6 +1009,9 @@ export interface ProvisionBusinessOwnerRequest {
   companyLegalName: string;
   /** Optional shorter first-company name shown in the product UI. */
   companyDisplayName?: string;
+  countryCode?: string;
+  currencyCode?: string;
+  timezone?: string;
 }
 
 /** Atomic input for adding a company to an existing owner's organization. */
@@ -1009,6 +1026,9 @@ export interface ProvisionBusinessCompanyRequest {
   companyLegalName: string;
   /** Optional shorter name shown in the product UI. */
   companyDisplayName?: string;
+  countryCode?: string;
+  currencyCode?: string;
+  timezone?: string;
 }
 
 /** Top-level API exposed to the user after they have authenticated. */
@@ -1073,6 +1093,12 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** List identities and companies available for an audited support session. */
   listSupportTargets(): Promise<SupportTargetView[]>;
+
+  /** Read the active accounting package, chart, journals and taxes for one company. */
+  getAccountingLocalization(organizationId: string, companyId: string): Promise<AccountingLocalizationView | null>;
+
+  /** Install or safely change the accounting package through the canonical core. */
+  installAccountingLocalization(input: InstallAccountingLocalizationRequest): Promise<AccountingLocalizationView>;
 
   /** Provision one owner, organization and first company through the private idempotent core. */
   provisionBusinessOwner(input: ProvisionBusinessOwnerRequest): Promise<void>;
