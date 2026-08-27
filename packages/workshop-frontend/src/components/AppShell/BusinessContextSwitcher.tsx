@@ -26,7 +26,7 @@ export default function BusinessContextSwitcher({ collapsed }: { collapsed: bool
           const selected = companies.find(({ company }) => company.id === event.target.value)
           if (selected) void selectBusinessContext(selected.organization.id, selected.company.id)
         }}
-        className="mt-1 h-9 w-full rounded-xl border border-kumo-line bg-kumo-base px-2 text-[13px] text-kumo-default outline-none focus:border-kumo-accent"
+        className="mt-1 h-9 w-full border border-kumo-line bg-kumo-base px-2 text-[13px] text-kumo-default outline-none focus:border-kumo-accent"
       >
         <option value="" disabled>Selecciona una empresa</option>
         {companies.map(({ company }) => (

@@ -150,10 +150,11 @@ const messages = {
     'accounting.noCompany': 'Selecciona una empresa para revisar su contabilidad.', 'accounting.notInstalled': 'Localización pendiente', 'accounting.version': 'Versión', 'accounting.country': 'País',
     'accounting.install': 'Configurar', 'accounting.update': 'Actualizar', 'accounting.installing': 'Configurando…', 'accounting.accounts': 'Plan de cuentas', 'accounting.journals': 'Diarios', 'accounting.taxes': 'Impuestos',
     'accounting.taxesConfigurable': 'Los impuestos se configuran según la jurisdicción.', 'accounting.loadError': 'No pudimos cargar la configuración contable.', 'accounting.installError': 'No pudimos configurar la localización contable.', 'accounting.locked': 'Esta empresa ya tiene movimientos. El país contable no puede cambiarse sin una migración controlada.',
-    'clients.eyebrow': 'NUEVAUNO', 'clients.title': 'Clientes', 'clients.subtitle': 'Administra las organizaciones y empresas del SaaS. Entra como un cliente solo cuando necesites atenderlo; cada acceso queda registrado.',
+    'clients.eyebrow': 'NUEVAUNO', 'clients.title': 'Clientes', 'clients.subtitle': 'Encuentra a cada cliente, revisa sus empresas y ayúdalo desde un solo lugar.',
     'clients.denied': 'Esta sección está disponible únicamente para administradores de NUEVAUNO.', 'clients.error': 'No pudimos cargar los clientes. Inténtalo nuevamente.', 'clients.empty': 'Aún no hay clientes provisionados.',
     'clients.enter': 'Entrar', 'clients.enterTitle': 'Entrar como cliente', 'clients.enterHelp': 'El acceso dura 30 minutos y mostrará una franja permanente hasta que salgas.', 'clients.reason': 'Motivo',
-    'clients.enterError': 'No pudimos iniciar el acceso. Revisa el motivo e inténtalo nuevamente.', 'clients.entering': 'Entrando…', 'clients.enterAudited': 'Entrar con auditoría',
+    'clients.enterError': 'No pudimos iniciar el acceso. Revisa el motivo e inténtalo nuevamente.', 'clients.entering': 'Entrando…', 'clients.enterAudited': 'Entrar',
+    'clients.search': 'Buscar', 'clients.searchPlaceholder': 'Nombre, correo o empresa', 'clients.count': 'clientes', 'clients.previous': 'Anterior', 'clients.next': 'Siguiente',
   },
   en: {
     'nav.primary': 'Primary', 'nav.home': 'Home', 'nav.workspaces': 'Workspaces',
@@ -303,10 +304,11 @@ const messages = {
     'accounting.noCompany': 'Select a company to review its accounting.', 'accounting.notInstalled': 'Localization pending', 'accounting.version': 'Version', 'accounting.country': 'Country',
     'accounting.install': 'Configure', 'accounting.update': 'Update', 'accounting.installing': 'Configuring…', 'accounting.accounts': 'Chart of accounts', 'accounting.journals': 'Journals', 'accounting.taxes': 'Taxes',
     'accounting.taxesConfigurable': 'Taxes are configured for the applicable jurisdiction.', 'accounting.loadError': 'We could not load the accounting configuration.', 'accounting.installError': 'We could not configure the accounting localization.', 'accounting.locked': 'This company already has transactions. Its accounting country requires a controlled migration.',
-    'clients.eyebrow': 'NUEVAUNO', 'clients.title': 'Clients', 'clients.subtitle': 'Manage SaaS organizations and companies. Enter as a client only when support is needed; every access is recorded.',
+    'clients.eyebrow': 'NUEVAUNO', 'clients.title': 'Clients', 'clients.subtitle': 'Find every client, review their companies, and help them from one place.',
     'clients.denied': 'This section is available only to NUEVAUNO administrators.', 'clients.error': 'We could not load clients. Please try again.', 'clients.empty': 'There are no provisioned clients yet.',
     'clients.enter': 'Enter', 'clients.enterTitle': 'Enter as client', 'clients.enterHelp': 'Access lasts 30 minutes and shows a persistent banner until you leave.', 'clients.reason': 'Reason',
-    'clients.enterError': 'We could not start access. Check the reason and try again.', 'clients.entering': 'Entering…', 'clients.enterAudited': 'Enter with audit',
+    'clients.enterError': 'We could not start access. Check the reason and try again.', 'clients.entering': 'Entering…', 'clients.enterAudited': 'Enter',
+    'clients.search': 'Search', 'clients.searchPlaceholder': 'Name, email, or company', 'clients.count': 'clients', 'clients.previous': 'Previous', 'clients.next': 'Next',
   },
 } as const
 

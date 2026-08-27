@@ -171,10 +171,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {businessSession?.support && (
           <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b border-[#FE4A23]/40 bg-[#FE4A23]/10 px-4 text-[13px] text-kumo-default">
             <span>
-              Estás atendiendo como {businessSession.effectiveSubject}. Todas las acciones quedan registradas. Sesión hasta {new Date(businessSession.support.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
+              Atendiendo a {businessSession.effectiveSubject} · hasta {new Date(businessSession.support.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
-            <button type="button" onClick={() => void endSupportSession()} className="shrink-0 rounded-xl border border-[#FE4A23] px-3 py-1.5 text-[#FE4A23]">
-              Salir del cliente
+            <button type="button" onClick={() => void endSupportSession()} className="shrink-0 border border-[#FE4A23] px-3 py-1.5 text-[#FE4A23]">
+              Salir
             </button>
           </div>
         )}
