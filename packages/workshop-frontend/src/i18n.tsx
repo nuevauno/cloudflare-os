@@ -4,7 +4,7 @@ import { getUserLanguage, getUserTimeZone, type UserLanguage } from './userPrefe
 const messages = {
   es: {
     'nav.primary': 'Principal', 'nav.home': 'Inicio', 'nav.workspaces': 'Espacios',
-    'common.loading': 'Cargando…', 'nav.blueprints': 'Plantillas', 'nav.outputs': 'Resultados', 'nav.sales': 'Ventas', 'nav.collections': 'Cobranza', 'nav.certificates': 'Certificados', 'nav.dispatch': 'Guías', 'nav.fiscal': 'Documentos fiscales', 'nav.vault': 'Bóveda', 'nav.kodo': 'KODO', 'nav.explore': 'Explorar',
+    'common.loading': 'Cargando…', 'nav.blueprints': 'Plantillas', 'nav.outputs': 'Resultados', 'nav.clients': 'Clientes', 'nav.sales': 'Ventas', 'nav.collections': 'Cobranza', 'nav.certificates': 'Certificados', 'nav.dispatch': 'Guías', 'nav.fiscal': 'Documentos fiscales', 'nav.vault': 'Bóveda', 'nav.kodo': 'KODO', 'nav.explore': 'Explorar',
     'nav.search': 'Buscar', 'nav.collapse': 'Contraer barra lateral', 'nav.expand': 'Expandir barra lateral',
     'nav.openMenu': 'Abrir menú', 'nav.closeMenu': 'Cerrar menú',
     'sidebar.favorites': 'Favoritos', 'sidebar.recent': 'Espacios recientes',
@@ -146,10 +146,14 @@ const messages = {
     'kodo.state.queued': 'En cola', 'kodo.state.running': 'En curso', 'kodo.state.succeeded': 'Completada', 'kodo.state.failed': 'Con error', 'kodo.state.cancelled': 'Cancelada',
     'billing.invoiceStatus.draft': 'Borrador', 'billing.invoiceStatus.open': 'Pendiente', 'billing.invoiceStatus.paid': 'Pagada',
     'billing.invoiceStatus.void': 'Anulada', 'billing.invoiceStatus.uncollectible': 'Incobrable',
+    'clients.eyebrow': 'NUEVAUNO', 'clients.title': 'Clientes', 'clients.subtitle': 'Administra las organizaciones y empresas del SaaS. Entra como un cliente solo cuando necesites atenderlo; cada acceso queda registrado.',
+    'clients.denied': 'Esta sección está disponible únicamente para administradores de NUEVAUNO.', 'clients.error': 'No pudimos cargar los clientes. Inténtalo nuevamente.', 'clients.empty': 'Aún no hay clientes provisionados.',
+    'clients.enter': 'Entrar', 'clients.enterTitle': 'Entrar como cliente', 'clients.enterHelp': 'El acceso dura 30 minutos y mostrará una franja permanente hasta que salgas.', 'clients.reason': 'Motivo',
+    'clients.enterError': 'No pudimos iniciar el acceso. Revisa el motivo e inténtalo nuevamente.', 'clients.entering': 'Entrando…', 'clients.enterAudited': 'Entrar con auditoría',
   },
   en: {
     'nav.primary': 'Primary', 'nav.home': 'Home', 'nav.workspaces': 'Workspaces',
-    'common.loading': 'Loading…', 'nav.blueprints': 'Templates', 'nav.outputs': 'Outputs', 'nav.sales': 'Sales', 'nav.collections': 'Collections', 'nav.certificates': 'Certificates', 'nav.dispatch': 'Dispatch', 'nav.fiscal': 'Fiscal documents', 'nav.vault': 'Vault', 'nav.kodo': 'KODO', 'nav.explore': 'Explore',
+    'common.loading': 'Loading…', 'nav.blueprints': 'Templates', 'nav.outputs': 'Outputs', 'nav.clients': 'Clients', 'nav.sales': 'Sales', 'nav.collections': 'Collections', 'nav.certificates': 'Certificates', 'nav.dispatch': 'Dispatch', 'nav.fiscal': 'Fiscal documents', 'nav.vault': 'Vault', 'nav.kodo': 'KODO', 'nav.explore': 'Explore',
     'nav.search': 'Search', 'nav.collapse': 'Collapse sidebar', 'nav.expand': 'Expand sidebar',
     'nav.openMenu': 'Open menu', 'nav.closeMenu': 'Close menu',
     'sidebar.favorites': 'Favorites', 'sidebar.recent': 'Recent workspaces',
@@ -291,6 +295,10 @@ const messages = {
     'kodo.state.queued': 'Queued', 'kodo.state.running': 'Running', 'kodo.state.succeeded': 'Completed', 'kodo.state.failed': 'Failed', 'kodo.state.cancelled': 'Cancelled',
     'billing.invoiceStatus.draft': 'Draft', 'billing.invoiceStatus.open': 'Open', 'billing.invoiceStatus.paid': 'Paid',
     'billing.invoiceStatus.void': 'Void', 'billing.invoiceStatus.uncollectible': 'Uncollectible',
+    'clients.eyebrow': 'NUEVAUNO', 'clients.title': 'Clients', 'clients.subtitle': 'Manage SaaS organizations and companies. Enter as a client only when support is needed; every access is recorded.',
+    'clients.denied': 'This section is available only to NUEVAUNO administrators.', 'clients.error': 'We could not load clients. Please try again.', 'clients.empty': 'There are no provisioned clients yet.',
+    'clients.enter': 'Enter', 'clients.enterTitle': 'Enter as client', 'clients.enterHelp': 'Access lasts 30 minutes and shows a persistent banner until you leave.', 'clients.reason': 'Reason',
+    'clients.enterError': 'We could not start access. Check the reason and try again.', 'clients.entering': 'Entering…', 'clients.enterAudited': 'Enter with audit',
   },
 } as const
 

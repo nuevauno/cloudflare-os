@@ -1,0 +1,14 @@
+import { describe, expect, it } from 'vitest'
+import { groupSupportTargets } from './OwnerClientsPage'
+
+describe('groupSupportTargets', () => {
+  it('groups one SaaS client and keeps its companies separated', () => {
+    const clients = groupSupportTargets([
+      { subject: 'piero@demo.com', displayName: 'Piero', organizationId: 'org-piero', organizationName: 'Piero', companyId: 'rng', companyName: 'RNG' },
+      { subject: 'piero@demo.com', displayName: 'Piero', organizationId: 'org-piero', organizationName: 'Piero', companyId: 'servicios', companyName: 'Servicios' },
+    ])
+    expect(clients).toHaveLength(1)
+    expect(clients[0].displayName).toBe('Piero')
+    expect(clients[0].companies.map((company) => company.name)).toEqual(['RNG', 'Servicios'])
+  })
+})

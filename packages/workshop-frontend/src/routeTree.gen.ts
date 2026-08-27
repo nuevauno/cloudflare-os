@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as BlueprintsRouteImport } from './routes/blueprints'
 import { Route as CertificatesRouteImport } from './routes/certificates'
+import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CollectionsRouteImport } from './routes/collections'
 import { Route as ContextRouteImport } from './routes/context'
 import { Route as DispatchRouteImport } from './routes/dispatch'
@@ -57,6 +58,11 @@ const BlueprintsRoute = BlueprintsRouteImport.update({
 const CertificatesRoute = CertificatesRouteImport.update({
   id: '/certificates',
   path: '/certificates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientsRoute = ClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CollectionsRoute = CollectionsRouteImport.update({
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/billing': typeof BillingRoute
   '/blueprints': typeof BlueprintsRoute
   '/certificates': typeof CertificatesRoute
+  '/clients': typeof ClientsRoute
   '/collections': typeof CollectionsRoute
   '/context': typeof ContextRoute
   '/dispatch': typeof DispatchRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/billing': typeof BillingRoute
   '/blueprints': typeof BlueprintsRoute
   '/certificates': typeof CertificatesRoute
+  '/clients': typeof ClientsRoute
   '/collections': typeof CollectionsRoute
   '/context': typeof ContextRoute
   '/dispatch': typeof DispatchRoute
@@ -214,6 +222,7 @@ export interface FileRoutesById {
   '/billing': typeof BillingRoute
   '/blueprints': typeof BlueprintsRoute
   '/certificates': typeof CertificatesRoute
+  '/clients': typeof ClientsRoute
   '/collections': typeof CollectionsRoute
   '/context': typeof ContextRoute
   '/dispatch': typeof DispatchRoute
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/billing'
     | '/blueprints'
     | '/certificates'
+    | '/clients'
     | '/collections'
     | '/context'
     | '/dispatch'
@@ -268,6 +278,7 @@ export interface FileRouteTypes {
     | '/billing'
     | '/blueprints'
     | '/certificates'
+    | '/clients'
     | '/collections'
     | '/context'
     | '/dispatch'
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/billing'
     | '/blueprints'
     | '/certificates'
+    | '/clients'
     | '/collections'
     | '/context'
     | '/dispatch'
@@ -321,6 +333,7 @@ export interface RootRouteChildren {
   BillingRoute: typeof BillingRoute
   BlueprintsRoute: typeof BlueprintsRoute
   CertificatesRoute: typeof CertificatesRoute
+  ClientsRoute: typeof ClientsRoute
   CollectionsRoute: typeof CollectionsRoute
   ContextRoute: typeof ContextRoute
   DispatchRoute: typeof DispatchRoute
@@ -377,6 +390,13 @@ declare module '@tanstack/react-router' {
       path: '/certificates'
       fullPath: '/certificates'
       preLoaderRoute: typeof CertificatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clients': {
+      id: '/clients'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof ClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/collections': {
@@ -521,6 +541,7 @@ const rootRouteChildren: RootRouteChildren = {
   BillingRoute: BillingRoute,
   BlueprintsRoute: BlueprintsRoute,
   CertificatesRoute: CertificatesRoute,
+  ClientsRoute: ClientsRoute,
   CollectionsRoute: CollectionsRoute,
   ContextRoute: ContextRoute,
   DispatchRoute: DispatchRoute,

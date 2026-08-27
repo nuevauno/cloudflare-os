@@ -12,6 +12,7 @@ import {
 import SidebarUtilityStrip from './SidebarUtilityStrip'
 import { useI18n } from '../../i18n'
 import NuevaunoIcon from '../NuevaunoIcon'
+import { useAuthenticatedApi } from '../../AuthContext'
 
 /**
  * The persistent left rail. Three pinned regions sandwich a single scrolling region of lists, so
@@ -34,6 +35,7 @@ export default function Sidebar({
 }) {
   const siteName = useSiteName()
   const { t } = useI18n()
+  const { isAdmin } = useAuthenticatedApi()
   // Gatekeeper-served management apps the user can reach now (one per gatekeeper that provides a UI
   // and is connected / enabled for everyone). Disabled or not-yet-connected ones aren't returned, so
   // they simply don't appear. The set is fully dynamic — no gatekeeper is hardcoded.
@@ -126,6 +128,14 @@ export default function Sidebar({
               icon={<NuevaunoIcon name="documentos" />}
               collapsed={collapsed}
             />
+            {isAdmin && (
+              <SidebarItem
+                to="/clients"
+                label={t('nav.clients')}
+                icon={<NuevaunoIcon name="contacts" />}
+                collapsed={collapsed}
+              />
+            )}
             <SidebarItem
               to="/sales"
               label={t('nav.sales')}
