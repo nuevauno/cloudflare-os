@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { CommercialDocumentListView, FiscalDocumentView } from '@gadgets/workshop-shared/api'
+import type { CommercialDocumentListView, FiscalDocumentListView, FiscalDocumentView } from '@gadgets/workshop-shared/api'
 import { fiscalForCommercialDocument, loadCommercialDocuments, loadSalesDocuments, resolveSalesScope } from './SalesPage'
 
 describe('resolveSalesScope', () => {
@@ -42,11 +42,11 @@ describe('resolveSalesScope', () => {
 
   it('loads commercial and fiscal state for the same authorized company', async () => {
     const commercial: CommercialDocumentListView = { organizationId: 'org-rng', companyId: 'cmp-rng', documents: [] }
-    const fiscal = { organizationId: 'org-rng', companyId: 'cmp-rng', documents: [] }
+    const fiscal: FiscalDocumentListView = { organizationId: 'org-rng', companyId: 'cmp-rng', documents: [] }
     const api = {
       getBusinessSession: vi.fn<() => Promise<typeof session>>(),
-      listCommercialDocuments: vi.fn().mockResolvedValue(commercial),
-      listFiscalDocuments: vi.fn().mockResolvedValue(fiscal),
+      listCommercialDocuments: vi.fn<(organizationId: string, companyId: string, limit?: number) => Promise<CommercialDocumentListView>>().mockResolvedValue(commercial),
+      listFiscalDocuments: vi.fn<(organizationId: string, companyId: string, limit?: number) => Promise<FiscalDocumentListView>>().mockResolvedValue(fiscal),
     }
     await expect(loadSalesDocuments(api, session)).resolves.toEqual({ commercial, fiscal })
     expect(api.listCommercialDocuments).toHaveBeenCalledWith('org-rng', 'cmp-rng', 100)
