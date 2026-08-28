@@ -14,6 +14,7 @@ import FrontendErrorBoundary from './FrontendErrorBoundary'
 import { installWorkshopErrorReporting, reportIssue } from './errorReporting'
 import { cacheBustSiteLogoUrl } from './siteLogoUtils'
 import { I18nProvider } from './i18n'
+import { createGuardedWebSocket } from './guardedWebSocket'
 
 // ---------------------------------------------------------------------------
 // Dev auto-login: if VITE_DEV_AUTO_LOGIN=true, automatically create/login
@@ -72,6 +73,8 @@ const notifySubscribers = () => subscribers.forEach(cb => cb());
 let isConnectionLost = false;
 let probing = false;
 let lastProvenAt = Date.now();
+let nextConnectionId = 0;
+let activeConnectionId = 0;
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -92,13 +95,30 @@ function getBackendHost(): string {
   return window.location.host;
 }
 
-function startConnection(): RpcStub<PublicApi> {
+interface ConnectionCandidate {
+  id: number;
+  socket: WebSocket;
+  stub: RpcStub<PublicApi>;
+  broken: boolean;
+}
+
+function startConnection(): ConnectionCandidate {
   lastConnectTime = Date.now();
   const apiHost = getBackendHost();
   const wsUrl = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + apiHost + '/api';
-  const stub = newWebSocketRpcSession<PublicApi>(wsUrl);
-  stub.onRpcBroken(handleBroken);
-  return stub;
+  const socket = createGuardedWebSocket(wsUrl);
+  const candidate: ConnectionCandidate = {
+    id: ++nextConnectionId,
+    socket,
+    stub: undefined as unknown as RpcStub<PublicApi>,
+    broken: false,
+  };
+  candidate.stub = newWebSocketRpcSession<PublicApi>(socket);
+  candidate.stub.onRpcBroken((error) => {
+    candidate.broken = true;
+    handleBroken(candidate.id, error);
+  });
+  return candidate;
 }
 
 const disposeQuietly = (stub: RpcStub<PublicApi>) => {
@@ -121,28 +141,31 @@ async function reconnect(): Promise<RpcStub<PublicApi>> {
 
     const candidate = startConnection();
     try {
-      await withTimeout(candidate.ping(), RECONNECT_PROBE_TIMEOUT_MS);
-    } catch (probeError) {
-      console.debug('Reconnect attempt failed:', probeError);
-      disposeQuietly(candidate);
+      await withTimeout(candidate.stub.ping(), RECONNECT_PROBE_TIMEOUT_MS);
+    } catch {
+      disposeQuietly(candidate.stub);
       continue;
     }
 
+    if (candidate.broken || candidate.socket.readyState !== WebSocket.OPEN) {
+      disposeQuietly(candidate.stub);
+      continue;
+    }
+
+    activeConnectionId = candidate.id;
     lastProvenAt = Date.now();
     isConnectionLost = false;
-    console.warn('RPC connection restored.');
     notifySubscribers();
-    return candidate;
+    return candidate.stub;
   }
 }
 
 // Subscribers hear exactly twice per outage — lost here, restored in `reconnect` — because
 // `currentStub` is replaced once, by a promise, rather than once per attempt.
-function handleBroken(error: unknown) {
-  if (isConnectionLost) return;  // stale/disposed stub, or recovery already underway
+function handleBroken(connectionId: number, _error: unknown) {
+  if (connectionId !== activeConnectionId || isConnectionLost) return;
   isConnectionLost = true;
-
-  console.warn('RPC connection lost:', error);
+  activeConnectionId = 0;
 
   // Publish a stub for the connection we have not made yet, so the dead one stops being reachable
   // immediately. capnweb queues calls pipelined onto an unresolved `RpcPromise` and delivers them,
@@ -165,7 +188,6 @@ async function probeOnWake() {
     lastProvenAt = Date.now();
   } catch (error) {
     if (currentStub !== suspect || isConnectionLost) return;  // a real broken event won the race
-    console.warn('Connection unresponsive after wake:', error);
     // Disposal fires onRpcBroken → handleBroken recovers. Its skip-first-backoff path retries
     // immediately — right for "the network just came back".
     disposeQuietly(suspect);
@@ -181,7 +203,9 @@ window.addEventListener('online', () => void probeOnWake());
 
 // Current stub. handleBroken() will replace this on disconnect.
 installWorkshopErrorReporting()
-let currentStub = startConnection();
+const initialConnection = startConnection();
+activeConnectionId = initialConnection.id;
+let currentStub = initialConnection.stub;
 
 const router = createRouter()
 applyStoredThemeMode()

@@ -55,6 +55,8 @@ describe('AppShell', () => {
     expect(isBusinessSupportRoute('/collections')).toBe(true)
     expect(isBusinessSupportRoute('/clients')).toBe(false)
     expect(isBusinessSupportRoute('/admin')).toBe(false)
+    expect(isBusinessSupportRoute('/profile')).toBe(false)
+    expect(isBusinessSupportRoute('/providers')).toBe(false)
     expect(isBusinessSupportRoute('/workspaces')).toBe(false)
     expect(isBusinessSupportRoute('/')).toBe(false)
   })

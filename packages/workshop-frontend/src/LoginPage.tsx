@@ -140,7 +140,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
       <div className="relative my-auto w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <NuevaunoIdentity siteName={siteName} size={40} className="mb-3 text-xl text-kumo-default" />
+          <NuevaunoIdentity siteName={siteName} size={56} showOs={false} className="mb-3 text-2xl text-kumo-default" />
           <p className="text-sm text-kumo-subtle mt-1">
             {recoveryMode ? 'Recupera tu acceso' : 'Ingresa a tu cuenta'}
           </p>

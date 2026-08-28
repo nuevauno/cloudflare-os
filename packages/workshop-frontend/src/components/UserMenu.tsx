@@ -9,7 +9,7 @@ import type { SupportTargetView } from '@gadgets/workshop-shared/api'
 import { hashPassword } from '../passwordHash'
 
 export default function UserMenu() {
-  const { authenticatedApi, logout, currentUser, isAdmin, beginSupportSession } = useAuthenticatedApi()
+  const { authenticatedApi, logout, currentUser, isAdmin, businessSession, beginSupportSession } = useAuthenticatedApi()
   const navigate = useNavigate()
   const { t } = useI18n()
   const [supportOpen, setSupportOpen] = useState(false)
@@ -142,18 +142,18 @@ export default function UserMenu() {
         }
       />
       <DropdownMenu.Content className={MENU_CONTENT} style={MENU_POSITIONER_STYLE}>
-        <DropdownMenu.Item
+        {!businessSession?.support && <DropdownMenu.Item
           onClick={() => navigate({ to: '/profile' })}
           className={MENU_ITEM}
         >
           {t('menu.profile')}
-        </DropdownMenu.Item>
-        <DropdownMenu.Item
+        </DropdownMenu.Item>}
+        {!businessSession?.support && <DropdownMenu.Item
           onClick={() => navigate({ to: '/providers' })}
           className={MENU_ITEM}
         >
           {t('menu.providers')}
-        </DropdownMenu.Item>
+        </DropdownMenu.Item>}
         {isAdmin && (
           <DropdownMenu.Item onClick={() => void openSupport()} className={MENU_ITEM}>
             Entrar a un cliente

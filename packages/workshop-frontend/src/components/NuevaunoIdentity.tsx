@@ -23,11 +23,13 @@ export default function NuevaunoIdentity({
   siteName,
   size = 20,
   compact = false,
+  showOs,
   className = '',
 }: {
   siteName: string
   size?: number
   compact?: boolean
+  showOs?: boolean
   className?: string
 }) {
   if (!isNuevaunoIdentity(siteName)) {
@@ -45,7 +47,7 @@ export default function NuevaunoIdentity({
       {!compact && (
         <span className="inline-flex items-baseline gap-2">
           <NuevaunoWordmark />
-          {/\sOS$/i.test(siteName) && <span className="font-nuevauno tracking-[-0.04em]">OS</span>}
+          {(showOs ?? /\sOS$/i.test(siteName)) && <span className="font-nuevauno tracking-[-0.04em]">OS</span>}
         </span>
       )}
     </span>
