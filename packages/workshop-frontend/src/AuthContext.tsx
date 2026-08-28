@@ -37,9 +37,30 @@ export function AuthProvider({ children, authenticatedApi, onLogout }: AuthProvi
     setBusinessSession(await authenticatedApi.getBusinessSession())
   }
   const selectBusinessContext = async (organizationId: string, companyId: string) => {
-    const session = await authenticatedApi.selectBusinessContext(organizationId, companyId)
+    let session: BusinessSessionView
+    if (businessSession?.support) {
+      const support = businessSession.support
+      const ownerSession = await authenticatedApi.endSupportSession()
+      setBusinessSession(ownerSession)
+      setIsAdmin(true)
+      const remainingMinutes = Math.max(1, Math.ceil((Date.parse(support.expiresAt) - Date.now()) / 60_000))
+      session = await authenticatedApi.beginSupportSession({
+        targetSubject: businessSession.effectiveSubject,
+        organizationId,
+        companyId,
+        reason: support.reason,
+        durationMinutes: remainingMinutes,
+      })
+      setIsAdmin(false)
+    } else {
+      session = await authenticatedApi.selectBusinessContext(organizationId, companyId)
+    }
     setBusinessSession(session)
-    setBillingOverview(await authenticatedApi.getBillingOverview(organizationId))
+    try {
+      setBillingOverview(await authenticatedApi.getBillingOverview(organizationId))
+    } catch {
+      setBillingOverview(null)
+    }
   }
   const refreshBillingOverview = async () => {
     if (!businessSession?.activeOrganizationId) return setBillingOverview(null)

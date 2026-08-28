@@ -13,6 +13,8 @@ export default function BottomStatusBar() {
   const { businessSession, billingOverview, selectBusinessContext } = useAuthenticatedApi()
   const { language, t } = useI18n()
   const [now, setNow] = useState(() => new Date())
+  const [switching, setSwitching] = useState(false)
+  const [switchError, setSwitchError] = useState(false)
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1_000)
     return () => window.clearInterval(timer)
@@ -34,10 +36,15 @@ export default function BottomStatusBar() {
         <select
             aria-label={t('status.selectCompany')}
             value={active?.company.id ?? ''}
-            disabled={!companies.length}
+            disabled={!companies.length || switching}
             onChange={(event) => {
               const selected = companies.find(({ company }) => company.id === event.target.value)
-              if (selected) void selectBusinessContext(selected.organization.id, selected.company.id)
+              if (!selected) return
+              setSwitchError(false)
+              setSwitching(true)
+              void selectBusinessContext(selected.organization.id, selected.company.id)
+                .catch(() => setSwitchError(true))
+                .finally(() => setSwitching(false))
             }}
             className="max-w-[220px] truncate border border-kumo-line bg-kumo-base px-2 py-1 text-[11px] text-kumo-default outline-none focus:border-kumo-accent disabled:opacity-60"
           >
@@ -46,9 +53,10 @@ export default function BottomStatusBar() {
               <option key={company.id} value={company.id}>{company.displayName}</option>
             ))}
         </select>
+        {switchError && <span role="alert" className="shrink-0 text-[#FE4A23]">No pudimos cambiar de empresa.</span>}
       </div>
       <StatusDivider />
-      <span className="hidden shrink-0 uppercase tracking-[0.12em] sm:inline">NUEVAUNO {RELEASE_VERSION}</span>
+      <span className="hidden shrink-0 uppercase tracking-[0.12em] sm:inline">NUEVAUNO OS {RELEASE_VERSION}</span>
       <div className="ml-auto flex shrink-0 items-center gap-3">
         <StatusDivider />
         <Link
