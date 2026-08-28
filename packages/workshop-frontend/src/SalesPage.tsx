@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { AuthenticatedApi, BusinessSessionView, CommercialDocumentListView, CommercialDocumentView, DocumentEditorOptionsView, FiscalDocumentListView, FiscalDocumentView } from '@gadgets/workshop-shared/api'
+import type { AuthenticatedApi, BusinessSessionView, CommercialDocumentListView, CommercialDocumentView, DocumentEditorOptionsView, FiscalDocumentListView, FiscalDocumentView, FiscalFileView } from '@gadgets/workshop-shared/api'
 import { useAuthenticatedApi } from './AuthContext'
 import { useI18n } from './i18n'
 import NuevaunoIcon from './components/NuevaunoIcon'
@@ -45,6 +45,10 @@ export function fiscalForCommercialDocument(documents: FiscalDocumentView[], com
   return matching.find((document) => document.state === 'issued')
     ?? matching.find((document) => document.state === 'queued')
     ?? matching[0]
+}
+
+export function isFiscalPdf(file: FiscalFileView): boolean {
+  return file.mimeType === 'application/pdf' || file.role === 'pdf' || file.role === 'representation_pdf'
 }
 
 const stateKey: Record<CommercialDocumentView['state'], 'sales.state.draft' | 'sales.state.posted' | 'sales.state.canceled'> = {
@@ -120,11 +124,22 @@ export default function SalesPage() {
     await authenticatedApi.requestFiscalIssue({ requestId: crypto.randomUUID(), organizationId: scope.organizationId, companyId: scope.companyId, sourceType: 'commercial_document', sourceId: document.id, documentCode: document.kind === 'invoice' ? '33' : '61', confirmation: 'ISSUE' })
     await refresh()
   }
-  const download = async (fileId: string) => {
+  const readFile = async (fileId: string) => {
     if (!scope) return
     const file = await authenticatedApi.readFiscalFile(scope.organizationId, scope.companyId, fileId)
     const url = URL.createObjectURL(new Blob([file.bytes as BlobPart], { type: file.mimeType }))
-    const link = document.createElement('a'); link.href = url; link.download = file.name; link.click(); URL.revokeObjectURL(url)
+    return { file, url }
+  }
+  const view = async (fileId: string) => {
+    const fiscalFile = await readFile(fileId)
+    if (!fiscalFile) return
+    window.open(fiscalFile.url, '_blank', 'noopener,noreferrer')
+    window.setTimeout(() => URL.revokeObjectURL(fiscalFile.url), 60_000)
+  }
+  const download = async (fileId: string) => {
+    const fiscalFile = await readFile(fileId)
+    if (!fiscalFile) return
+    const link = document.createElement('a'); link.href = fiscalFile.url; link.download = fiscalFile.file.name; link.click(); URL.revokeObjectURL(fiscalFile.url)
   }
 
   return (
@@ -169,7 +184,8 @@ export default function SalesPage() {
                 {document.state === 'draft' && <><button type="button" onClick={() => void openEditor(document)} className="cursor-pointer border border-kumo-line px-3 py-2 text-xs text-kumo-default">{t('common.edit')}</button><button type="button" onClick={() => void changeState(document, 'cancel')} className="cursor-pointer border border-kumo-line px-3 py-2 text-xs text-kumo-default">{t('common.cancel')}</button><button type="button" onClick={() => void changeState(document, 'post')} className="cursor-pointer bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{t('sales.post')}</button></>}
                 {document.state === 'posted' && fiscal?.state === 'issued' && <>
                   <span className="text-xs text-kumo-success">{t('sales.fiscalIssued')}{fiscal.folio ? ` · ${t('sales.folio')} ${fiscal.folio}` : ''}</span>
-                  {fiscal.files?.map((file) => <button key={file.id} type="button" onClick={() => void download(file.id)} className="cursor-pointer border border-kumo-line px-3 py-2 text-xs text-kumo-default hover:border-[#FE4A23]">{file.role === 'representation_pdf' ? t('sales.downloadPdf') : t('sales.downloadXml')}</button>)}
+                  {fiscal.files?.map((file) => isFiscalPdf(file) ? <span key={file.id} className="flex gap-2"><button type="button" onClick={() => void view(file.id)} className="cursor-pointer border border-kumo-line px-3 py-2 text-xs text-kumo-default hover:border-[#FE4A23]">{t('sales.viewPdf')}</button><button type="button" onClick={() => void download(file.id)} className="cursor-pointer border border-kumo-line px-3 py-2 text-xs text-kumo-default hover:border-[#FE4A23]">{t('sales.downloadPdf')}</button></span> : <button key={file.id} type="button" onClick={() => void download(file.id)} className="cursor-pointer border border-kumo-line px-3 py-2 text-xs text-kumo-default hover:border-[#FE4A23]">{t('sales.downloadXml')}</button>)}
+                  {!fiscal.files?.some(isFiscalPdf) && <span className="text-xs text-kumo-subtle">{t('sales.pdfUnavailable')}</span>}
                 </>}
                 {document.state === 'posted' && fiscal?.state === 'queued' && <span className="border border-kumo-line px-3 py-2 text-xs text-kumo-subtle">{t('sales.fiscalQueued')}</span>}
                 {document.state === 'posted' && fiscal?.state === 'error' && <><span className="text-xs text-kumo-danger">{t('sales.fiscalError')}</span><button type="button" onClick={() => void issue(document)} className="cursor-pointer bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{t('sales.retryFiscal')}</button></>}

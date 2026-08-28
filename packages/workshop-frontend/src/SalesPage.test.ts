@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CommercialDocumentListView, FiscalDocumentListView, FiscalDocumentView } from '@gadgets/workshop-shared/api'
-import { fiscalForCommercialDocument, loadCommercialDocuments, loadSalesDocuments, resolveSalesScope } from './SalesPage'
+import { fiscalForCommercialDocument, isFiscalPdf, loadCommercialDocuments, loadSalesDocuments, resolveSalesScope } from './SalesPage'
 
 describe('resolveSalesScope', () => {
   const session = {
@@ -61,5 +61,16 @@ describe('resolveSalesScope', () => {
     }
     const issued: FiscalDocumentView = { ...base, id: 'issued', state: 'issued', folio: '248' }
     expect(fiscalForCommercialDocument([base, issued], 'invoice')).toBe(issued)
+  })
+})
+
+describe('isFiscalPdf', () => {
+  it('recognizes the canonical pdf role', () => {
+    expect(isFiscalPdf({ id: 'file', name: 'invoice.pdf', mimeType: 'application/octet-stream', bytes: 10, role: 'pdf' })).toBe(true)
+  })
+
+  it('recognizes a PDF by MIME type and keeps XML separate', () => {
+    expect(isFiscalPdf({ id: 'file', name: 'invoice', mimeType: 'application/pdf', bytes: 10, role: 'artifact' })).toBe(true)
+    expect(isFiscalPdf({ id: 'xml', name: 'invoice.xml', mimeType: 'application/xml', bytes: 10, role: 'xml' })).toBe(false)
   })
 })
