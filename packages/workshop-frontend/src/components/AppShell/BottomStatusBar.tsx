@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuthenticatedApi } from '../../AuthContext'
 import { useI18n } from '../../i18n'
 import { RELEASE_VERSION } from '../../release'
+import { statusPlanLabel } from './businessChrome'
 
 function StatusDivider() {
   return <span aria-hidden="true" className="h-4 w-px shrink-0 bg-kumo-line" />
@@ -38,7 +39,7 @@ export default function BottomStatusBar() {
               const selected = companies.find(({ company }) => company.id === event.target.value)
               if (selected) void selectBusinessContext(selected.organization.id, selected.company.id)
             }}
-            className="max-w-[220px] truncate rounded-lg border border-kumo-line bg-kumo-base px-2 py-1 text-[11px] text-kumo-default outline-none focus:border-kumo-accent disabled:opacity-60"
+            className="max-w-[220px] truncate border border-kumo-line bg-kumo-base px-2 py-1 text-[11px] text-kumo-default outline-none focus:border-kumo-accent disabled:opacity-60"
           >
             {!companies.length && <option value="">{t('status.noCompany')}</option>}
             {companies.map(({ company }) => (
@@ -52,9 +53,9 @@ export default function BottomStatusBar() {
         <StatusDivider />
         <Link
           to="/billing"
-          className="rounded-lg border border-[#FE4A23]/35 bg-[#FE4A23]/10 px-2.5 py-1 text-[#FE4A23] transition-colors hover:bg-[#FE4A23]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE4A23]/45"
+          className="border border-[#FE4A23]/35 bg-[#FE4A23]/10 px-2.5 py-1 uppercase tracking-[0.08em] text-[#FE4A23] transition-colors hover:bg-[#FE4A23]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FE4A23]/45"
         >
-          {t('status.plan')} {planName}
+          {statusPlanLabel(t('status.plan'), planName, language)}
         </Link>
         <StatusDivider />
         <time dateTime={now.toISOString()} title={timezone} className="whitespace-nowrap text-kumo-default">{dateTime}</time>

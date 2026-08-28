@@ -931,3 +931,9 @@ body:has([role="dialog"], [role="alertdialog"]) .app-header {
   background: #FE4A23;
   animation: nuevauno-cursor-blink 1.05s steps(1, end) infinite;
 }
+
+/* NUEVAUNO uses a precise, rectangular application chrome. Keep interactive controls square
+   even when an upstream component brings its own rounded utility class. */
+.nuevauno-shell :is(button, a, input, select, textarea) {
+  border-radius: 0;
+}
