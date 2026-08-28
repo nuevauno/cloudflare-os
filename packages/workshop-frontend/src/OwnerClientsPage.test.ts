@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterClients, groupSupportTargets } from './OwnerClientsPage'
+import { filterClients, groupSupportTargets, SUPPORT_PRIMARY_ACTION_CLASS } from './OwnerClientsPage'
 
 describe('groupSupportTargets', () => {
   it('groups one SaaS client and keeps its companies separated', () => {
@@ -19,5 +19,15 @@ describe('groupSupportTargets', () => {
     ])
     expect(filterClients(clients, 'rng').map((client) => client.displayName)).toEqual(['Piero'])
     expect(filterClients(clients, 'sofia@').map((client) => client.displayName)).toEqual(['Sofía'])
+  })
+})
+
+describe('support action affordance', () => {
+  it('keeps the full button clickable and communicates every interaction state', () => {
+    expect(SUPPORT_PRIMARY_ACTION_CLASS).toContain('min-h-11')
+    expect(SUPPORT_PRIMARY_ACTION_CLASS).toContain('cursor-pointer')
+    expect(SUPPORT_PRIMARY_ACTION_CLASS).toContain('hover:bg-')
+    expect(SUPPORT_PRIMARY_ACTION_CLASS).toContain('focus-visible:outline')
+    expect(SUPPORT_PRIMARY_ACTION_CLASS).toContain('disabled:cursor-not-allowed')
   })
 })

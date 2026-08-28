@@ -14,6 +14,7 @@ export interface OwnerClient {
 }
 
 const PAGE_SIZE = 25
+export const SUPPORT_PRIMARY_ACTION_CLASS = 'min-h-11 min-w-20 cursor-pointer bg-[#FE4A23] px-4 py-2 text-white transition-colors hover:bg-[#E83D18] active:bg-[#CC3515] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FE4A23] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#FE4A23]'
 
 export function filterClients(clients: OwnerClient[], query: string): OwnerClient[] {
   const normalized = query.trim().toLocaleLowerCase()
@@ -161,8 +162,8 @@ export default function OwnerClientsPage() {
             <textarea id="support-reason" autoFocus value={reason} onChange={(event) => setReason(event.target.value)} className="mt-1 min-h-24 w-full border border-kumo-line bg-kumo-elevated p-3" />
             {supportError && <p className="mt-3 text-sm text-[#FE4A23]">{t('clients.enterError')}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setSelected(null)} className="border border-kumo-line px-4 py-2">{t('common.cancel')}</button>
-              <button type="button" disabled={busy || reason.trim().length < 8} onClick={() => void enter()} className="bg-[#FE4A23] px-4 py-2 text-white disabled:opacity-40">{busy ? t('clients.entering') : t('clients.enterAudited')}</button>
+              <button type="button" onClick={() => setSelected(null)} className="min-h-11 min-w-24 cursor-pointer border border-kumo-line px-4 py-2 transition-colors hover:border-kumo-default hover:bg-kumo-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FE4A23]">{t('common.cancel')}</button>
+              <button type="button" disabled={busy || reason.trim().length < 8} onClick={() => void enter()} className={SUPPORT_PRIMARY_ACTION_CLASS}>{busy ? t('clients.entering') : t('clients.enterAudited')}</button>
             </div>
           </div>
         </div>
