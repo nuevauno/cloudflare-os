@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { CommercialDocumentListView } from '@gadgets/workshop-shared/api'
-import { loadCommercialDocuments, resolveSalesScope } from './SalesPage'
+import type { CommercialDocumentListView, FiscalDocumentListView, FiscalDocumentView } from '@gadgets/workshop-shared/api'
+import { fiscalForCommercialDocument, loadCommercialDocuments, loadSalesDocuments, resolveSalesScope } from './SalesPage'
 
 describe('resolveSalesScope', () => {
   const session = {
@@ -38,5 +38,28 @@ describe('resolveSalesScope', () => {
 
     expect(getBusinessSession).toHaveBeenCalledOnce()
     expect(listCommercialDocuments).toHaveBeenCalledWith('org-rng', 'cmp-rng', 100)
+  })
+
+  it('loads commercial and fiscal state for the same authorized company', async () => {
+    const commercial: CommercialDocumentListView = { organizationId: 'org-rng', companyId: 'cmp-rng', documents: [] }
+    const fiscal: FiscalDocumentListView = { organizationId: 'org-rng', companyId: 'cmp-rng', documents: [] }
+    const api = {
+      getBusinessSession: vi.fn<() => Promise<typeof session>>(),
+      listCommercialDocuments: vi.fn<(organizationId: string, companyId: string, limit?: number) => Promise<CommercialDocumentListView>>().mockResolvedValue(commercial),
+      listFiscalDocuments: vi.fn<(organizationId: string, companyId: string, limit?: number) => Promise<FiscalDocumentListView>>().mockResolvedValue(fiscal),
+    }
+    await expect(loadSalesDocuments(api, session)).resolves.toEqual({ commercial, fiscal })
+    expect(api.listCommercialDocuments).toHaveBeenCalledWith('org-rng', 'cmp-rng', 100)
+    expect(api.listFiscalDocuments).toHaveBeenCalledWith('org-rng', 'cmp-rng', 100)
+  })
+
+  it('prefers an issued fiscal document over failed attempts', () => {
+    const base: FiscalDocumentView = {
+      id: 'failed', organizationId: 'org-rng', companyId: 'cmp-rng', contactId: 'contact', commercialDocumentId: 'invoice',
+      documentCode: '33', documentName: 'Factura electrónica', state: 'error', coverageState: 'summary', issueDate: '2026-08-19',
+      currencyCode: 'CLP', currencyExponent: 0, amountNetMinor: 1, amountTaxMinor: 0, amountExemptMinor: 0, amountTotalMinor: 1,
+    }
+    const issued: FiscalDocumentView = { ...base, id: 'issued', state: 'issued', folio: '248' }
+    expect(fiscalForCommercialDocument([base, issued], 'invoice')).toBe(issued)
   })
 })

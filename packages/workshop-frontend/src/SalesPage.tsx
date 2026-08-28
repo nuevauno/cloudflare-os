@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { AuthenticatedApi, BusinessSessionView, CommercialDocumentListView, CommercialDocumentView, DocumentEditorOptionsView } from '@gadgets/workshop-shared/api'
+import type { AuthenticatedApi, BusinessSessionView, CommercialDocumentListView, CommercialDocumentView, DocumentEditorOptionsView, FiscalDocumentListView, FiscalDocumentView } from '@gadgets/workshop-shared/api'
 import { useAuthenticatedApi } from './AuthContext'
 import { useI18n } from './i18n'
 import NuevaunoIcon from './components/NuevaunoIcon'
@@ -21,6 +21,32 @@ export async function loadCommercialDocuments(
   return authenticatedApi.listCommercialDocuments(scope.organizationId, scope.companyId, 100)
 }
 
+export interface SalesDocumentsView {
+  commercial: CommercialDocumentListView | null
+  fiscal: FiscalDocumentListView | null
+}
+
+export async function loadSalesDocuments(
+  authenticatedApi: Pick<AuthenticatedApi, 'getBusinessSession' | 'listCommercialDocuments' | 'listFiscalDocuments'>,
+  session: BusinessSessionView | null,
+): Promise<SalesDocumentsView> {
+  const resolvedSession = session ?? await authenticatedApi.getBusinessSession()
+  const scope = resolveSalesScope(resolvedSession)
+  if (!scope) return { commercial: null, fiscal: null }
+  const [commercial, fiscal] = await Promise.all([
+    authenticatedApi.listCommercialDocuments(scope.organizationId, scope.companyId, 100),
+    authenticatedApi.listFiscalDocuments(scope.organizationId, scope.companyId, 100),
+  ])
+  return { commercial, fiscal }
+}
+
+export function fiscalForCommercialDocument(documents: FiscalDocumentView[], commercialDocumentId: string): FiscalDocumentView | undefined {
+  const matching = documents.filter((document) => document.commercialDocumentId === commercialDocumentId)
+  return matching.find((document) => document.state === 'issued')
+    ?? matching.find((document) => document.state === 'queued')
+    ?? matching[0]
+}
+
 const stateKey: Record<CommercialDocumentView['state'], 'sales.state.draft' | 'sales.state.posted' | 'sales.state.canceled'> = {
   draft: 'sales.state.draft', posted: 'sales.state.posted', canceled: 'sales.state.canceled',
 }
@@ -36,6 +62,7 @@ export default function SalesPage() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi()
   const { language, t } = useI18n()
   const [result, setResult] = useState<CommercialDocumentListView | null>(null)
+  const [fiscalResult, setFiscalResult] = useState<FiscalDocumentListView | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -48,15 +75,18 @@ export default function SalesPage() {
     let alive = true
     setFailed(false)
     setLoading(true)
-    loadCommercialDocuments(authenticatedApi, businessSession)
-      .then((next) => { if (alive) setResult(next) })
-      .catch(() => { if (alive) { setResult(null); setFailed(true) } })
+    loadSalesDocuments(authenticatedApi, businessSession)
+      .then((next) => { if (alive) { setResult(next.commercial); setFiscalResult(next.fiscal) } })
+      .catch(() => { if (alive) { setResult(null); setFiscalResult(null); setFailed(true) } })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [authenticatedApi, businessSession])
 
   const scope = resolveSalesScope(businessSession)
-  const refresh = async () => setResult(await loadCommercialDocuments(authenticatedApi, businessSession))
+  const refresh = async () => {
+    const next = await loadSalesDocuments(authenticatedApi, businessSession)
+    setResult(next.commercial); setFiscalResult(next.fiscal)
+  }
   const openEditor = async (document: CommercialDocumentView | 'new') => {
     if (!scope) return
     setOptions(await authenticatedApi.listDocumentEditorOptions(scope.organizationId, scope.companyId))
@@ -88,6 +118,13 @@ export default function SalesPage() {
   const issue = async (document: CommercialDocumentView) => {
     if (!scope || !window.confirm(t('sales.confirmIssue'))) return
     await authenticatedApi.requestFiscalIssue({ requestId: crypto.randomUUID(), organizationId: scope.organizationId, companyId: scope.companyId, sourceType: 'commercial_document', sourceId: document.id, documentCode: document.kind === 'invoice' ? '33' : '61', confirmation: 'ISSUE' })
+    await refresh()
+  }
+  const download = async (fileId: string) => {
+    if (!scope) return
+    const file = await authenticatedApi.readFiscalFile(scope.organizationId, scope.companyId, fileId)
+    const url = URL.createObjectURL(new Blob([file.bytes as BlobPart], { type: file.mimeType }))
+    const link = document.createElement('a'); link.href = url; link.download = file.name; link.click(); URL.revokeObjectURL(url)
   }
 
   return (
@@ -116,7 +153,9 @@ export default function SalesPage() {
         <div className="flex justify-end gap-2 md:col-span-2"><button type="button" onClick={() => setEditing(null)} className="cursor-pointer border border-kumo-line px-4 py-2 text-sm text-kumo-default">{t('common.cancel')}</button><button disabled={saving} className="cursor-pointer bg-[#FE4A23] px-4 py-2 text-sm font-normal text-white disabled:opacity-50">{t('common.save')}</button></div>
       </form>}
       <div className="overflow-hidden border border-kumo-line bg-kumo-elevated">
-        {loading ? <p className="p-6 text-sm text-kumo-subtle">{t('common.loading')}</p> : failed ? <p className="p-6 text-sm text-kumo-danger">{t('sales.error')}</p> : result?.documents.length ? result.documents.map((document) => (
+        {loading ? <p className="p-6 text-sm text-kumo-subtle">{t('common.loading')}</p> : failed ? <p className="p-6 text-sm text-kumo-danger">{t('sales.error')}</p> : result?.documents.length ? result.documents.map((document) => {
+          const fiscal = fiscalForCommercialDocument(fiscalResult?.documents ?? [], document.id)
+          return (
           <article key={document.id} className="border-b border-kumo-line last:border-b-0">
             <button type="button" onClick={() => setExpanded(expanded === document.id ? null : document.id)} className="grid w-full cursor-pointer gap-3 p-4 text-left sm:grid-cols-[40px_1fr_auto_auto] sm:items-center">
               <span className="flex h-9 w-9 items-center justify-center border border-kumo-line bg-kumo-base"><NuevaunoIcon name="sale" size={17} /></span>
@@ -126,10 +165,20 @@ export default function SalesPage() {
             </button>
             {expanded === document.id && <div className="border-t border-kumo-line bg-kumo-base px-4 py-3 sm:pl-16">
               {document.lines?.filter((line) => line.lineType === 'product').map((line) => <div key={line.id} className="grid gap-1 border-b border-kumo-line py-2 text-xs last:border-b-0 sm:grid-cols-[1fr_auto_auto]"><span className="text-kumo-default">{line.description}</span><span className="text-kumo-subtle">{line.quantity}</span><span className="text-kumo-default">{money(document, line.totalMinor, language)}</span></div>)}
-              <div className="mt-3 flex flex-wrap justify-end gap-2">{document.state === 'draft' && <><button type="button" onClick={() => void openEditor(document)} className="cursor-pointer border border-kumo-line px-3 py-2 text-xs text-kumo-default">{t('common.edit')}</button><button type="button" onClick={() => void changeState(document, 'cancel')} className="cursor-pointer border border-kumo-line px-3 py-2 text-xs text-kumo-default">{t('common.cancel')}</button><button type="button" onClick={() => void changeState(document, 'post')} className="cursor-pointer bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{t('sales.post')}</button></>}{document.state === 'posted' && <button type="button" onClick={() => void issue(document)} className="cursor-pointer bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{t('sales.issueFiscal')}</button>}</div>
+              <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                {document.state === 'draft' && <><button type="button" onClick={() => void openEditor(document)} className="cursor-pointer border border-kumo-line px-3 py-2 text-xs text-kumo-default">{t('common.edit')}</button><button type="button" onClick={() => void changeState(document, 'cancel')} className="cursor-pointer border border-kumo-line px-3 py-2 text-xs text-kumo-default">{t('common.cancel')}</button><button type="button" onClick={() => void changeState(document, 'post')} className="cursor-pointer bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{t('sales.post')}</button></>}
+                {document.state === 'posted' && fiscal?.state === 'issued' && <>
+                  <span className="text-xs text-kumo-success">{t('sales.fiscalIssued')}{fiscal.folio ? ` · ${t('sales.folio')} ${fiscal.folio}` : ''}</span>
+                  {fiscal.files?.map((file) => <button key={file.id} type="button" onClick={() => void download(file.id)} className="cursor-pointer border border-kumo-line px-3 py-2 text-xs text-kumo-default hover:border-[#FE4A23]">{file.role === 'representation_pdf' ? t('sales.downloadPdf') : t('sales.downloadXml')}</button>)}
+                </>}
+                {document.state === 'posted' && fiscal?.state === 'queued' && <span className="border border-kumo-line px-3 py-2 text-xs text-kumo-subtle">{t('sales.fiscalQueued')}</span>}
+                {document.state === 'posted' && fiscal?.state === 'error' && <><span className="text-xs text-kumo-danger">{t('sales.fiscalError')}</span><button type="button" onClick={() => void issue(document)} className="cursor-pointer bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{t('sales.retryFiscal')}</button></>}
+                {document.state === 'posted' && !fiscal && <button type="button" onClick={() => void issue(document)} className="cursor-pointer bg-[#FE4A23] px-3 py-2 text-xs font-normal text-white">{t('sales.issueFiscal')}</button>}
+              </div>
             </div>}
           </article>
-        )) : <p className="p-6 text-sm text-kumo-subtle">{t('sales.empty')}</p>}
+          )
+        }) : <p className="p-6 text-sm text-kumo-subtle">{t('sales.empty')}</p>}
       </div>
     </div>
   )
