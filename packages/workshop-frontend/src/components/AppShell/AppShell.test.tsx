@@ -47,6 +47,7 @@ describe('AppShell', () => {
 
     const sidebarContainer = container.querySelector('[data-testid="sidebar"]')?.parentElement
     expect(sidebarContainer?.classList.contains('h-full')).toBe(true)
+    expect(container.firstElementChild?.classList.contains('nuevauno-shell')).toBe(true)
   })
 
   it('keeps support inside company routes and excludes owner and personal routes', () => {
