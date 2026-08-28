@@ -129,7 +129,7 @@ export default function UserMenu() {
       <DropdownMenu.Trigger
         render={
           <button
-            className="flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-kumo-tint transition-colors hover:bg-kumo-fill md:h-7 md:w-7"
+            className="flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden bg-kumo-tint transition-colors hover:bg-kumo-fill md:h-7 md:w-7"
             title={t('menu.open')}
             aria-label={t('menu.open')}
           >
