@@ -14,7 +14,7 @@ describe('i18n', () => {
 
   it('centralizes locale-aware date and number formatting', () => {
     const instant = new Date('2026-08-22T15:30:00Z')
-    expect(formatDateTime(instant, { language: 'es', timeZone: 'America/Santiago' })).toContain('22')
+    expect(formatDateTime(instant, { language: 'es', timeZone: 'America/Santiago', hourCycle: 'h24' })).toContain('22')
     expect(formatNumber(1234.5, 'es')).not.toBe(formatNumber(1234.5, 'en'))
   })
 })

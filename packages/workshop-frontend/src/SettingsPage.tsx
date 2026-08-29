@@ -9,7 +9,14 @@ import { useAvatar, invalidateAvatarCache } from './useAvatar'
 import { compressAvatar, avatarBlobUrl } from './avatarUtils'
 import UsageSettings from './components/billing/UsageSettings'
 import { useDocumentTitle } from './useDocumentTitle'
-import { applyUserPreferences, getUserLanguage, getUserTimeZone, type UserLanguage } from './userPreferences'
+import {
+  applyUserPreferences,
+  getUserHourCycle,
+  getUserLanguage,
+  getUserTimeZone,
+  type UserHourCycle,
+  type UserLanguage,
+} from './userPreferences'
 import { useI18n } from './i18n'
 import { isImeComposing } from './keyboardEvent'
 
@@ -56,6 +63,7 @@ function PasswordField({
   error?: string | null
   autoComplete?: string
 }) {
+  const { t } = useI18n()
   const [show, setShow] = useState(false)
   return (
     <div>
@@ -72,7 +80,7 @@ function PasswordField({
         <button
           type="button"
           onClick={() => setShow((s) => !s)}
-          aria-label={show ? 'Hide password' : 'Show password'}
+          aria-label={show ? t('profile.hidePassword') : t('profile.showPassword')}
           className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-kumo-inactive transition-colors hover:text-kumo-default"
         >
           {show ? <EyeSlash size={15} /> : <Eye size={15} />}
@@ -120,6 +128,7 @@ export default function SettingsPage() {
   const [hasPassword, setHasPassword] = useState<boolean | null>(null)
   const [language, setLanguage] = useState<UserLanguage>(() => getUserLanguage())
   const [timeZone, setTimeZone] = useState(() => getUserTimeZone())
+  const [hourCycle, setHourCycle] = useState<UserHourCycle>(() => getUserHourCycle())
 
   const avatarUrl = useAvatar(authenticatedApi, userInfo?.id)
 
@@ -143,7 +152,7 @@ export default function SettingsPage() {
         setNameInput(info.name)
       } catch (error) {
         console.error('Failed to fetch user info:', error)
-        if (!cancelled) toasts.add({ title: 'Failed to load user information', variant: 'error' })
+        if (!cancelled) toasts.add({ title: t('profile.loadFailed'), variant: 'error' })
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -187,7 +196,7 @@ export default function SettingsPage() {
 
   const handleAvatarUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      toasts.add({ title: 'Please select an image file', variant: 'error' })
+      toasts.add({ title: t('profile.selectImage'), variant: 'error' })
       return
     }
     setAvatarUploading(true)
@@ -200,11 +209,11 @@ export default function SettingsPage() {
       await authenticatedApi.setAvatar(compressed)
       // Invalidate cache so the hook refetches
       if (userInfo?.id) invalidateAvatarCache(userInfo.id)
-      toasts.add({ title: 'Avatar updated', variant: 'success' })
+      toasts.add({ title: t('profile.avatarUpdated'), variant: 'success' })
     } catch (err) {
       console.error('Failed to upload avatar:', err)
       setLocalAvatarPreview(null)
-      toasts.add({ title: 'Failed to upload avatar', variant: 'error' })
+      toasts.add({ title: t('profile.avatarUpdateFailed'), variant: 'error' })
     } finally {
       setAvatarUploading(false)
     }
@@ -229,12 +238,12 @@ export default function SettingsPage() {
       const oldHash = await hashPassword(userInfo.id, currentPassword)
       const newHash = await hashPassword(userInfo.id, newPassword)
       await authenticatedApi.changePassword(oldHash, newHash)
-      toasts.add({ title: 'Password changed successfully', variant: 'success' })
+      toasts.add({ title: t('profile.passwordChanged'), variant: 'success' })
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to change password'
+      const errorMessage = err instanceof Error ? err.message : t('profile.passwordChangeFailed')
       setPasswordError(errorMessage)
     } finally {
       setPasswordLoading(false)
@@ -263,7 +272,7 @@ export default function SettingsPage() {
       <div className="mt-6 flex flex-col gap-9">
         <section className="flex flex-col gap-3">
           <SectionLabel>{t('profile.preferences')}</SectionLabel>
-          <div className="grid gap-4 rounded-xl border border-kumo-line bg-kumo-base p-5 sm:grid-cols-2">
+          <div className="grid gap-4 rounded-xl border border-kumo-line bg-kumo-base p-5 sm:grid-cols-3">
             <label className="text-[12px] text-kumo-subtle">
               {t('profile.language')}
               <select
@@ -272,8 +281,8 @@ export default function SettingsPage() {
                 onChange={(event) => {
                   const next = event.target.value as UserLanguage
                   setLanguage(next)
-                  void authenticatedApi.setOwnPreferences({ language: next, timeZone }).then((saved) => {
-                    applyUserPreferences(saved.language, saved.timeZone)
+                  void authenticatedApi.setOwnPreferences({ language: next, timeZone, hourCycle }).then((saved) => {
+                    applyUserPreferences(saved.language, saved.timeZone, saved.hourCycle)
                   })
                 }}
               >
@@ -288,8 +297,8 @@ export default function SettingsPage() {
                 value={timeZone}
                 onChange={(event) => {
                   setTimeZone(event.target.value)
-                  void authenticatedApi.setOwnPreferences({ language, timeZone: event.target.value }).then((saved) => {
-                    applyUserPreferences(saved.language, saved.timeZone)
+                  void authenticatedApi.setOwnPreferences({ language, timeZone: event.target.value, hourCycle }).then((saved) => {
+                    applyUserPreferences(saved.language, saved.timeZone, saved.hourCycle)
                   })
                 }}
               >
@@ -302,7 +311,24 @@ export default function SettingsPage() {
                 <option value="UTC">UTC</option>
               </select>
             </label>
-            <p className="sm:col-span-2 text-[12px] text-kumo-subtle">
+            <label className="text-[12px] text-kumo-subtle">
+              {t('profile.hourCycle')}
+              <select
+                className={`mt-1.5 ${INPUT}`}
+                value={hourCycle}
+                onChange={(event) => {
+                  const next = event.target.value as UserHourCycle
+                  setHourCycle(next)
+                  void authenticatedApi.setOwnPreferences({ language, timeZone, hourCycle: next }).then((saved) => {
+                    applyUserPreferences(saved.language, saved.timeZone, saved.hourCycle)
+                  })
+                }}
+              >
+                <option value="h12">{t('profile.hourCycle.h12')}</option>
+                <option value="h24">{t('profile.hourCycle.h24')}</option>
+              </select>
+            </label>
+            <p className="sm:col-span-3 text-[12px] text-kumo-subtle">
               {t('profile.preferencesHelp')}
             </p>
           </div>

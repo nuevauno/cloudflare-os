@@ -9,17 +9,19 @@ import { useDocumentTitle } from "./useDocumentTitle";
 import OAuthButtons from "./components/auth/OAuthButtons";
 import NuevaunoIdentity from "./components/NuevaunoIdentity";
 import { useConnectionLost } from "./RpcContext";
+import { useI18n } from "./i18n";
 
 interface SignupPageProps {
   rpcStub: RpcStub<PublicApi>;
 }
 
 export default function SignupPage({ rpcStub }: SignupPageProps) {
+  const { t } = useI18n();
   const serverConfig = useServerConfig();
   const serverConfigError = useServerConfigError();
   const siteName = useSiteName();
   const connectionLost = useConnectionLost();
-  useDocumentTitle("Crear cuenta");
+  useDocumentTitle(t("auth.createAccount"));
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -30,17 +32,17 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
     username &&
     !/^[a-z0-9_-]+$/i.test(username) &&
     !/^[^@\s]+@[^@\s]+$/.test(username)
-      ? "Usa un correo o un usuario con letras, números, guiones y guiones bajos"
+      ? t("auth.usernameRules")
       : undefined;
 
   const passwordError =
     password && password.length < 8
-      ? "Debe tener al menos 8 caracteres"
+      ? t("auth.passwordTooShort")
       : undefined;
 
   const confirmError =
     confirmPassword && confirmPassword !== password
-      ? "Las contraseñas no coinciden"
+      ? t("auth.passwordMismatch")
       : undefined;
 
   const canSubmit =
@@ -69,10 +71,10 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
         localStorage.setItem("authToken", token);
         window.location.href = "/";
       } else {
-        setError("Ese usuario ya existe");
+        setError(t("auth.accountExists"));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No fue posible crear la cuenta");
+      setError(err instanceof Error ? err.message : t("auth.createFailed"));
     } finally {
       setLoading(false);
     }
@@ -86,9 +88,9 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
           className="flex h-full min-h-0 flex-col items-center justify-center gap-4 overflow-y-auto bg-kumo-base px-4 py-8"
         >
           <p className="text-sm text-kumo-danger text-center">
-            No fue posible cargar la configuración.
+            {t("auth.configFailed")}
           </p>
-          <Button variant="secondary" onClick={() => window.location.reload()}>Reintentar</Button>
+          <Button variant="secondary" onClick={() => window.location.reload()}>{t("auth.retry")}</Button>
         </div>
       );
     }
@@ -96,7 +98,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
       <div className="flex h-full min-h-0 flex-col items-center justify-center gap-4 overflow-y-auto bg-kumo-base px-4 py-8">
         <Loader size="lg" />
         <p className="text-sm text-kumo-subtle text-center">
-          {connectionLost ? "Sin conexión. Reintentando…" : "Cargando…"}
+          {connectionLost ? t("auth.offline") : t("auth.loading")}
         </p>
       </div>
     );
@@ -127,16 +129,16 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <NuevaunoIdentity siteName={siteName} size={40} className="mb-3 text-xl text-kumo-default" />
-          <p className="text-sm text-kumo-subtle mt-1">Crea tu cuenta</p>
+          <p className="text-sm text-kumo-subtle mt-1">{t("auth.createAccount")}</p>
         </div>
 
         {!signupsEnabled && (
           <Banner
             variant="default"
-            title="Los registros están cerrados"
+            title={t("auth.signupClosed")}
             className="mb-4"
           >
-            La creación de cuentas nuevas está desactivada por ahora.
+            {t("auth.signupClosedHelp")}
           </Banner>
         )}
 
@@ -146,7 +148,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 className="w-full"
-                label="Usuario"
+                label={t("auth.username")}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoFocus
@@ -159,7 +161,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
               <Input
                 className="w-full"
                 type="password"
-                label="Contraseña"
+                label={t("auth.password")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
@@ -171,7 +173,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
               <Input
                 className="w-full"
                 type="password"
-                label="Confirmar contraseña"
+                label={t("profile.confirmPassword")}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
@@ -189,7 +191,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
                 loading={loading}
                 className="w-full justify-center"
               >
-                Crear cuenta
+                {t("auth.createAccount")}
               </Button>
             </form>
           </>
@@ -201,7 +203,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
             {passwordAuthEnabled && (
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-px flex-1 bg-kumo-line" />
-                <span className="text-xs text-kumo-subtle">o</span>
+                <span className="text-xs text-kumo-subtle">{t("auth.or")}</span>
                 <div className="h-px flex-1 bg-kumo-line" />
               </div>
             )}
@@ -211,9 +213,9 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
 
         {passwordAuthEnabled && (
           <p className="text-center text-sm text-kumo-subtle mt-6">
-            ¿Ya tienes una cuenta?{" "}
+            {t("auth.hasAccount")}{" "}
             <Link to="/" className="text-kumo-brand hover:underline font-medium">
-              Ingresar
+              {t("auth.submit")}
             </Link>
           </p>
         )}

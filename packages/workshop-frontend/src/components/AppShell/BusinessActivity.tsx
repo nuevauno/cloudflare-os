@@ -37,13 +37,10 @@ function labelFor(event: ActivityEventView, language: 'es' | 'en'): string {
 
 export default function BusinessActivity() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi()
-  const { language, t } = useI18n()
+  const { language, timeZone, hourCycle, t } = useI18n()
   const [events, setEvents] = useState<ActivityEventView[]>([])
   const organizationId = businessSession?.activeOrganizationId
   const companyId = businessSession?.activeCompanyId
-  const timezone = businessSession?.organizations.flatMap((organization) => organization.companies)
-    .find((company) => company.id === companyId)?.timezone ?? 'America/Santiago'
-
   useEffect(() => {
     let cancelled = false
     let timer: number | undefined
@@ -63,8 +60,8 @@ export default function BusinessActivity() {
   }, [authenticatedApi, organizationId, companyId])
 
   const formatter = useMemo(() => new Intl.DateTimeFormat(language === 'es' ? 'es-CL' : 'en-US', {
-    dateStyle: 'medium', timeStyle: 'short', timeZone: timezone,
-  }), [language, timezone])
+    dateStyle: 'medium', timeStyle: 'short', timeZone, hour12: hourCycle === 'h12',
+  }), [hourCycle, language, timeZone])
 
   return (
     <section aria-labelledby="business-activity-title" className="rounded-2xl border border-kumo-line bg-kumo-elevated p-4 sm:p-5">

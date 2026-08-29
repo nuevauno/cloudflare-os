@@ -109,7 +109,9 @@ export function AuthProvider({ children, authenticatedApi, onLogout }: AuthProvi
   useEffect(() => {
     let cancelled = false
     authenticatedApi.getOwnPreferences().then((preferences) => {
-      if (!cancelled && preferences) applyUserPreferences(preferences.language, preferences.timeZone)
+      if (!cancelled && preferences) {
+        applyUserPreferences(preferences.language, preferences.timeZone, preferences.hourCycle ?? 'h24')
+      }
     }).catch(() => {})
     return () => { cancelled = true }
   }, [authenticatedApi])

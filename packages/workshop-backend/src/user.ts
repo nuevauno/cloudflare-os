@@ -507,7 +507,9 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
   }
 
   async getOwnPreferences(): Promise<import('@gadgets/workshop-shared/api').UserPreferences | null> {
-    return this.storage.preferences.get();
+    const stored = await this.storage.preferences.get();
+    if (!stored) return null;
+    return { ...stored, hourCycle: stored.hourCycle === "h12" ? "h12" : "h24" };
   }
 
   async setOwnPreferences(
@@ -521,7 +523,14 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
     } catch {
       throw new TypeError("Invalid IANA time zone.");
     }
-    const validated = { language: preferences.language, timeZone: preferences.timeZone };
+    if (preferences.hourCycle !== "h12" && preferences.hourCycle !== "h24") {
+      throw new TypeError("Unsupported hour cycle.");
+    }
+    const validated = {
+      language: preferences.language,
+      timeZone: preferences.timeZone,
+      hourCycle: preferences.hourCycle,
+    };
     this.storage.preferences.put(validated);
     return validated;
   }

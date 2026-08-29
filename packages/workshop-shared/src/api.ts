@@ -377,6 +377,8 @@ export interface UserPreferences {
   language: "es" | "en";
   /** IANA time-zone identifier used when presenting dates and times. */
   timeZone: string;
+  /** Clock convention used when presenting times. */
+  hourCycle: "h12" | "h24";
 }
 
 /** One company the effective identity may use in the current deployment. */

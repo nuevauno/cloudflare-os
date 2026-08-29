@@ -11,7 +11,7 @@ function StatusDivider() {
 
 export default function BottomStatusBar() {
   const { businessSession, billingOverview, selectBusinessContext } = useAuthenticatedApi()
-  const { language, t } = useI18n()
+  const { language, timeZone, hourCycle, t } = useI18n()
   const [now, setNow] = useState(() => new Date())
   const [switching, setSwitching] = useState(false)
   const [switchError, setSwitchError] = useState(false)
@@ -23,10 +23,9 @@ export default function BottomStatusBar() {
   const companies = businessSession?.organizations.flatMap((organization) =>
     organization.companies.map((company) => ({ organization, company }))) ?? []
   const active = companies.find(({ company }) => company.id === businessSession?.activeCompanyId) ?? companies[0]
-  const timezone = active?.company.timezone ?? 'America/Santiago'
   const dateTime = useMemo(() => new Intl.DateTimeFormat(language === 'es' ? 'es-CL' : 'en-US', {
-    timeZone: timezone, dateStyle: 'medium', timeStyle: 'medium',
-  }).format(now), [language, now, timezone])
+    timeZone, dateStyle: 'medium', timeStyle: 'medium', hour12: hourCycle === 'h12',
+  }).format(now), [hourCycle, language, now, timeZone])
   const planName = billingOverview?.subscription?.plan.name ?? t('status.noPlan')
 
   return (
@@ -66,7 +65,7 @@ export default function BottomStatusBar() {
           {statusPlanLabel(t('status.plan'), planName, language)}
         </Link>
         <StatusDivider />
-        <time dateTime={now.toISOString()} title={timezone} className="whitespace-nowrap text-kumo-default">{dateTime}</time>
+        <time dateTime={now.toISOString()} title={timeZone} className="whitespace-nowrap text-kumo-default">{dateTime}</time>
       </div>
     </footer>
   )

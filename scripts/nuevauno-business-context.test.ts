@@ -45,7 +45,7 @@ test("client provisioning accepts email login and hashes its normalized identity
   assert.match(user, /const email = \/\^\[a-z0-9\]/);
   assert.match(menu, /hashPassword\(login, provision\.password\)/);
   assert.match(menu, /Correo de acceso/);
-  assert.match(login, /Correo o usuario/);
+  assert.match(login, /t\('auth\.username'\)/);
 });
 
 test("the shell keeps company switching visible and streams canonical activity", async () => {
