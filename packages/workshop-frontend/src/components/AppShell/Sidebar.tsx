@@ -13,6 +13,8 @@ import SidebarUtilityStrip from './SidebarUtilityStrip'
 import { useI18n } from '../../i18n'
 import NuevaunoIcon from '../NuevaunoIcon'
 import { useAuthenticatedApi } from '../../AuthContext'
+import { useEffect, useState } from 'react'
+import { resolveSalesScope } from '../../SalesPage'
 
 /**
  * The persistent left rail. Three pinned regions sandwich a single scrolling region of lists, so
@@ -35,8 +37,10 @@ export default function Sidebar({
 }) {
   const siteName = useSiteName()
   const { t } = useI18n()
-  const { isAdmin, businessSession } = useAuthenticatedApi()
+  const { authenticatedApi, isAdmin, businessSession } = useAuthenticatedApi()
   const supportMode = Boolean(businessSession?.support)
+  const [posEnabled,setPosEnabled]=useState(false)
+  useEffect(()=>{const scope=resolveSalesScope(businessSession);if(!scope){setPosEnabled(false);return}authenticatedApi.posLoadData(scope.organizationId,scope.companyId).then(d=>setPosEnabled(d.entitled)).catch(()=>setPosEnabled(false))},[authenticatedApi,businessSession])
   // Gatekeeper-served management apps the user can reach now (one per gatekeeper that provides a UI
   // and is connected / enabled for everyone). Disabled or not-yet-connected ones aren't returned, so
   // they simply don't appear. The set is fully dynamic — no gatekeeper is hardcoded.
@@ -143,6 +147,7 @@ export default function Sidebar({
               icon={<NuevaunoIcon name="sale" />}
               collapsed={collapsed}
             />
+            {posEnabled && <SidebarItem to="/pos" label="Punto de venta" icon={<NuevaunoIcon name="point_of_sale" />} collapsed={collapsed} />}
             <SidebarItem
               to="/collections"
               label={t('nav.collections')}

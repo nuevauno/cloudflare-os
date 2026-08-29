@@ -672,6 +672,8 @@ export interface CertificateListView {
   /** Newest certificates first. */
   certificates: CertificateView[];
 }
+export interface PosLoadDataView { organizationId:string; companyId:string; entitled:boolean; config?:{id:string;name:string;restaurant:boolean;taxIncluded:boolean}; session?:{id:string;state:'opening'|'opened'|'closing'|'closed';openingCashMinor:number}; products:Array<{id:string;name:string;sku?:string;category:string;priceMinor:number;taxBasisPoints:number}>; floors:Array<{id:string;name:string;tables:Array<{id:string;name:string;seats:number}>}>; orders:PosOrderView[] }
+export interface PosOrderView { id:string;uuid:string;organizationId:string;companyId:string;sessionId:string;tableId?:string;state:'draft'|'paid'|'cancelled';untaxedMinor:number;taxMinor:number;totalMinor:number;lines:Array<{productVariantId:string;quantity:number;description:string;unitPriceMinor:number;subtotalMinor:number;taxMinor:number;totalMinor:number}> }
 
 /** One exact line belonging to a dispatch document. */
 export interface DispatchLineView {
@@ -1071,6 +1073,12 @@ export interface AuthenticatedApi extends RpcTarget {
 
   /** Read authorized certificates for one company. */
   listCertificates(organizationId: string, companyId: string, limit?: number): Promise<CertificateListView>;
+  posLoadData(organizationId:string,companyId:string):Promise<PosLoadDataView>;
+  posOpenSession(organizationId:string,companyId:string,openingCashMinor:number):Promise<PosLoadDataView['session']>;
+  posSyncOrder(input:{organizationId:string;companyId:string;sessionId:string;tableId?:string;uuid:string;lines:Array<{productVariantId:string;quantity:number}>}):Promise<PosOrderView>;
+  posPayOrder(input:{organizationId:string;companyId:string;orderId:string;tenderedMinor:number;requestId:string}):Promise<{order:PosOrderView;payment:{id:string;tenderedMinor:number;changeMinor:number}}>;
+  posCancelOrder(organizationId:string,companyId:string,orderId:string):Promise<void>;
+  posCloseSession(organizationId:string,companyId:string,sessionId:string):Promise<void>;
 
   /** Read authorized dispatch documents for one company. */
   listDispatchDocuments(organizationId: string, companyId: string, limit?: number): Promise<DispatchListView>;

@@ -25,4 +25,16 @@ describe('password recovery', () => {
     expect(await user.beginPasswordReset()).toBeTruthy()
     expect(await user.beginPasswordReset()).toBeNull()
   })
+
+  it('replacePassword overwrites an existing hash and revokes old sessions', async () => {
+    const username = `recovery-replace-${crypto.randomUUID()}@example.com`
+    const user = exports.UserDurableObject.get(exports.UserDurableObject.idFromName(username))
+    const firstSession = await user.createAccount(username, 'Recovery', oldHash)
+    expect(firstSession).toBeTruthy()
+    const replacement = await user.replacePassword(newHash, { username, displayName: 'Felipe' })
+    expect(replacement).toBeTruthy()
+    expect(await user.login(oldHash)).toBeNull()
+    expect(await user.login(newHash)).toBeTruthy()
+    expect(await user.whoami()).toEqual({ type: 'user', name: 'Felipe', id: username })
+  })
 })

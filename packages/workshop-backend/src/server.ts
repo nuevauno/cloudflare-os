@@ -102,6 +102,12 @@ interface PlatformCoreBinding {
   saveCommercialDocument(input: Omit<import('@gadgets/workshop-shared/api').SaveCommercialDocumentRequest, 'requestId'> & { idempotencyKey: string; actorSubject: string }): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').CommercialDocumentView>>;
   changeCommercialDocumentState(input: Omit<import('@gadgets/workshop-shared/api').ChangeCommercialDocumentStateRequest, 'requestId'> & { idempotencyKey: string; actorSubject: string }): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').CommercialDocumentView>>;
   listCertificates(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').CertificateListView>;
+  posLoadData(actorSubject:string,organizationId:string,companyId:string):Promise<import('@gadgets/workshop-shared/api').PosLoadDataView>;
+  posOpenSession(actorSubject:string,organizationId:string,companyId:string,openingCashMinor:number):Promise<import('@gadgets/workshop-shared/api').PosLoadDataView['session']>;
+  posSyncOrder(input:{actorSubject:string;organizationId:string;companyId:string;sessionId:string;tableId?:string;uuid:string;lines:Array<{productVariantId:string;quantity:number}>}):Promise<import('@gadgets/workshop-shared/api').PosOrderView>;
+  posPayOrder(input:{actorSubject:string;organizationId:string;companyId:string;orderId:string;tenderedMinor:number;idempotencyKey:string}):Promise<{order:import('@gadgets/workshop-shared/api').PosOrderView;payment:{id:string;tenderedMinor:number;changeMinor:number}}>;
+  posCancelOrder(actorSubject:string,organizationId:string,companyId:string,orderId:string):Promise<void>;
+  posCloseSession(actorSubject:string,organizationId:string,companyId:string,sessionId:string):Promise<void>;
   listDispatchDocuments(actorSubject: string, organizationId: string, companyId: string, limit?: number): Promise<import('@gadgets/workshop-shared/api').DispatchListView>;
   readDispatchFile(actorSubject: string, organizationId: string, companyId: string, dispatchDocumentId: string, role: "pdf" | "xml"): Promise<import('@gadgets/workshop-shared/api').DispatchFileContentView>;
   saveDispatchDocument(input: Omit<import('@gadgets/workshop-shared/api').SaveDispatchDocumentRequest, 'requestId'> & { idempotencyKey: string; actorSubject: string }): Promise<import('@gadgets/workshop-shared/api').DocumentMutationResultView<import('@gadgets/workshop-shared/api').DispatchDocumentView>>;
@@ -274,6 +280,12 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.listCertificates(await this.#businessSubject(organizationId, companyId), organizationId, companyId, limit);
   }
+  async posLoadData(organizationId:string,companyId:string){if(!this.env.PLATFORM_CORE)throw new Error('business_core_unavailable');return this.env.PLATFORM_CORE.posLoadData(await this.#businessSubject(organizationId,companyId),organizationId,companyId)}
+  async posOpenSession(organizationId:string,companyId:string,openingCashMinor:number){if(!this.env.PLATFORM_CORE)throw new Error('business_core_unavailable');return this.env.PLATFORM_CORE.posOpenSession(await this.#businessSubject(organizationId,companyId),organizationId,companyId,openingCashMinor)}
+  async posSyncOrder(input:{organizationId:string;companyId:string;sessionId:string;tableId?:string;uuid:string;lines:Array<{productVariantId:string;quantity:number}>}){if(!this.env.PLATFORM_CORE)throw new Error('business_core_unavailable');return this.env.PLATFORM_CORE.posSyncOrder({...input,actorSubject:await this.#businessSubject(input.organizationId,input.companyId)})}
+  async posPayOrder(input:{organizationId:string;companyId:string;orderId:string;tenderedMinor:number;requestId:string}){if(!this.env.PLATFORM_CORE)throw new Error('business_core_unavailable');return this.env.PLATFORM_CORE.posPayOrder({organizationId:input.organizationId,companyId:input.companyId,orderId:input.orderId,tenderedMinor:input.tenderedMinor,actorSubject:await this.#businessSubject(input.organizationId,input.companyId),idempotencyKey:`pos:pay:${this.#userId.name}:${input.requestId}`})}
+  async posCancelOrder(organizationId:string,companyId:string,orderId:string){if(!this.env.PLATFORM_CORE)throw new Error('business_core_unavailable');return this.env.PLATFORM_CORE.posCancelOrder(await this.#businessSubject(organizationId,companyId),organizationId,companyId,orderId)}
+  async posCloseSession(organizationId:string,companyId:string,sessionId:string){if(!this.env.PLATFORM_CORE)throw new Error('business_core_unavailable');return this.env.PLATFORM_CORE.posCloseSession(await this.#businessSubject(organizationId,companyId),organizationId,companyId,sessionId)}
   async listDispatchDocuments(organizationId: string, companyId: string, limit = 50): Promise<import('@gadgets/workshop-shared/api').DispatchListView> {
     if (!this.env.PLATFORM_CORE) throw new Error("business_core_unavailable");
     return this.env.PLATFORM_CORE.listDispatchDocuments(await this.#businessSubject(organizationId, companyId), organizationId, companyId, limit);
@@ -373,7 +385,10 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
       company: { slug: input.companySlug, legalName: input.companyLegalName, ...(input.companyDisplayName ? { displayName: input.companyDisplayName } : {}), countryCode: input.countryCode ?? "CL", currencyCode: input.currencyCode ?? "CLP", timezone: input.timezone ?? "America/Santiago" },
     });
     const target = this.users.get(this.users.idFromName(username));
-    await target.createAccount(username, input.displayName, input.passwordHash);
+    await target.replacePassword(input.passwordHash, {
+      username,
+      displayName: input.displayName,
+    });
   }
   async provisionBusinessCompany(input: ProvisionBusinessCompanyRequest): Promise<BusinessSessionView> {
     if (!await this.#isEffectiveAdmin()) throw new Error("permission_denied");
@@ -1110,16 +1125,23 @@ class PublicApiImpl extends RpcTarget implements PublicApi {
     if (!isPasswordAuthEnabled(this.env)) {
       throw new Error("Password signup is disabled on this deployment. Use a sign-in option.");
     }
-    if (!(await readAdminConfig(this.env)).signupsEnabled) {
-      throw new Error("New signups are currently disabled on this deployment.");
-    }
-
     username = normalizeUsername(username);
+    const signupsEnabled = (await readAdminConfig(this.env)).signupsEnabled;
+    let canClaimInvited = false;
+    if (!signupsEnabled) {
+      if (!this.env.PLATFORM_CORE) throw new Error("New signups are currently disabled on this deployment.");
+      const invited = await this.env.PLATFORM_CORE.getBusinessSession(username).catch(() => null);
+      if (!invited?.organizations.length) throw new Error("Esta cuenta necesita una invitación de NUEVAUNO.");
+      canClaimInvited = true;
+    }
 
     let id = this.users.idFromName(username);
     let user = this.users.get(id);
 
     let token = await user.createAccount(username, displayName, passwordHash);
+    if (!token && canClaimInvited) {
+      token = await user.replacePassword(passwordHash, { username, displayName });
+    }
     if (!token) return null;
 
     recordAnalytics(this.ctx, this.env, {

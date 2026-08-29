@@ -14,8 +14,9 @@ export async function hashPassword(username: string, password: string): Promise<
   // Dynamic import - Vite will split this into a separate chunk
   const { argon2id } = await import('hash-wasm')
 
-  // Build salt: SERVICE_SALT + utf8(username)
-  const usernameBuf = new TextEncoder().encode(username)
+  // Salt must match the server's normalizeUsername (trim + lowercase). Hashing the
+  // typed value used to lock people out when the Durable Object key was lowercased.
+  const usernameBuf = new TextEncoder().encode(username.trim().toLowerCase())
   const salt = new Uint8Array(SERVICE_SALT.length + usernameBuf.length)
   salt.set(SERVICE_SALT)
   salt.set(usernameBuf, SERVICE_SALT.length)

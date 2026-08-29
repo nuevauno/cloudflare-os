@@ -24,6 +24,7 @@ import { Route as FiscalRouteImport } from './routes/fiscal'
 import { Route as GatekeepersRouteImport } from './routes/gatekeepers'
 import { Route as KodoRouteImport } from './routes/kodo'
 import { Route as OutputsRouteImport } from './routes/outputs'
+import { Route as PosRouteImport } from './routes/pos'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ProvidersRouteImport } from './routes/providers'
 import { Route as SalesRouteImport } from './routes/sales'
@@ -111,6 +112,11 @@ const OutputsRoute = OutputsRouteImport.update({
   path: '/outputs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PosRoute = PosRouteImport.update({
+  id: '/pos',
+  path: '/pos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/gatekeepers': typeof GatekeepersRoute
   '/kodo': typeof KodoRoute
   '/outputs': typeof OutputsRoute
+  '/pos': typeof PosRoute
   '/profile': typeof ProfileRoute
   '/providers': typeof ProvidersRoute
   '/sales': typeof SalesRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByTo {
   '/gatekeepers': typeof GatekeepersRoute
   '/kodo': typeof KodoRoute
   '/outputs': typeof OutputsRoute
+  '/pos': typeof PosRoute
   '/profile': typeof ProfileRoute
   '/providers': typeof ProvidersRoute
   '/sales': typeof SalesRoute
@@ -240,6 +248,7 @@ export interface FileRoutesById {
   '/gatekeepers': typeof GatekeepersRoute
   '/kodo': typeof KodoRoute
   '/outputs': typeof OutputsRoute
+  '/pos': typeof PosRoute
   '/profile': typeof ProfileRoute
   '/providers': typeof ProvidersRoute
   '/sales': typeof SalesRoute
@@ -270,6 +279,7 @@ export interface FileRouteTypes {
     | '/gatekeepers'
     | '/kodo'
     | '/outputs'
+    | '/pos'
     | '/profile'
     | '/providers'
     | '/sales'
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/gatekeepers'
     | '/kodo'
     | '/outputs'
+    | '/pos'
     | '/profile'
     | '/providers'
     | '/sales'
@@ -326,6 +337,7 @@ export interface FileRouteTypes {
     | '/gatekeepers'
     | '/kodo'
     | '/outputs'
+    | '/pos'
     | '/profile'
     | '/providers'
     | '/sales'
@@ -355,6 +367,7 @@ export interface RootRouteChildren {
   GatekeepersRoute: typeof GatekeepersRoute
   KodoRoute: typeof KodoRoute
   OutputsRoute: typeof OutputsRoute
+  PosRoute: typeof PosRoute
   ProfileRoute: typeof ProfileRoute
   ProvidersRoute: typeof ProvidersRoute
   SalesRoute: typeof SalesRoute
@@ -475,6 +488,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OutputsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pos': {
+      id: '/pos'
+      path: '/pos'
+      fullPath: '/pos'
+      preLoaderRoute: typeof PosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -571,6 +591,7 @@ const rootRouteChildren: RootRouteChildren = {
   GatekeepersRoute: GatekeepersRoute,
   KodoRoute: KodoRoute,
   OutputsRoute: OutputsRoute,
+  PosRoute: PosRoute,
   ProfileRoute: ProfileRoute,
   ProvidersRoute: ProvidersRoute,
   SalesRoute: SalesRoute,
