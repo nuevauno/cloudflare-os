@@ -21,7 +21,7 @@ const stateKey: Record<AgentRunView['state'], 'kodo.state.queued' | 'kodo.state.
 
 export default function KodoPage() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi()
-  const { language, t } = useI18n()
+  const { language, timeZone, hourCycle, t } = useI18n()
   const [result, setResult] = useState<AgentRunListView | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -32,7 +32,9 @@ export default function KodoPage() {
       .catch(() => { if (alive) { setResult(null); setFailed(true) } }).finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [authenticatedApi, businessSession])
-  const date = (value: string) => new Intl.DateTimeFormat(language === 'es' ? 'es-CL' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+  const date = (value: string) => new Intl.DateTimeFormat(language === 'es' ? 'es-CL' : 'en-US', {
+    dateStyle: 'medium', timeStyle: 'short', timeZone, hour12: hourCycle === 'h12',
+  }).format(new Date(value))
   return <div className="mx-auto w-full max-w-6xl px-5 py-8 md:px-8 md:py-10">
     <header className="mb-8"><p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-[#FE4A23]">{t('kodo.eyebrow')}</p><h1 className="text-3xl font-normal text-kumo-default">{t('kodo.title')}</h1><p className="mt-2 text-sm text-kumo-subtle">{t('kodo.subtitle')}</p></header>
     <div className="overflow-hidden rounded-2xl border border-kumo-line bg-kumo-elevated">

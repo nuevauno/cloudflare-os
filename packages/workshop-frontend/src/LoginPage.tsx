@@ -9,6 +9,7 @@ import { useDocumentTitle } from './useDocumentTitle'
 import { useConnectionLost } from './RpcContext'
 import OAuthButtons from './components/auth/OAuthButtons'
 import NuevaunoIdentity from './components/NuevaunoIdentity'
+import { useI18n } from './i18n'
 
 
 interface LoginPageProps {
@@ -17,6 +18,7 @@ interface LoginPageProps {
 }
 
 export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
+  const { t } = useI18n()
   const resetParams = new URLSearchParams(window.location.search)
   const resetToken = resetParams.get('reset') ?? ''
   const resetUser = resetParams.get('user') ?? ''
@@ -32,7 +34,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
   const serverConfigError = useServerConfigError()
   const siteName = useSiteName()
   const connectionLost = useConnectionLost()
-  useDocumentTitle('Ingresar')
+  useDocumentTitle(t('auth.loginTitle'))
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -51,10 +53,10 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
           window.location.reload()
         }
       } else {
-        setError('Usuario o contraseña incorrectos')
+        setError(t('auth.invalidCredentials'))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No fue posible ingresar')
+      setError(err instanceof Error ? err.message : t('auth.loginFailed'))
     } finally {
       setLoading(false)
     }
@@ -68,7 +70,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
     try {
       if (resetToken && resetUser) {
         if (password.length < 8 || password !== confirmPassword) {
-          setError('Las contraseñas deben coincidir y tener al menos 8 caracteres')
+          setError(t('auth.passwordRules'))
           return
         }
         const changed = await rpcStub.resetPassword(
@@ -77,7 +79,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
           await hashPassword(resetUser, password),
         )
         if (!changed) {
-          setError('Este enlace venció o ya fue utilizado')
+          setError(t('auth.expiredReset'))
           return
         }
         window.location.assign('/?password-reset=success')
@@ -105,9 +107,9 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
           className="flex h-full min-h-0 flex-col items-center justify-center gap-4 overflow-y-auto bg-kumo-base px-4 py-8"
         >
           <p className="text-sm text-kumo-danger text-center">
-            No fue posible cargar la configuración.
+            {t('auth.configFailed')}
           </p>
-          <Button variant="secondary" onClick={() => window.location.reload()}>Reintentar</Button>
+          <Button variant="secondary" onClick={() => window.location.reload()}>{t('auth.retry')}</Button>
         </div>
       )
     }
@@ -115,7 +117,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
       <div className="flex h-full min-h-0 flex-col items-center justify-center gap-4 overflow-y-auto bg-kumo-base px-4 py-8">
         <Loader size="lg" />
         <p className="text-sm text-kumo-subtle text-center">
-          {connectionLost ? 'Sin conexión. Reintentando…' : 'Cargando…'}
+          {connectionLost ? t('auth.offline') : t('auth.loading')}
         </p>
       </div>
     )
@@ -142,7 +144,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
         <div className="flex flex-col items-center mb-8">
           <NuevaunoIdentity siteName={siteName} size={56} showOs={false} className="mb-3 text-2xl text-kumo-default" />
           <p className="text-sm text-kumo-subtle mt-1">
-            {recoveryMode ? 'Recupera tu acceso' : 'Ingresa a tu cuenta'}
+            {recoveryMode ? t('auth.recoveryTitle') : t('auth.loginSubtitle')}
           </p>
         </div>
 
@@ -151,7 +153,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
             {recoverySent && !recoveryMode && (
               <Banner
                 variant="default"
-                title={passwordResetSuccess ? 'Contraseña actualizada. Ya puedes ingresar.' : 'Si la cuenta existe, recibirás un enlace de recuperación.'}
+                title={passwordResetSuccess ? t('auth.resetSuccess') : t('auth.resetSent')}
                 className="mb-4"
               />
             )}
@@ -160,7 +162,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
                 {!resetToken && (
                   <Input
                     className="w-full"
-                    label="Correo o usuario"
+                    label={t('auth.username')}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     autoFocus
@@ -174,23 +176,23 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
                     <Input
                       className="w-full"
                       type="password"
-                      label="Nueva contraseña"
+                      label={t('auth.newPassword')}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       autoFocus
                       autoComplete="new-password"
                       disabled={loading}
-                      placeholder="Mínimo 8 caracteres"
+                      placeholder={t('auth.minimumPassword')}
                     />
                     <Input
                       className="w-full"
                       type="password"
-                      label="Repite la contraseña"
+                      label={t('auth.repeatPassword')}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       autoComplete="new-password"
                       disabled={loading}
-                      placeholder="Repite tu contraseña"
+                      placeholder={t('auth.repeatPassword')}
                     />
                   </>
                 )}
@@ -202,7 +204,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
                   disabled={resetToken ? password.length < 8 || password !== confirmPassword : !username.trim()}
                   className="w-full justify-center"
                 >
-                  {resetToken ? 'Guardar contraseña' : 'Enviar enlace'}
+                  {resetToken ? t('auth.savePassword') : t('auth.sendLink')}
                 </Button>
                 <Button
                   type="button"
@@ -210,7 +212,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
                   onClick={() => setRecoveryMode(false)}
                   className="w-full justify-center"
                 >
-                  Volver al ingreso
+                  {t('auth.backToLogin')}
                 </Button>
               </form>
             ) : (
@@ -219,7 +221,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 className="w-full"
-                label="Correo o usuario"
+                label={t('auth.username')}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoFocus
@@ -231,7 +233,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
               <Input
                 className="w-full"
                 type="password"
-                label="Contraseña"
+                label={t('auth.password')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
@@ -250,7 +252,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
                 loading={loading}
                 className="w-full justify-center"
               >
-                Ingresar
+                {t('auth.submit')}
               </Button>
             </form>
 
@@ -259,13 +261,13 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
               onClick={() => { setRecoveryMode(true); setRecoverySent(false); setError(null) }}
               className="mt-4 w-full text-center text-sm text-kumo-brand hover:underline"
             >
-              ¿Olvidaste tu contraseña?
+              {t('auth.forgotPassword')}
             </button>
 
             <p className="text-center text-sm text-kumo-subtle mt-6">
-              ¿Aún no tienes una cuenta?{' '}
+              {t('auth.noAccount')}{' '}
               <Link to="/signup" className="text-kumo-brand hover:underline font-normal">
-                Crear cuenta
+                {t('auth.createAccount')}
               </Link>
             </p>
             </>
@@ -279,7 +281,7 @@ export default function LoginPage({ rpcStub, onLoginSuccess }: LoginPageProps) {
             {passwordAuthEnabled && (
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-px flex-1 bg-kumo-line" />
-                <span className="text-xs text-kumo-subtle">o</span>
+                <span className="text-xs text-kumo-subtle">{t('auth.or')}</span>
                 <div className="h-px flex-1 bg-kumo-line" />
               </div>
             )}

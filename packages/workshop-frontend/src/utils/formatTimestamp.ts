@@ -1,6 +1,6 @@
 // Locale-aware timestamp formatting for chat UI tooltips.
 //
-import { getUserLanguage, getUserTimeZone } from '../userPreferences'
+import { getUserHourCycle, getUserLanguage, getUserTimeZone } from '../userPreferences'
 import { formatDateTime } from '../formatters'
 //
 /**
@@ -9,5 +9,9 @@ import { formatDateTime } from '../formatters'
  * which day a message belongs to.
  */
 export function formatFullTimestamp(date: Date): string {
-  return formatDateTime(date, { language: getUserLanguage(), timeZone: getUserTimeZone() });
+  return formatDateTime(date, {
+    language: getUserLanguage(),
+    timeZone: getUserTimeZone(),
+    hourCycle: getUserHourCycle(),
+  });
 }
