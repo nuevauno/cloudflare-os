@@ -439,6 +439,37 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
     return this.storage.passwordHashHash.get() !== null;
   }
 
+  /**
+   * Sets or replaces the password for this Durable Object and mints a fresh session.
+   * Used when an admin provisions an owner and when a closed-signup invited identity
+   * reclaims Workshop access. Previous sessions are revoked.
+   */
+  async replacePassword(
+      passwordHash: Uint8Array,
+      profile?: { username: string, displayName: string },
+  ): Promise<string> {
+    if (passwordHash.byteLength !== 32) {
+      throw new Error("validation_failed");
+    }
+    if (!this.storage.created.get()) {
+      this.storage.created.put(true);
+    }
+    if (profile) {
+      this.storage.profile.put({
+        type: "user",
+        name: profile.displayName,
+        id: profile.username,
+      });
+    }
+    const passwordHashHash = new Uint8Array(await crypto.subtle.digest('SHA-256', passwordHash));
+    this.storage.passwordHashHash.put(passwordHashHash);
+    this.storage.passwordReset.put(null);
+    for (const session of Array.from(this.storage.sessions.list())) {
+      this.storage.sessions.delete(session.tokenId);
+    }
+    return this.#newSessionToken();
+  }
+
   async changePassword(oldHash: Uint8Array, newHash: Uint8Array): Promise<void> {
     let actualHashHash = this.storage.passwordHashHash.get();
     if (!actualHashHash) {

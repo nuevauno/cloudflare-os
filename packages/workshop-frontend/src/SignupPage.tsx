@@ -107,7 +107,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
   const authVendors = serverConfig.authVendors ?? [];
   const signupsEnabled = serverConfig.signupsEnabled;
   // The password create-account form requires both password auth AND open signups.
-  const passwordAuthEnabled = serverConfig.passwordAuthEnabled && signupsEnabled;
+  const passwordAuthEnabled = serverConfig.passwordAuthEnabled;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col items-center justify-start overflow-y-auto bg-kumo-base px-4 py-8">
@@ -132,7 +132,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
           <p className="text-sm text-kumo-subtle mt-1">{t("auth.createAccount")}</p>
         </div>
 
-        {!signupsEnabled && (
+        {!signupsEnabled && !serverConfig.passwordAuthEnabled && (
           <Banner
             variant="default"
             title={t("auth.signupClosed")}
