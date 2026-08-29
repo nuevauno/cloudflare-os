@@ -27,8 +27,10 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
   const [error, setError] = useState<string | null>(null);
 
   const usernameError =
-    username && !/^[a-z0-9_-]+$/i.test(username)
-      ? "Usa sólo letras, números, guiones y guiones bajos"
+    username &&
+    !/^[a-z0-9_-]+$/i.test(username) &&
+    !/^[^@\s]+@[^@\s]+$/.test(username)
+      ? "Usa un correo o un usuario con letras, números, guiones y guiones bajos"
       : undefined;
 
   const passwordError =
@@ -150,7 +152,7 @@ export default function SignupPage({ rpcStub }: SignupPageProps) {
                 autoFocus
                 autoComplete="username"
                 disabled={loading}
-                placeholder="tu-usuario"
+                placeholder="tu@empresa.com"
                 error={usernameError}
               />
 
