@@ -147,7 +147,7 @@ export default function PosPage() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi(),
     scope = resolveSalesScope(businessSession);
   const [data, setData] = useState<PosLoadDataView | null>(null),
-    [screen, setScreen] = useState<"dashboard" | "settings" | "terminal" | "payment">("dashboard"),
+    [screen, setScreen] = useState<"dashboard" | "settings" | "terminal" | "payment" | "split">("dashboard"),
     [tab, setTab] = useState<Tab>("floor"),
     [table, setTable] = useState<{
       id: string;
@@ -191,6 +191,7 @@ export default function PosPage() {
     [partnerSearch, setPartnerSearch] = useState(""),
     [partnerCreate, setPartnerCreate] = useState(false),
     [actionsOpen,setActionsOpen]=useState(false),
+    [splitQuantities,setSplitQuantities]=useState<Record<string,number>>({}),
     [partnerDraft, setPartnerDraft] = useState({displayName:"",email:"",phone:"",taxIdentifier:""}),
     [dialog, setDialog] = useState<PosDialogState | null>(null),
     [dialogText, setDialogText] = useState(""),
@@ -721,6 +722,7 @@ export default function PosPage() {
       });
     }
     change(product.id, 1);
+    setSelectedLineId(product.id);
     for (const optionalId of product.optionalProductIds) {
       const optional = data.products.find((candidate) => candidate.id === optionalId);
       if (optional && await requestDialog({ kind: "confirm", title: "Producto opcional", body: `¿Agregar ${optional.name}?`, confirmLabel: "Agregar" })) change(optional.id, 1);
@@ -753,6 +755,7 @@ export default function PosPage() {
       }));
     }
     change(productId, -1);
+    if ((cart[productId] ?? 0) <= 1) setSelectedLineId("");
   };
   const cancel = async () => {
     if (order)
@@ -902,31 +905,43 @@ export default function PosPage() {
     if (targetTable) setTable(targetTable);
     await refresh();
   };
-  const split = async () => {
+  const split = () => {
     if (!order || !order.lines.length) return;
-    const lineQuantities: Array<{ lineId: string; quantity: number }> = [];
-    for (const line of order.lines) {
-      const quantity = Number(await requestDialog({ kind: "number", title: "Dividir cuenta", label: line.description, value: 0, min: 0, max: line.quantity }));
-      if (quantity > 0 && quantity <= line.quantity) lineQuantities.push({ lineId: line.id, quantity });
-    }
-    if (!lineQuantities.length) return;
-    const result = await authenticatedApi.posSplitOrder({
-      organizationId: scope.organizationId,
-      companyId: scope.companyId,
-      orderId: order.id,
-      lineQuantities,
-      requestId: crypto.randomUUID(),
+    setSplitQuantities({});
+    setScreen("split");
+  };
+  const confirmSplit = async () => {
+    if (!order) return;
+    const lineQuantities = order.lines.flatMap((line) => {
+      const quantity = splitQuantities[line.id] ?? 0;
+      return quantity > 0 ? [{ lineId: line.id, quantity }] : [];
     });
-    setOrder(result.source);
-    setCart(
-      Object.fromEntries(
-        result.source.lines.map((item) => [
-          item.productVariantId,
-          item.quantity,
-        ]),
-      ),
-    );
-    await refresh();
+    if (!lineQuantities.length) return;
+    setBusy(true);
+    try {
+      const result = await authenticatedApi.posSplitOrder({
+        organizationId: scope.organizationId,
+        companyId: scope.companyId,
+        orderId: order.id,
+        lineQuantities,
+        requestId: crypto.randomUUID(),
+      });
+      setOrder(result.split);
+      setCart(
+        Object.fromEntries(
+          result.split.lines.map((item) => [
+            item.productVariantId,
+            item.quantity,
+          ]),
+        ),
+      );
+      setSelectedLineId("");
+      setSplitQuantities({});
+      setScreen("payment");
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
   };
   const cashMove = async (direction: "in" | "out") => {
     if (!data.session) return;
@@ -1097,6 +1112,26 @@ export default function PosPage() {
   const startNewOrder = () => {
     resetOrderState();
     setTab("register");
+  };
+  const choosePartner = async () => {
+    const selected = await requestDialog({
+      kind: "selection",
+      title: "Elige un cliente",
+      options: [
+        { id: "__none__", label: "Consumidor final" },
+        ...data.partners.map((partner) => ({
+          id: partner.id,
+          label: [partner.displayName, partner.email, partner.phone]
+            .filter(Boolean)
+            .join(" · "),
+        })),
+      ],
+      selected: [partnerId || "__none__"],
+      min: 1,
+      max: 1,
+    });
+    if (Array.isArray(selected))
+      setPartnerId(selected[0] === "__none__" ? "" : (selected[0] ?? ""));
   };
   const saveSettings=async()=>{if(!scope)return;setBusy(true);try{await authenticatedApi.posUpdateSettings(scope.organizationId,scope.companyId,settingsDraft);setSettingsDirty(false);await refresh()}finally{setBusy(false)}};
   const employeeLoginEnabled=Boolean(data.config?.settings.pos_module_pos_hr),isManager=!employeeLoginEnabled||data.activeOperator?.role==="manager",isMinimal=data.activeOperator?.role==="minimal";
@@ -1270,6 +1305,51 @@ export default function PosPage() {
         </section>
       </main>
     );
+  if (screen === "split" && order) {
+    const selectedTotal = order.lines.reduce(
+        (sum, line) => sum + Math.round((line.totalMinor / line.quantity) * (splitQuantities[line.id] ?? 0)),
+        0,
+      ),
+      selectedQuantity = Object.values(splitQuantities).reduce((sum, quantity) => sum + quantity, 0),
+      originalQuantity = order.lines.reduce((sum, line) => sum + line.quantity, 0),
+      canSplit = selectedQuantity > 0 && selectedQuantity < originalQuantity;
+    return (
+      <main className="grid min-h-full grid-cols-2 bg-kumo-base">
+        <section className="min-w-0 border-r border-kumo-line bg-kumo-elevated">
+          <header className="grid h-16 grid-cols-[120px_1fr_120px] items-center border-b border-kumo-line px-3">
+            <button onClick={() => setScreen("terminal")} className="justify-self-start rounded-lg border border-kumo-line px-4 py-2">‹ Regresar</button>
+            <h1 className="text-center text-xl font-normal">Dividir la cuenta</h1>
+          </header>
+          <div className="divide-y divide-kumo-line">
+            {order.lines.map((line) => {
+              const selected = splitQuantities[line.id] ?? 0,
+                unitPrice = line.totalMinor / line.quantity;
+              return (
+                <article key={line.id} className="grid grid-cols-[120px_1fr_auto] items-center gap-3 px-4 py-4">
+                  <div className="grid grid-cols-[38px_44px_38px] items-center">
+                    <button disabled={selected <= 0} onClick={() => setSplitQuantities((current) => ({ ...current, [line.id]: Math.max(0, selected - 1) }))} className="h-10 rounded-l-lg border border-kumo-line disabled:opacity-30">−</button>
+                    <span className="grid h-10 place-items-center border-y border-kumo-line">{selected} / {line.quantity}</span>
+                    <button disabled={selected >= line.quantity} onClick={() => setSplitQuantities((current) => ({ ...current, [line.id]: Math.min(line.quantity, selected + 1) }))} className="h-10 rounded-r-lg border border-kumo-line disabled:opacity-30">＋</button>
+                  </div>
+                  <span>{line.description}</span>
+                  <span>{money(Math.round(unitPrice * line.quantity))}</span>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+        <section className="flex min-h-full flex-col p-6">
+          <div className="m-auto text-center">
+            <p className="text-[clamp(72px,10vw,150px)] leading-none">{money(selectedTotal)}</p>
+            <p className="mt-4 text-xl text-kumo-subtle">/ {money(order.totalMinor)}</p>
+            <p className="mt-10 text-xl">{selectedQuantity} producto{selectedQuantity === 1 ? "" : "s"} seleccionado{selectedQuantity === 1 ? "" : "s"}</p>
+            {selectedQuantity === originalQuantity && <p className="mt-3 text-[#FE4A23]">La cuenta original debe conservar al menos un producto.</p>}
+          </div>
+          <button disabled={!canSplit || busy} onClick={() => void confirmSplit()} className="rounded-xl bg-[#FE4A23] p-6 text-2xl text-white disabled:opacity-40">Dividir y continuar al pago</button>
+        </section>
+      </main>
+    );
+  }
   if (screen === "payment") {
     const remaining = Math.max(0, total - allocatedTotal),
       selectedPartner = data.partners.find((partner) => partner.id === partnerId),
@@ -1757,7 +1837,7 @@ export default function PosPage() {
           </div>
           <aside className="flex min-h-0 flex-col bg-kumo-elevated">
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {lines.map(line=><button key={line.id} onClick={()=>setSelectedLineId(line.id)} className={`grid w-full grid-cols-[36px_1fr_auto] gap-3 border-b px-3 py-3 text-left ${selectedLineId===line.id?"border-[#FE4A23] bg-[#fff1ed]":"border-kumo-line"}`}>
+              {lines.map(line=><button key={line.id} onClick={()=>setSelectedLineId((current)=>current===line.id?"":line.id)} className={`grid w-full grid-cols-[36px_1fr_auto] gap-3 border-b px-3 py-3 text-left ${selectedLineId===line.id?"border-[#FE4A23] bg-[#fff1ed]":"border-kumo-line"}`}>
                 <span>{line.quantity}</span><span>{line.name}{lineNotes[line.id]&&<small className="block text-kumo-subtle">{lineNotes[line.id]}</small>}</span><span>{money(line.total)}</span>
               </button>)}
             </div>
@@ -1776,14 +1856,14 @@ export default function PosPage() {
                 <span>Total</span>
                 <span>{money(total)}</span>
               </div>
-              <div className="mt-3 grid grid-cols-[1fr_1fr_44px_1fr_44px] gap-2"><button onClick={()=>setPartnerDialog(true)} className="rounded-lg border border-kumo-line py-3">Cliente</button><button onClick={()=>{const line=lines.find(item=>item.id===selectedLineId);if(line)setNoteEditor({productId:line.id,productName:line.name,value:lineNotes[line.id]??""});else void requestDialog({kind:"text",title:"Nota para el cliente",value:generalNote}).then(value=>typeof value==="string"&&setGeneralNote(value))}} className="rounded-lg border border-kumo-line py-3">Nota</button><button onClick={()=>order&&void sendToPreparation()} aria-label="Enviar comanda" className="rounded-lg border border-kumo-line">↥</button><button onClick={async()=>{const line=lines.find(item=>item.id===selectedLineId);if(!line)return;const course=Number(await requestDialog({kind:"number",title:"Tiempo",label:"Curso",value:lineCourses[line.id]??1,min:1}));if(course>0)setLineCourses(current=>({...current,[line.id]:course}))}} className="rounded-lg border border-kumo-line">Tiempo</button><button onClick={()=>setActionsOpen(true)} aria-label="Acciones" className="rounded-lg border border-kumo-line text-xl">⋮</button></div>
-              <div className="mt-2 grid grid-cols-4">{["1","2","3","Ctdad","4","5","6","%","7","8","9","Precio","+/−","0",",","⌫"].map(key=><button key={key} onClick={async()=>{
+              <div className="mt-3 grid grid-cols-[1fr_1fr_44px_1fr_44px] gap-2"><button onClick={()=>void choosePartner()} className="truncate rounded-lg border border-kumo-line px-2 py-3">{data.partners.find(partner=>partner.id===partnerId)?.displayName??"Cliente"}</button><button onClick={()=>{const line=lines.find(item=>item.id===selectedLineId);if(line)setNoteEditor({productId:line.id,productName:line.name,value:lineNotes[line.id]??""});else void requestDialog({kind:"text",title:"Nota para el cliente",value:generalNote}).then(value=>typeof value==="string"&&setGeneralNote(value))}} className="rounded-lg border border-kumo-line py-3">Nota</button><button onClick={()=>order&&void sendToPreparation()} aria-label="Enviar comanda" className="rounded-lg border border-kumo-line">↥</button><button onClick={async()=>{const line=lines.find(item=>item.id===selectedLineId);if(!line)return;const course=Number(await requestDialog({kind:"number",title:"Tiempo",label:"Curso",value:lineCourses[line.id]??1,min:1}));if(course>0)setLineCourses(current=>({...current,[line.id]:course}))}} className="rounded-lg border border-kumo-line">Tiempo</button><button onClick={()=>setActionsOpen(true)} aria-label="Acciones" className="rounded-lg border border-kumo-line text-xl">⋮</button></div>
+              {selectedLineId&&<div className="mt-2 grid grid-cols-4">{["1","2","3","Ctdad","4","5","6","%","7","8","9","Precio","+/−","0",",","⌫"].map(key=><button key={key} onClick={async()=>{
                 const line=lines.find(item=>item.id===selectedLineId);if(!line)return;
                 if(/^\d$/.test(key))setQuantity(line.id,Number(key));
                 else if(key==="⌫")removeProduct(line.id);
                 else if(key==="%") {const discount=Number(await requestDialog({kind:"number",title:"Descuento",value:discountBasisPoints/100,min:0,max:100}));if(Number.isFinite(discount))setDiscountBasisPoints(Math.round(discount*100));}
                 else if(key==="Precio"){const price=Number(await requestDialog({kind:"number",title:"Cambiar precio",label:line.name,value:line.unitPriceMinor,min:0}));if(price>=0)setManualPrices(current=>({...current,[line.id]:price}));}
-              }} className={`h-13 border border-kumo-line ${(key==="Ctdad"||key==="Precio")?"bg-[#fff1ed]":key==="+/−"?"bg-[#fee28a]":""}`}>{key}</button>)}</div>
+              }} className={`h-13 border border-kumo-line ${(key==="Ctdad"||key==="Precio")?"bg-[#fff1ed]":key==="+/−"?"bg-[#fee28a]":""}`}>{key}</button>)}</div>}
               <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={startNewOrder} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length} onClick={async()=>{if(!order)await save();setScreen("payment")}} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">Pago</button></div>
             </div>
           </aside>
