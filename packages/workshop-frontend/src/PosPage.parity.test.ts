@@ -37,4 +37,11 @@ describe("recorridos POS portados desde la fuente 19", () => {
       "Curso",
     ]) expect(source).toContain(title);
   });
+
+  it("incluye tablero de preparación y refresco autoritativo entre dispositivos", () => {
+    for (const text of ["Preparación", "Pendiente", "En preparación", "Marcar listo", "Entregar"]) expect(source).toContain(text);
+    expect(source).toContain("posSetPreparationState");
+    expect(source).toContain("window.setInterval(synchronize, 2_000)");
+    expect(source).toContain('document.addEventListener("visibilitychange", synchronize)');
+  });
 });

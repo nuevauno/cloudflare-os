@@ -13,7 +13,7 @@ const money = (n: number) =>
     currency: "CLP",
     maximumFractionDigits: 0,
   }).format(n);
-type Tab = "floor" | "register" | "orders";
+type Tab = "floor" | "register" | "orders" | "preparation";
 type PosDialogRequest =
   | { kind: "text"; title: string; label?: string; value?: string }
   | { kind: "number"; title: string; label?: string; value?: number; min?: number; max?: number }
@@ -127,6 +127,20 @@ export default function PosPage() {
   };
   useEffect(() => {
     void refresh();
+  }, [scope?.organizationId, scope?.companyId]);
+  useEffect(() => {
+    if (!scope) return;
+    const synchronize = () => {
+      if (navigator.onLine && document.visibilityState === "visible") void refresh();
+    };
+    const timer = window.setInterval(synchronize, 2_000);
+    window.addEventListener("focus", synchronize);
+    document.addEventListener("visibilitychange", synchronize);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", synchronize);
+      document.removeEventListener("visibilitychange", synchronize);
+    };
   }, [scope?.organizationId, scope?.companyId]);
   useEffect(() => {
     if (!scope) return;
@@ -694,6 +708,19 @@ export default function PosPage() {
     await printPreparationChanges(order, sent);
     await refresh();
   };
+  const setPreparationState = async (
+    target: PosOrderView,
+    state: "preparing" | "ready" | "served",
+  ) => {
+    await authenticatedApi.posSetPreparationState(
+      scope.organizationId,
+      scope.companyId,
+      target.id,
+      state,
+    );
+    syncChannel.current?.postMessage({ type: "preparation-state", orderId: target.id, state });
+    await refresh();
+  };
   const transfer = async () => {
     if (!order) return;
     const available = data.floors
@@ -1084,6 +1111,17 @@ export default function PosPage() {
             </span>
           )}
         </button>
+        <button
+          className={`px-7 ${tab === "preparation" ? "bg-kumo-line" : ""}`}
+          onClick={() => setTab("preparation")}
+        >
+          Cocina
+          {data.orders.some((item) => item.metadata.preparationState !== "draft" && item.metadata.preparationState !== "served") && (
+            <span className="ml-2 rounded-full bg-[#FE4A23] px-2 py-1 text-xs text-white">
+              {data.orders.filter((item) => item.metadata.preparationState !== "draft" && item.metadata.preparationState !== "served").length}
+            </span>
+          )}
+        </button>
         <span className="m-auto text-sm text-kumo-subtle">
           {data.config?.name}
         </span>
@@ -1410,6 +1448,41 @@ export default function PosPage() {
             {!data.orders.length && (
               <p className="text-kumo-subtle">No hay pedidos abiertos.</p>
             )}
+          </div>
+        </section>
+      )}
+      {tab === "preparation" && (
+        <section className="flex-1 p-6">
+          <div className="mb-5 flex items-center justify-between">
+            <h1 className="text-2xl font-normal">Preparación</h1>
+            <span className="text-sm text-kumo-subtle">Sincronización activa · 2 s</span>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {([
+              ["sent", "Pendiente"],
+              ["preparing", "En preparación"],
+              ["ready", "Listo"],
+            ] as const).map(([state, label]) => (
+              <section key={state} className="rounded-xl border border-kumo-line bg-kumo-elevated p-4">
+                <h2 className="mb-4 text-xl font-normal">{label}</h2>
+                <div className="space-y-3">
+                  {data.orders.filter((item) => item.metadata.preparationState === state).map((item) => {
+                    const targetTable = data.floors.flatMap((floor) => floor.tables).find((candidate) => candidate.id === item.tableId);
+                    const next = state === "sent" ? "preparing" : state === "preparing" ? "ready" : "served";
+                    return (
+                      <article key={item.id} className="rounded-xl border border-kumo-line bg-kumo-base p-4">
+                        <div className="flex justify-between"><span>{targetTable ? `Mesa ${targetTable.name}` : "Para llevar"}</span><span>{item.metadata.orderName ?? item.id}</span></div>
+                        <div className="my-4 space-y-2 text-sm">{item.lines.map((line) => <div key={line.id}><span className="text-[#FE4A23]">{line.quantity} ×</span> {line.description}{line.customerNote && <span className="block text-kumo-subtle">{line.customerNote}</span>}</div>)}</div>
+                        <button onClick={() => setPreparationState(item, next)} className="w-full rounded-xl bg-[#FE4A23] p-3 text-white">
+                          {next === "preparing" ? "Comenzar" : next === "ready" ? "Marcar listo" : "Entregar"}
+                        </button>
+                      </article>
+                    );
+                  })}
+                  {!data.orders.some((item) => item.metadata.preparationState === state) && <p className="text-sm text-kumo-subtle">Sin pedidos</p>}
+                </div>
+              </section>
+            ))}
           </div>
         </section>
       )}
