@@ -1089,6 +1089,7 @@ export interface AuthenticatedApi extends RpcTarget {
   posLogoutOperator(organizationId:string,companyId:string):Promise<void>;
   posSaveOperator(organizationId:string,companyId:string,input:{id?:string;displayName:string;role:PosOperatorRoleView;pin?:string;status?:'active'|'archived'}):Promise<PosOperatorView>;
   posUpdateSettings(organizationId:string,companyId:string,settings:PosConfigSettingsView):Promise<NonNullable<PosLoadDataView['config']>>;
+  posSavePaymentMethod(organizationId:string,companyId:string,input:{id?:string;name:string;methodType:'cash'|'bank'|'customer_account'|'terminal';requiresTerminal:boolean;splitTransactions:boolean;status?:'active'|'archived'}):Promise<PosLoadDataView['paymentMethods'][number]>;
   posCreatePartner(organizationId:string,companyId:string,input:{displayName:string;email?:string;phone?:string;taxIdentifier?:string}):Promise<PosLoadDataView['partners'][number]>;
   posSaveCategory(organizationId:string,companyId:string,input:{id?:string;name:string;parentId?:string;status?:'active'|'archived'}):Promise<PosCatalogCategoryView>;
   posSaveProduct(organizationId:string,companyId:string,input:PosCatalogProductInputView):Promise<PosLoadDataView['products'][number]>;
