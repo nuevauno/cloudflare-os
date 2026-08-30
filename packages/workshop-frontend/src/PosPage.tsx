@@ -14,6 +14,14 @@ const money = (n: number) =>
     currency: "CLP",
     maximumFractionDigits: 0,
   }).format(n);
+const elapsedLabel = (startedAt: string | undefined, now: number) => {
+  if (!startedAt) return "0m";
+  const minutes = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+};
+const preparationBadge = (state: PosOrderView["metadata"]["preparationState"]) =>
+  ({ draft: "", sent: "P", preparing: "EP", ready: "EC", served: "EC" })[state];
 type Tab = "floor" | "register" | "orders" | "preparation";
 type PosDialogRequest =
   | { kind: "text"; title: string; label?: string; value?: string }
@@ -159,7 +167,7 @@ export default function PosPage() {
     [dialog, setDialog] = useState<PosDialogState | null>(null),
     [dialogText, setDialogText] = useState(""),
     [dialogSelections, setDialogSelections] = useState<string[]>([]);
-  const [settingsDraft,setSettingsDraft]=useState<PosConfigSettingsView>({}),[settingsDirty,setSettingsDirty]=useState(false);
+  const [settingsDraft,setSettingsDraft]=useState<PosConfigSettingsView>({}),[settingsDirty,setSettingsDirty]=useState(false),[clock,setClock]=useState(Date.now());
   const [generalNote, setGeneralNote] = useState(""),
     [guestCount, setGuestCount] = useState(1),
     [tipMinor, setTipMinor] = useState(0),
@@ -188,6 +196,10 @@ export default function PosPage() {
   const scannerBuffer = useRef(""),
     scannerAt = useRef(0),
     syncChannel = useRef<BroadcastChannel | null>(null);
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const requestDialog = (request: PosDialogRequest) =>
     new Promise<string | string[] | number | boolean | null>((resolve) => {
       setDialogText("value" in request ? String(request.value ?? "") : "");
@@ -1461,16 +1473,13 @@ export default function PosPage() {
             >
               {layoutEditing ? "Terminar edición" : "Editar salón"}
             </button>
-            <div className="text-sm">
-              <span className="mr-4">
-                ●{" "}
-                {data.floors.flatMap((f) => f.tables).length -
-                  data.orders.length}{" "}
-                Libres
-              </span>
-              <span className="text-[#FE4A23]">
-                ● {data.orders.length} Ocupadas
-              </span>
+            <div className="flex flex-wrap items-center gap-4 text-sm text-kumo-subtle">
+              <span><i className="mr-1 inline-block h-3 w-3 rounded bg-kumo-line" />Libre</span>
+              <span><i className="mr-1 inline-block h-3 w-3 rounded bg-[#FE4A23]" />Ocupada</span>
+              <span><i className="mr-1 inline-block h-3 w-3 rounded bg-red-500" />Demorada</span>
+              <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] text-white">P</i>Pendiente</span>
+              <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-[9px] text-white">EP</i>Envío parcial</span>
+              <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[9px] text-white">EC</i>Enviado</span>
             </div>
           </div>
           {data.floors.map((floor) => (
@@ -1491,6 +1500,12 @@ export default function PosPage() {
                   const current = data.orders.find(
                     (value) => value.tableId === item.id,
                   );
+                  const startedAt = current?.createdAt ?? data.session?.openedAt;
+                  const elapsedMinutes = startedAt
+                    ? Math.max(0, Math.floor((clock - new Date(startedAt).getTime()) / 60_000))
+                    : 0;
+                  const isLate = Boolean(current && elapsedMinutes >= 15 && current.metadata.preparationState !== "served");
+                  const badge = current ? preparationBadge(current.metadata.preparationState) : "";
                   return (
                     <button
                       key={item.id}
@@ -1498,17 +1513,18 @@ export default function PosPage() {
                         layoutEditing ? editTable(item) : selectTable(item)
                       }
                       onDoubleClick={() => layoutEditing && deleteTable(item)}
-                      className={`h-32 w-36 rounded-xl border p-3 text-center ${current ? "border-[#FE4A23] bg-[#FE4A23] text-white" : "border-kumo-line bg-kumo-elevated"}`}
+                      className={`relative h-32 w-36 rounded-xl border p-3 text-center ${current ? isLate ? "border-red-500 bg-red-500 text-white" : "border-[#FE4A23] bg-[#FE4A23] text-white" : "border-kumo-line bg-kumo-elevated"}`}
                     >
+                      {current && <span className="absolute left-3 top-3 text-xs">♟ {current.metadata.guestCount}</span>}
+                      {current && <span className="absolute right-3 top-3 text-xs">{elapsedLabel(startedAt, clock)}</span>}
                       <span className="block text-3xl">{item.name}</span>
-                      <span className="mt-3 block text-xs">
-                        ♟ {item.seats}
-                      </span>
+                      {!current && <span className="mt-3 block text-xs">♟ {item.seats}</span>}
                       {current && (
                         <span className="mt-2 block">
                           {money(current.totalMinor)}
                         </span>
                       )}
+                      {badge && <span className={`absolute bottom-3 right-3 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[9px] text-white ${badge === "P" ? "bg-rose-600" : badge === "EP" ? "bg-purple-600" : "bg-slate-700"}`}>{badge}</span>}
                     </button>
                   );
                 })}
