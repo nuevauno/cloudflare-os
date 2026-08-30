@@ -13,6 +13,20 @@ const money = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 type Tab = "floor" | "register" | "orders";
+type DeviceBridge = {
+  readScale(id?: string): Promise<{ ok?: boolean; weight: number | null }>;
+  createPrintJob(job: {
+    payload: string;
+    format: "text";
+    jobType: "receipt" | "kitchen_ticket";
+    source: string;
+  }): Promise<{ ok?: boolean; status?: string }>;
+};
+declare global {
+  interface Window {
+    NUEVAUNOBridge?: DeviceBridge;
+  }
+}
 
 export default function PosPage() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi(),
@@ -49,6 +63,8 @@ export default function PosPage() {
     [manualPrices, setManualPrices] = useState<Record<string, number>>({}),
     [lineCourses, setLineCourses] = useState<Record<string, number>>({});
   const orderUuid = useRef<string>(crypto.randomUUID());
+  const scannerBuffer = useRef(""),
+    scannerAt = useRef(0);
   const refresh = async () => {
     if (scope)
       setData(
@@ -61,6 +77,24 @@ export default function PosPage() {
   useEffect(() => {
     void refresh();
   }, [scope?.organizationId, scope?.companyId]);
+  useEffect(() => {
+    const scan = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
+        return;
+      const now = Date.now();
+      if (now - scannerAt.current > 80) scannerBuffer.current = "";
+      scannerAt.current = now;
+      if (event.key === "Enter") {
+        const product = data?.products.find(
+          (item) => item.sku?.toLowerCase() === scannerBuffer.current.toLowerCase(),
+        );
+        if (product) change(product.id, 1);
+        scannerBuffer.current = "";
+      } else if (event.key.length === 1) scannerBuffer.current += event.key;
+    };
+    window.addEventListener("keydown", scan);
+    return () => window.removeEventListener("keydown", scan);
+  }, [data]);
   const categories = useMemo(
     () => [...new Set(data?.products.map((p) => p.category) ?? [])],
     [data],
@@ -99,6 +133,31 @@ export default function PosPage() {
     } finally {
       setBusy(false);
     }
+  };
+  const printTicket = async (
+    ticket: PosOrderView,
+    jobType: "receipt" | "kitchen_ticket",
+  ) => {
+    const payload = [
+      data.config?.name ?? "Restaurant",
+      ticket.metadata.orderName ?? ticket.id,
+      table ? `Mesa ${table.name}` : "Pedido para llevar",
+      ...ticket.lines.map(
+        (line) =>
+          `${line.quantity} x ${line.description}${line.customerNote ? ` · ${line.customerNote}` : ""}`,
+      ),
+      `Total ${money(ticket.totalMinor)}`,
+    ].join("\n");
+    if (window.NUEVAUNOBridge) {
+      await window.NUEVAUNOBridge.createPrintJob({
+        payload,
+        format: "text",
+        jobType,
+        source: "nuevauno-os-pos",
+      });
+      return;
+    }
+    if (jobType === "receipt") window.print();
   };
   const selectTable = (next: { id: string; name: string; seats: number }) => {
     const existing = data.orders.find((value) => value.tableId === next.id);
@@ -248,13 +307,13 @@ export default function PosPage() {
   };
   const sendToPreparation = async () => {
     if (!order) return;
-    setOrder(
-      await authenticatedApi.posSendToPreparation(
+    const sent = await authenticatedApi.posSendToPreparation(
         scope.organizationId,
         scope.companyId,
         order.id,
-      ),
-    );
+      );
+    setOrder(sent);
+    await printTicket(sent, "kitchen_ticket");
     await refresh();
   };
   const transfer = async () => {
@@ -483,7 +542,7 @@ export default function PosPage() {
           </div>
           <div className="mt-8 flex gap-2">
             <button
-              onClick={() => window.print()}
+              onClick={() => printTicket(receipt.order, "receipt")}
               className="flex-1 rounded-xl border border-kumo-line p-3"
             >
               Imprimir
@@ -653,7 +712,7 @@ export default function PosPage() {
                 Unir mesas
               </button>
               <button
-                onClick={() => window.print()}
+                onClick={() => order && printTicket(order, "receipt")}
                 className="rounded-xl border border-kumo-line px-4 py-2"
               >
                 Cuenta provisoria
@@ -995,6 +1054,18 @@ export default function PosPage() {
                   >
                     Curso
                   </button>
+                  {window.NUEVAUNOBridge && (
+                    <button
+                      onClick={async () => {
+                        const reading = await window.NUEVAUNOBridge?.readScale();
+                        if (reading?.ok !== false && reading?.weight)
+                          setQuantity(line.id, reading.weight);
+                      }}
+                      className="rounded border border-kumo-line px-2 py-1 text-xs"
+                    >
+                      Báscula
+                    </button>
+                  )}
                   <span>{money(line.total)}</span>
                 </div>
               ))}
