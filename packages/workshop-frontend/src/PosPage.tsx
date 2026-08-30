@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuthenticatedApi } from "./AuthContext";
 import { resolveSalesScope } from "./SalesPage";
 import type {
+  PosConfigSettingsView,
   PosLoadDataView,
   PosOrderView,
 } from "@gadgets/workshop-shared/api";
@@ -30,6 +31,84 @@ type DeviceBridge = {
     source: string;
   }): Promise<{ ok?: boolean; status?: string }>;
 };
+type PosSettingDefinition = { key:string; label:string; help:string; kind?:"text"|"number"|"select"; options?:Array<{value:string;label:string}> };
+type PosSettingSection = { title:string; items:PosSettingDefinition[] };
+const POS_SETTING_SECTIONS:PosSettingSection[]=[
+  {title:"Punto de venta",items:[
+    {key:"pos_module_pos_restaurant",label:"Es un restaurante",help:"Activa mesas, salones y comandas."},
+    {key:"pos_use_presets",label:"Para llevar / Entrega / Miembros",help:"Define modalidades con precios y reglas preestablecidas."},
+    {key:"pos_cash_control",label:"Control de efectivo",help:"Registra apertura, movimientos y cierre de caja."},
+  ]},
+  {title:"Pago",items:[
+    {key:"pos_auto_validate_terminal_payment",label:"Validar automáticamente",help:"Valida pagos confirmados por un terminal."},
+    {key:"pos_cash_rounding",label:"Redondeo de efectivo",help:"Aplica la denominación mínima al pagar en efectivo."},
+    {key:"pos_only_round_cash_method",label:"Solo medios en efectivo",help:"No redondea otros medios de pago."},
+    {key:"pos_use_fast_payment",label:"Pago en un clic",help:"Omite la pantalla de pago con medios compatibles."},
+    {key:"pos_set_maximum_difference",label:"Diferencia máxima",help:"Limita la diferencia autorizada al cerrar caja."},
+    {key:"pos_amount_authorized_diff",label:"Diferencia autorizada",help:"Monto máximo permitido en CLP.",kind:"number"},
+    {key:"pos_iface_tipproduct",label:"Propinas",help:"Acepta propinas del cliente o convierte el vuelto."},
+    {key:"pos_set_tip_after_payment",label:"Propina después del pago",help:"Permite agregar propina una vez pagados los productos."},
+  ]},
+  {title:"Interfaz del PdV",items:[
+    {key:"pos_module_pos_hr",label:"Iniciar sesión con empleados",help:"Permite identificar y cambiar garzones o cajeros."},
+    {key:"pos_iface_big_scrollbars",label:"Barras de desplazamiento grandes",help:"Mejora el uso en pantallas táctiles imprecisas."},
+    {key:"pos_show_product_images",label:"Mostrar imágenes de productos",help:"Muestra imágenes en las tarjetas del catálogo."},
+    {key:"pos_show_category_images",label:"Mostrar imágenes de categorías",help:"Muestra imágenes en categorías."},
+    {key:"pos_iface_group_by_categ",label:"Agrupar productos por categoría",help:"Ordena el catálogo por categorías."},
+    {key:"pos_default_screen",label:"Pantalla predeterminada",help:"Selecciona mesa antes o después de registrar.",kind:"select",options:[{value:"tables",label:"Mesas"},{value:"register",label:"Caja"}]},
+  ]},
+  {title:"Categorías de producto y PdV",items:[
+    {key:"pos_limit_categories",label:"Restringir categorías",help:"Selecciona las categorías disponibles en este PdV."},
+    {key:"pos_is_margins_costs_accessible_to_every_user",label:"Mostrar márgenes y costos",help:"Expone margen y costo en la información del producto."},
+  ]},
+  {title:"Contabilidad",items:[
+    {key:"sale_tax_id",label:"Impuesto de venta predeterminado",help:"Código del impuesto aplicado a productos nuevos.",kind:"text"},
+    {key:"account_default_pos_receivable_account_id",label:"Cuenta por cobrar predeterminada",help:"Cuenta intermediaria para clientes sin identificar.",kind:"text"},
+    {key:"pos_order_edit_tracking",label:"Seguimiento de edición",help:"Conserva las modificaciones hechas a pedidos."},
+    {key:"pos_tax_regime_selection",label:"Impuestos flexibles",help:"Permite elegir una posición fiscal por pedido."},
+    {key:"pos_is_closing_entry_by_product",label:"Asiento de cierre por producto",help:"Desglosa ventas por producto en el cierre."},
+  ]},
+  {title:"Precios",items:[
+    {key:"pos_use_pricelist",label:"Listas de precios flexibles",help:"Permite seleccionar listas de precios."},
+    {key:"pos_restrict_price_control",label:"Control de precios",help:"Restringe cambios de precio según permisos."},
+    {key:"pos_iface_tax_included",label:"Precios con impuestos incluidos",help:"Muestra precios finales en productos y recibos."},
+    {key:"pos_manual_discount",label:"Descuentos por línea",help:"Permite aplicar descuentos manuales."},
+  ]},
+  {title:"Facturas y recibos",items:[
+    {key:"pos_is_header_or_footer",label:"Encabezado y pie personalizados",help:"Agrega mensajes propios al recibo."},
+    {key:"pos_receipt_header",label:"Encabezado",help:"Texto superior del recibo.",kind:"text"},
+    {key:"pos_receipt_footer",label:"Pie",help:"Texto inferior del recibo.",kind:"text"},
+    {key:"pos_iface_print_auto",label:"Impresión automática",help:"Imprime el recibo al validar el pago."},
+    {key:"pos_iface_print_skip_screen",label:"Omitir pantalla de recibo",help:"Vuelve directamente a una venta nueva."},
+    {key:"point_of_sale_use_ticket_qr_code",label:"Código QR en el recibo",help:"Permite consultar el ticket desde un QR."},
+    {key:"pos_basic_receipt",label:"Recibo básico",help:"Usa un formato compacto sin precios para regalos."},
+    {key:"pos_iface_printbill",label:"Cuenta provisoria",help:"Permite imprimir antes del pago."},
+    {key:"pos_iface_splitbill",label:"Dividir cuenta",help:"Divide el total o líneas del pedido."},
+  ]},
+  {title:"Terminales de pago",items:[
+    {key:"module_pos_adyen",label:"Adyen",help:"Activa el conector de terminal Adyen."},
+    {key:"module_pos_stripe",label:"Stripe",help:"Activa el conector de terminal Stripe."},
+    {key:"module_pos_mercado_pago",label:"Mercado Pago",help:"Activa el conector de Mercado Pago."},
+    {key:"module_pos_qfpay",label:"QFPay",help:"Activa el conector QFPay."},
+  ]},
+  {title:"NUEVAUNO Desktop y dispositivos",items:[
+    {key:"pos_other_devices",label:"Impresora de recibos",help:"Usa una impresora conectada mediante Desktop."},
+    {key:"pos_epson_printer_ip",label:"Dirección de impresora",help:"IP o identificador de la impresora.",kind:"text"},
+    {key:"pos_iface_cashdrawer",label:"Cajón de efectivo",help:"Abre el cajón al validar pagos en efectivo."},
+    {key:"pos_iface_electronic_scale",label:"Balanza electrónica",help:"Lee peso desde NUEVAUNO Desktop."},
+    {key:"pos_customer_display_bg_img",label:"Pantalla del cliente",help:"Configura la pantalla secundaria del cliente.",kind:"text"},
+  ]},
+  {title:"Preparación",items:[
+    {key:"pos_is_order_printer",label:"Impresoras de preparación",help:"Envía comandas a cocina o bar."},
+    {key:"pos_note_ids",label:"Notas internas",help:"Activa notas rápidas para la preparación."},
+  ]},
+  {title:"Inventario",items:[
+    {key:"pos_ship_later",label:"Permitir envío posterior",help:"Vende ahora y despacha después."},
+    {key:"pos_picking_policy",label:"Política de despacho",help:"Define entrega parcial o completa.",kind:"select",options:[{value:"direct",label:"Lo disponible"},{value:"one",label:"Todo junto"}]},
+    {key:"barcode_nomenclature_id",label:"Nomenclatura de códigos",help:"Reglas para escanear productos y clientes.",kind:"text"},
+    {key:"update_stock_quantities",label:"Gestión de inventario",help:"Actualiza existencias según pedidos pagados."},
+  ]},
+];
 declare global {
   interface Window {
     NUEVAUNOBridge?: DeviceBridge;
@@ -40,7 +119,7 @@ export default function PosPage() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi(),
     scope = resolveSalesScope(businessSession);
   const [data, setData] = useState<PosLoadDataView | null>(null),
-    [screen, setScreen] = useState<"dashboard" | "terminal" | "payment">("dashboard"),
+    [screen, setScreen] = useState<"dashboard" | "settings" | "terminal" | "payment">("dashboard"),
     [tab, setTab] = useState<Tab>("floor"),
     [table, setTable] = useState<{
       id: string;
@@ -78,6 +157,7 @@ export default function PosPage() {
     [dialog, setDialog] = useState<PosDialogState | null>(null),
     [dialogText, setDialogText] = useState(""),
     [dialogSelections, setDialogSelections] = useState<string[]>([]);
+  const [settingsDraft,setSettingsDraft]=useState<PosConfigSettingsView>({}),[settingsDirty,setSettingsDirty]=useState(false);
   const [generalNote, setGeneralNote] = useState(""),
     [guestCount, setGuestCount] = useState(1),
     [tipMinor, setTipMinor] = useState(0),
@@ -142,6 +222,7 @@ export default function PosPage() {
       document.removeEventListener("visibilitychange", synchronize);
     };
   }, [scope?.organizationId, scope?.companyId]);
+  useEffect(()=>{if(data?.config&&!settingsDirty)setSettingsDraft(data.config.settings)},[data?.config,settingsDirty]);
   useEffect(() => {
     if (!scope) return;
     const channel = new BroadcastChannel(
@@ -923,6 +1004,31 @@ export default function PosPage() {
     orderUuid.current = crypto.randomUUID();
     setTab("floor");
   };
+  const saveSettings=async()=>{if(!scope)return;setBusy(true);try{await authenticatedApi.posUpdateSettings(scope.organizationId,scope.companyId,settingsDraft);setSettingsDirty(false);await refresh()}finally{setBusy(false)}};
+  if(screen==="settings"&&data.config)return <main className="min-h-full bg-[#f6f7f8] text-[#202124]">
+    <header className="sticky top-0 z-20 flex min-h-14 items-center gap-3 border-b border-kumo-line bg-kumo-base px-5">
+      <button onClick={()=>setScreen("dashboard")} className="rounded-xl border border-kumo-line px-4 py-2">Volver</button>
+      <button disabled={!settingsDirty||busy} onClick={()=>void saveSettings()} className="rounded-xl bg-[#FE4A23] px-5 py-2 text-white disabled:opacity-40">Guardar</button>
+      <button disabled={!settingsDirty||busy} onClick={()=>{setSettingsDraft(data.config?.settings??{});setSettingsDirty(false)}} className="rounded-xl border border-kumo-line px-4 py-2 disabled:opacity-40">Descartar</button>
+      <h1 className="ml-4 text-xl font-normal">Ajustes del punto de venta</h1>
+    </header>
+    <div className="mx-auto max-w-6xl p-5">
+      <section className="mb-4 rounded-xl border border-[#f0c68d] bg-[#fff2dc] p-4 text-sm">Los cambios se aplican a {data.config.name}. Las opciones dependientes de hardware requieren NUEVAUNO Desktop conectado.</section>
+      {POS_SETTING_SECTIONS.map(section=><section key={section.title} className="mb-4 overflow-hidden rounded-xl border border-kumo-line bg-kumo-base">
+        <h2 className="border-b border-kumo-line bg-[#eef0f2] px-5 py-3 text-base font-normal">{section.title}</h2>
+        <div className="grid md:grid-cols-2">
+          {section.items.map(item=>{const value=settingsDraft[item.key];return <label key={item.key} className="grid min-h-28 grid-cols-[24px_1fr] gap-3 border-b border-r border-kumo-line p-5">
+            {item.kind ? <span/>:<input type="checkbox" checked={Boolean(value)} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:event.target.checked}));setSettingsDirty(true)}} className="mt-1 h-4 w-4 accent-[#FE4A23]"/>}
+            <span><span className="block text-[15px]">{item.label}</span><span className="mt-1 block text-sm text-kumo-subtle">{item.help}</span>
+              {item.kind==="text"&&<input value={typeof value==="string"?value:""} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:event.target.value}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"/>}
+              {item.kind==="number"&&<input type="number" value={typeof value==="number"?value:0} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:Number(event.target.value)}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"/>}
+              {item.kind==="select"&&<select value={typeof value==="string"?value:""} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:event.target.value}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"><option value="">Seleccionar</option>{item.options?.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select>}
+            </span>
+          </label>})}
+        </div>
+      </section>)}
+    </div>
+  </main>;
   if (screen === "dashboard" || !data.session)
     return (
       <main className="min-h-full bg-kumo-base p-6">
@@ -931,7 +1037,7 @@ export default function PosPage() {
             <p className="text-sm text-[#FE4A23]">Punto de venta</p>
             <h1 className="mt-1 text-2xl font-normal">Cajas</h1>
           </div>
-          <button onClick={() => void refresh()} className="rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-2">Actualizar</button>
+          <div className="flex gap-2"><button onClick={()=>setScreen("settings")} className="rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-2">Ajustes</button><button onClick={() => void refresh()} className="rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-2">Actualizar</button></div>
         </header>
         <section className="max-w-4xl rounded-xl border border-kumo-line bg-kumo-elevated p-6">
           <h2 className="text-2xl font-normal">{data.config?.name ?? "Restaurant"}</h2>

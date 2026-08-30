@@ -49,4 +49,10 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("window.setInterval(synchronize, 2_000)");
     expect(source).toContain('document.addEventListener("visibilitychange", synchronize)');
   });
+
+  it("expone ajustes persistentes por sección en vez de controles decorativos",()=>{
+    for(const text of ["Ajustes del punto de venta","Interfaz del PdV","Facturas y recibos","Terminales de pago","NUEVAUNO Desktop y dispositivos","Inventario"])expect(source).toContain(text);
+    expect(source).toContain("posUpdateSettings");
+    expect(source).toContain("settingsDirty");
+  });
 });
