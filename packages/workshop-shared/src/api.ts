@@ -1085,6 +1085,9 @@ export interface AuthenticatedApi extends RpcTarget {
   posSendToPreparation(organizationId:string,companyId:string,orderId:string):Promise<PosOrderView>;
   posTransferOrder(organizationId:string,companyId:string,orderId:string,tableId:string):Promise<PosOrderView>;
   posMergeOrders(organizationId:string,companyId:string,sourceOrderId:string,targetOrderId:string):Promise<PosOrderView>;
+  posCreateTable(organizationId:string,companyId:string,floorId:string,name:string,seats:number):Promise<PosLoadDataView['floors'][number]['tables'][number]>;
+  posUpdateTable(organizationId:string,companyId:string,tableId:string,changes:Partial<Pick<PosLoadDataView['floors'][number]['tables'][number],'name'|'seats'|'shape'|'color'|'width'|'height'|'positionX'|'positionY'>>):Promise<PosLoadDataView['floors'][number]['tables'][number]>;
+  posDeleteTable(organizationId:string,companyId:string,tableId:string):Promise<void>;
   posCancelOrder(organizationId:string,companyId:string,orderId:string):Promise<void>;
   posCloseSession(organizationId:string,companyId:string,sessionId:string,countedCashMinor:number):Promise<{expectedCashMinor:number;countedCashMinor:number;differenceMinor:number}>;
 

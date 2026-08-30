@@ -5,6 +5,7 @@ import type {
   PosLoadDataView,
   PosOrderView,
 } from "@gadgets/workshop-shared/api";
+import { listPosOperations, queuePosOperation, removePosOperation } from "./posOffline";
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-CL", {
@@ -46,7 +47,13 @@ export default function PosPage() {
       order: PosOrderView;
       change: number;
     } | null>(null),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [offlinePending, setOfflinePending] = useState(0),
+    [customerDisplay, setCustomerDisplay] = useState<{
+      lines: Array<{ name: string; quantity: number; total: number }>;
+      total: number;
+    }>({ lines: [], total: 0 }),
+    [layoutEditing, setLayoutEditing] = useState(false);
   const [generalNote, setGeneralNote] = useState(""),
     [guestCount, setGuestCount] = useState(1),
     [tipMinor, setTipMinor] = useState(0),
@@ -70,7 +77,8 @@ export default function PosPage() {
     >({});
   const orderUuid = useRef<string>(crypto.randomUUID());
   const scannerBuffer = useRef(""),
-    scannerAt = useRef(0);
+    scannerAt = useRef(0),
+    syncChannel = useRef<BroadcastChannel | null>(null);
   const refresh = async () => {
     if (scope)
       setData(
@@ -82,6 +90,47 @@ export default function PosPage() {
   };
   useEffect(() => {
     void refresh();
+  }, [scope?.organizationId, scope?.companyId]);
+  useEffect(() => {
+    if (!scope) return;
+    const channel = new BroadcastChannel(
+      `nuevauno-pos:${scope.organizationId}:${scope.companyId}`,
+    );
+    syncChannel.current = channel;
+    channel.addEventListener("message", () => void refresh());
+    return () => {
+      channel.close();
+      syncChannel.current = null;
+    };
+  }, [scope?.organizationId, scope?.companyId]);
+  useEffect(() => {
+    if (!scope) return;
+    const operationScope = `${scope.organizationId}:${scope.companyId}`;
+    const flush = async () => {
+      const pending = await listPosOperations(operationScope);
+      setOfflinePending(pending.length);
+      for (const operation of pending) {
+        try {
+          await authenticatedApi.posSyncOrder(
+            operation.payload as Parameters<
+              typeof authenticatedApi.posSyncOrder
+            >[0],
+          );
+          await removePosOperation(operation.id);
+          syncChannel.current?.postMessage({ type: "order-synced" });
+        } catch {
+          break;
+        }
+      }
+      setOfflinePending((await listPosOperations(operationScope)).length);
+    };
+    void flush();
+    window.addEventListener("online", flush);
+    const timer = window.setInterval(() => void flush(), 15_000);
+    return () => {
+      window.removeEventListener("online", flush);
+      window.clearInterval(timer);
+    };
   }, [scope?.organizationId, scope?.companyId]);
   useEffect(() => {
     const scan = (event: KeyboardEvent) => {
@@ -142,8 +191,56 @@ export default function PosPage() {
           : Math.round(rawTotal / roundingIncrement) * roundingIncrement,
     roundingMinor = total - rawTotal,
     tax = lines.reduce((sum, line) => sum + line.tax, 0);
+  const isCustomerDisplay =
+    new URLSearchParams(window.location.search).get("display") === "customer";
+  useEffect(() => {
+    if (!scope) return;
+    const channel = new BroadcastChannel(
+      `nuevauno-pos-display:${scope.organizationId}:${scope.companyId}`,
+    );
+    const displayPayload = {
+      lines: lines.map((line) => ({
+        name: line.name,
+        quantity: line.quantity,
+        total: line.total,
+      })),
+      total,
+    };
+    if (isCustomerDisplay) {
+      channel.addEventListener("message", (event) =>
+        event.data?.type !== "request" && setCustomerDisplay(event.data),
+      );
+      channel.postMessage({ type: "request" }); // eslint-disable-line unicorn/require-post-message-target-origin
+    } else {
+      channel.addEventListener("message", (event) => {
+        if (event.data?.type === "request")
+          channel.postMessage(displayPayload); // eslint-disable-line unicorn/require-post-message-target-origin
+      });
+      // BroadcastChannel is same-origin by construction and accepts no targetOrigin.
+      channel.postMessage(displayPayload); // eslint-disable-line unicorn/require-post-message-target-origin
+    }
+    return () => channel.close();
+  }, [scope?.organizationId, scope?.companyId, isCustomerDisplay, lines, total]);
   if (!scope || !data)
     return <div className="p-8 text-kumo-subtle">Cargando Punto de venta…</div>;
+  if (isCustomerDisplay)
+    return (
+      <main className="flex min-h-screen flex-col bg-kumo-base p-10">
+        <p className="text-center text-sm text-[#FE4A23]">Tu pedido</p>
+        <div className="mx-auto mt-10 w-full max-w-2xl flex-1 space-y-4">
+          {customerDisplay.lines.map((line, index) => (
+            <div key={`${line.name}:${index}`} className="flex justify-between text-2xl">
+              <span>{line.quantity} × {line.name}</span>
+              <span>{money(line.total)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mx-auto flex w-full max-w-2xl justify-between border-t border-kumo-line pt-6 text-4xl text-[#FE4A23]">
+          <span>Total</span>
+          <span>{money(customerDisplay.total)}</span>
+        </div>
+      </main>
+    );
   const open = async () => {
     setBusy(true);
     try {
@@ -272,9 +369,23 @@ export default function PosPage() {
     if (!data.session || !lines.length) return;
     setBusy(true);
     try {
-      const saved = await authenticatedApi.posSyncOrder(orderPayload());
+      const payload = orderPayload(),
+        saved = await authenticatedApi.posSyncOrder(payload);
       setOrder(saved);
+      syncChannel.current?.postMessage({ type: "order-synced", id: saved.id });
       await refresh();
+    } catch (error) {
+      if (navigator.onLine && !(error instanceof TypeError)) throw error;
+      const payload = orderPayload(),
+        id = `offline:${payload.uuid}:${Date.now()}`;
+      await queuePosOperation({
+        id,
+        scope: `${scope.organizationId}:${scope.companyId}`,
+        payload,
+        createdAt: new Date().toISOString(),
+      });
+      setOfflinePending((current) => current + 1);
+      return;
     } finally {
       setBusy(false);
     }
@@ -544,6 +655,59 @@ export default function PosPage() {
     window.alert(`Diferencia de caja: ${money(result.differenceMinor)}`);
     await refresh();
   };
+  const createTable = async (floorId: string) => {
+    const name = window.prompt("Nombre de la mesa")?.trim(),
+      seats = Number(window.prompt("Cantidad de asientos", "4"));
+    if (!name || !Number.isSafeInteger(seats) || seats <= 0) return;
+    await authenticatedApi.posCreateTable(
+      scope.organizationId,
+      scope.companyId,
+      floorId,
+      name,
+      seats,
+    );
+    await refresh();
+  };
+  const editTable = async (
+    current: PosLoadDataView["floors"][number]["tables"][number],
+  ) => {
+    const name = window.prompt("Nombre", current.name)?.trim(),
+      seats = Number(window.prompt("Asientos", String(current.seats))),
+      shape = window.prompt("Forma: square o round", current.shape),
+      color = window.prompt("Color", current.color ?? "#FE4A23")?.trim(),
+      width = Number(window.prompt("Ancho", String(current.width))),
+      height = Number(window.prompt("Alto", String(current.height))),
+      positionX = Number(window.prompt("Posición X", String(current.positionX))),
+      positionY = Number(window.prompt("Posición Y", String(current.positionY)));
+    if (!name || !Number.isSafeInteger(seats) || seats <= 0) return;
+    await authenticatedApi.posUpdateTable(
+      scope.organizationId,
+      scope.companyId,
+      current.id,
+      {
+        name,
+        seats,
+        shape: shape === "round" ? "round" : "square",
+        width,
+        height,
+        positionX,
+        positionY,
+        ...(color ? { color } : {}),
+      },
+    );
+    await refresh();
+  };
+  const deleteTable = async (
+    current: PosLoadDataView["floors"][number]["tables"][number],
+  ) => {
+    if (!window.confirm(`Eliminar mesa ${current.name}`)) return;
+    await authenticatedApi.posDeleteTable(
+      scope.organizationId,
+      scope.companyId,
+      current.id,
+    );
+    await refresh();
+  };
   const refund = async (ticket: PosOrderView) => {
     if (ticket.state !== "paid") return;
     const refundLines = ticket.lines.flatMap((line) => {
@@ -692,6 +856,11 @@ export default function PosPage() {
         <span className="m-auto text-sm text-kumo-subtle">
           {data.config?.name}
         </span>
+        {offlinePending > 0 && (
+          <span className="my-auto mr-4 rounded-xl bg-amber-100 px-3 py-1 text-sm text-amber-800">
+            {offlinePending} pendiente{offlinePending === 1 ? "" : "s"} de sincronizar
+          </span>
+        )}
       </nav>
       {tab === "register" && (
         <section className="flex flex-wrap items-center gap-2 border-b border-kumo-line bg-kumo-elevated p-3">
@@ -858,6 +1027,18 @@ export default function PosPage() {
               >
                 Cuenta provisoria
               </button>
+              <button
+                onClick={() =>
+                  window.open(
+                    `${window.location.pathname}?display=customer`,
+                    "nuevauno-customer-display",
+                    "popup,width=900,height=700",
+                  )
+                }
+                className="rounded-xl border border-kumo-line px-4 py-2"
+              >
+                Pantalla cliente
+              </button>
             </>
           )}
         </section>
@@ -911,6 +1092,12 @@ export default function PosPage() {
             >
               ＋ Nueva orden
             </button>
+            <button
+              onClick={() => setLayoutEditing((current) => !current)}
+              className="ml-2 rounded-xl border border-kumo-line px-5 py-3"
+            >
+              {layoutEditing ? "Terminar edición" : "Editar salón"}
+            </button>
             <div className="text-sm">
               <span className="mr-4">
                 ●{" "}
@@ -925,9 +1112,17 @@ export default function PosPage() {
           </div>
           {data.floors.map((floor) => (
             <section key={floor.id}>
-              <h1 className="mb-4 text-center text-lg font-normal">
-                {floor.name}
-              </h1>
+              <div className="mb-4 flex items-center justify-center gap-3">
+                <h1 className="text-lg font-normal">{floor.name}</h1>
+                {layoutEditing && (
+                  <button
+                    onClick={() => createTable(floor.id)}
+                    className="rounded-xl border border-kumo-line px-3 py-2 text-sm"
+                  >
+                    Nueva mesa
+                  </button>
+                )}
+              </div>
               <div className="flex flex-wrap gap-3">
                 {floor.tables.map((item) => {
                   const current = data.orders.find(
@@ -936,7 +1131,10 @@ export default function PosPage() {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => selectTable(item)}
+                      onClick={() =>
+                        layoutEditing ? editTable(item) : selectTable(item)
+                      }
+                      onDoubleClick={() => layoutEditing && deleteTable(item)}
                       className={`h-32 w-36 rounded-xl border p-3 text-center ${current ? "border-[#FE4A23] bg-[#FE4A23] text-white" : "border-kumo-line bg-kumo-elevated"}`}
                     >
                       <span className="block text-3xl">{item.name}</span>
