@@ -1121,7 +1121,7 @@ export default function PosPage() {
         { id: "__none__", label: "Consumidor final" },
         ...data.partners.map((partner) => ({
           id: partner.id,
-          label: [partner.displayName, partner.taxIdentifier, partner.email]
+          label: [partner.displayName, partner.email, partner.phone]
             .filter(Boolean)
             .join(" · "),
         })),
