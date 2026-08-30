@@ -74,4 +74,11 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(floor).not.toContain("Caja esperada");
     expect(floor).not.toContain("Editar salón");
   });
+
+  it("porta Pedidos como listado operativo con estados y recarga de órdenes activas", () => {
+    for (const text of ["Buscar órdenes…", "Activo", "Pago", "Cancelado", "Demorada", "Pendiente", "Envío parcial", "Enviado", "Cargar orden"]) expect(source).toContain(text);
+    expect(source).toContain('ticket.state === "draft"');
+    expect(source).toContain("loadOrder(selectedTicket, targetTable)");
+    expect(source).not.toContain('ticket.state !== "draft" &&');
+  });
 });

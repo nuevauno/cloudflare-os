@@ -22,6 +22,22 @@ const elapsedLabel = (startedAt: string | undefined, now: number) => {
 };
 const preparationBadge = (state: PosOrderView["metadata"]["preparationState"]) =>
   ({ draft: "", sent: "P", preparing: "EP", ready: "EC", served: "EC" })[state];
+const ticketStatus = (ticket: PosOrderView, now: number) => {
+  if (ticket.state === "paid") return { label: "Pago", tone: "bg-slate-100 text-slate-700" };
+  if (ticket.state === "cancelled") return { label: "Cancelado", tone: "bg-red-50 text-red-700" };
+  const minutes = ticket.createdAt
+    ? Math.max(0, Math.floor((now - new Date(ticket.createdAt).getTime()) / 60_000))
+    : 0;
+  if (minutes >= 15 && ticket.metadata.preparationState !== "served")
+    return { label: "Demorada", tone: "bg-red-100 text-red-700" };
+  return ({
+    draft: { label: "Ocupada", tone: "bg-orange-100 text-orange-700" },
+    sent: { label: "Pendiente", tone: "bg-rose-100 text-rose-700" },
+    preparing: { label: "Envío parcial", tone: "bg-purple-100 text-purple-700" },
+    ready: { label: "Enviado", tone: "bg-slate-100 text-slate-700" },
+    served: { label: "Enviado", tone: "bg-slate-100 text-slate-700" },
+  } as const)[ticket.metadata.preparationState];
+};
 type Tab = "floor" | "register" | "orders" | "preparation";
 type PosDialogRequest =
   | { kind: "text"; title: string; label?: string; value?: string }
@@ -176,6 +192,8 @@ export default function PosPage() {
     [partnerId, setPartnerId] = useState(""),
     [search, setSearch] = useState(""),
     [ticketSearch, setTicketSearch] = useState(""),
+    [ticketFilter, setTicketFilter] = useState<"active" | "paid" | "cancelled" | "all">("active"),
+    [selectedTicketId, setSelectedTicketId] = useState(""),
     [invoiceRequested, setInvoiceRequested] = useState(false),
     [takeaway, setTakeaway] = useState(false),
     [splitPayment, setSplitPayment] = useState(false),
@@ -459,8 +477,10 @@ export default function PosPage() {
       source: "nuevauno-os-pos",
     });
   };
-  const selectTable = (next: { id: string; name: string; seats: number }) => {
-    const existing = data.orders.find((value) => value.tableId === next.id);
+  const loadOrder = (
+    existing: PosOrderView | null,
+    next: { id: string; name: string; seats: number } | null,
+  ) => {
     setTable(next);
     setOrder(existing ?? null);
     orderUuid.current = existing?.uuid ?? crypto.randomUUID();
@@ -515,6 +535,9 @@ export default function PosPage() {
       ),
     );
     setTab("register");
+  };
+  const selectTable = (next: { id: string; name: string; seats: number }) => {
+    loadOrder(data.orders.find((value) => value.tableId === next.id) ?? null, next);
   };
   const orderPayload = () => ({
     organizationId: scope.organizationId,
@@ -1203,6 +1226,17 @@ export default function PosPage() {
       </main>
     );
   }
+  const filteredTickets = data.tickets.filter((ticket) => {
+    const matchesState = ticketFilter === "all" ||
+      (ticketFilter === "active" ? ticket.state === "draft" : ticket.state === ticketFilter);
+    const haystack = [
+      ticket.id,
+      ticket.metadata.orderName,
+      data.floors.flatMap((floor) => floor.tables).find((candidate) => candidate.id === ticket.tableId)?.name,
+    ].filter(Boolean).join(" ").toLowerCase();
+    return matchesState && (!ticketSearch || haystack.includes(ticketSearch.toLowerCase()));
+  });
+  const selectedTicket = filteredTickets.find((ticket) => ticket.id === selectedTicketId) ?? filteredTickets[0];
   return (
     <main className="flex min-h-full flex-col bg-kumo-base">
       <nav className="flex h-14 items-stretch border-b border-kumo-line bg-kumo-elevated">
@@ -1559,55 +1593,50 @@ export default function PosPage() {
         </section>
       )}
       {tab === "orders" && (
-        <section className="border-t border-kumo-line p-6">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-normal">Historial de tickets</h2>
-            <input
-              aria-label="Buscar tickets"
-              value={ticketSearch}
-              onChange={(event) => setTicketSearch(event.target.value)}
-              placeholder="Buscar ticket"
-              className="ml-auto rounded-xl border border-kumo-line bg-kumo-elevated p-2"
-            />
+        <section className="grid min-h-[calc(100vh-3.5rem)] grid-cols-[minmax(0,1fr)_450px] border-t border-kumo-line">
+          <div className="min-w-0 border-r border-kumo-line">
+            <header className="flex items-center gap-2 border-b border-kumo-line p-3">
+              <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-kumo-line bg-kumo-elevated px-3 py-2">
+                <span>⌕</span>
+                <input aria-label="Buscar órdenes" value={ticketSearch} onChange={(event) => setTicketSearch(event.target.value)} placeholder="Buscar órdenes…" className="min-w-0 flex-1 bg-transparent outline-none" />
+              </label>
+              <select aria-label="Estado de las órdenes" value={ticketFilter} onChange={(event) => setTicketFilter(event.target.value as typeof ticketFilter)} className="rounded-lg border border-kumo-line bg-kumo-elevated px-3 py-2">
+                <option value="active">Activo</option>
+                <option value="paid">Pago</option>
+                <option value="cancelled">Cancelado</option>
+                <option value="all">Todos</option>
+              </select>
+              <span className="text-sm text-kumo-subtle">{filteredTickets.length} orden{filteredTickets.length === 1 ? "" : "es"}</span>
+            </header>
+            <div>
+              {filteredTickets.map((ticket) => {
+                const targetTable = data.floors.flatMap((floor) => floor.tables).find((candidate) => candidate.id === ticket.tableId),
+                  status = ticketStatus(ticket, clock);
+                return <button key={ticket.id} onClick={() => setSelectedTicketId(ticket.id)} className={`grid w-full grid-cols-[150px_1fr_140px_130px] items-center gap-3 border-b border-kumo-line px-4 py-4 text-left ${selectedTicket?.id === ticket.id ? "bg-orange-50" : "hover:bg-kumo-line"}`}>
+                  <span><span className="block">{ticket.createdAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(ticket.createdAt)) : "Hoy"}</span><span className="text-sm text-kumo-subtle">{ticket.createdAt ? new Intl.DateTimeFormat("es-CL", { timeStyle: "short" }).format(new Date(ticket.createdAt)) : ""}</span></span>
+                  <span><span className="block">{ticket.metadata.orderName ?? ticket.id}</span><span className="text-sm text-kumo-subtle">{targetTable ? `Mesa ${targetTable.name}` : "Sin mesa"}</span></span>
+                  <span className={`justify-self-start rounded-lg px-3 py-1 text-sm ${status.tone}`}>{status.label}</span>
+                  <span className="justify-self-end">{money(ticket.totalMinor)}</span>
+                </button>;
+              })}
+              {!filteredTickets.length && <p className="p-8 text-kumo-subtle">No hay órdenes para este filtro.</p>}
+            </div>
           </div>
-          <div className="mt-4 grid gap-2">
-            {data.tickets
-              .filter(
-                (ticket) =>
-                  ticket.state !== "draft" &&
-                  (!ticketSearch ||
-                    ticket.id.toLowerCase().includes(ticketSearch.toLowerCase()) ||
-                    ticket.metadata.orderName
-                      ?.toLowerCase()
-                      .includes(ticketSearch.toLowerCase())),
-              )
-              .map((ticket) => (
-                <article
-                  key={ticket.id}
-                  className="flex items-center gap-4 rounded-xl border border-kumo-line bg-kumo-elevated p-4"
-                >
-                  <span className="flex-1">
-                    {ticket.metadata.orderName ?? ticket.id} ·{" "}
-                    {ticket.state === "paid" ? "Pagado" : "Cancelado"}
-                  </span>
-                  <span>{money(ticket.totalMinor)}</span>
-                  <button
-                    onClick={() => setReceipt({ order: ticket, change: 0 })}
-                    className="rounded-xl border border-kumo-line px-3 py-2"
-                  >
-                    Reimprimir
-                  </button>
-                  {ticket.state === "paid" && (
-                    <button
-                      onClick={() => refund(ticket)}
-                      className="rounded-xl border border-[#FE4A23] px-3 py-2 text-[#FE4A23]"
-                    >
-                      Devolver
-                    </button>
-                  )}
-                </article>
-              ))}
-          </div>
+          <aside className="flex min-h-0 flex-col bg-kumo-elevated p-4">
+            {selectedTicket ? <>
+              <header className="border-b border-kumo-line pb-4">
+                <h2 className="text-xl font-normal">{selectedTicket.metadata.orderName ?? selectedTicket.id}</h2>
+                <span className={`mt-2 inline-block rounded-lg px-3 py-1 text-sm ${ticketStatus(selectedTicket, clock).tone}`}>{ticketStatus(selectedTicket, clock).label}</span>
+              </header>
+              <div className="flex-1 space-y-4 overflow-y-auto py-4">
+                {selectedTicket.lines.map((line) => <div key={line.id} className="grid grid-cols-[32px_1fr_auto] gap-2"><span>{line.quantity}</span><span>{line.description}{line.customerNote && <span className="block text-sm text-kumo-subtle">{line.customerNote}</span>}</span><span>{money(line.totalMinor)}</span></div>)}
+              </div>
+              <div className="space-y-2 border-t border-kumo-line pt-4"><div className="flex justify-between text-kumo-subtle"><span>Impuestos</span><span>{money(selectedTicket.taxMinor)}</span></div><div className="flex justify-between text-xl"><span>Total</span><span>{money(selectedTicket.totalMinor)}</span></div></div>
+              {selectedTicket.state === "draft" && <button onClick={() => { const targetTable = data.floors.flatMap((floor) => floor.tables).find((candidate) => candidate.id === selectedTicket.tableId) ?? null; loadOrder(selectedTicket, targetTable); }} className="mt-4 rounded-xl bg-[#FE4A23] p-4 text-white">Cargar orden</button>}
+              {selectedTicket.state !== "draft" && <button onClick={() => setReceipt({ order: selectedTicket, change: 0 })} className="mt-4 rounded-xl border border-kumo-line p-4">Reimprimir</button>}
+              {selectedTicket.state === "paid" && <button onClick={() => refund(selectedTicket)} className="mt-2 rounded-xl border border-[#FE4A23] p-4 text-[#FE4A23]">Devolver</button>}
+            </> : <p className="m-auto text-kumo-subtle">Selecciona una orden.</p>}
+          </aside>
         </section>
       )}
       {tab === "register" && (
