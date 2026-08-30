@@ -19,9 +19,15 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(productsPage).toContain("posSaveCategory");
   });
   it("usa un diálogo de nota de línea con accesos rápidos y no un prompt", () => {
-    expect(source).toContain('aria-label={`Nota de ${noteEditor.productName}`}');
+    expect(source).toContain('`Nota de ${noteEditor.title}`');
     expect(source).toContain("Sin aderezo");
     expect(source).not.toMatch(/window\.prompt\(\s*"Nota de la línea"/);
+  });
+
+  it("usa el mismo modal POS para nota global y nota por producto",()=>{
+    expect(source).toContain('{target:"order",title:"Nota para el cliente",value:generalNote}');
+    expect(source).toContain('target:"line",productId:line.id,title:line.name');
+    expect(source).toContain("else setGeneralNote(noteEditor.value.trim())");
   });
 
   it("separa pago y conserva cliente, factura, propina y múltiples medios", () => {
@@ -33,6 +39,8 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("Elige un cliente");
     expect(source).toContain("Nuevo cliente");
     expect(source).toContain("posCreatePartner");
+    expect(source).toContain('setPartnerCreate(false);setPartnerDialog(true)');
+    expect(source).toContain("Consumidor final");
   });
 
   it("no delega ningún recorrido operativo a diálogos nativos del navegador", () => {
