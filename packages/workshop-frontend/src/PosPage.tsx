@@ -4,6 +4,7 @@ import { resolveSalesScope } from "./SalesPage";
 import type {
   PosConfigSettingsView,
   PosLoadDataView,
+  PosOperatorRoleView,
   PosOrderView,
 } from "@gadgets/workshop-shared/api";
 import { listPosOperations, queuePosOperation, removePosOperation } from "./posOffline";
@@ -183,7 +184,7 @@ export default function PosPage() {
     [dialog, setDialog] = useState<PosDialogState | null>(null),
     [dialogText, setDialogText] = useState(""),
     [dialogSelections, setDialogSelections] = useState<string[]>([]);
-  const [settingsDraft,setSettingsDraft]=useState<PosConfigSettingsView>({}),[settingsDirty,setSettingsDirty]=useState(false),[clock,setClock]=useState(Date.now());
+  const [settingsDraft,setSettingsDraft]=useState<PosConfigSettingsView>({}),[settingsDirty,setSettingsDirty]=useState(false),[clock,setClock]=useState(Date.now()),[selectedOperatorId,setSelectedOperatorId]=useState(""),[operatorPin,setOperatorPin]=useState(""),[operatorError,setOperatorError]=useState(""),[operatorDraft,setOperatorDraft]=useState<{id?:string;displayName:string;role:PosOperatorRoleView;pin:string}>({displayName:"",role:"cashier",pin:""});
   const [generalNote, setGeneralNote] = useState(""),
     [guestCount, setGuestCount] = useState(1),
     [tipMinor, setTipMinor] = useState(0),
@@ -1039,6 +1040,11 @@ export default function PosPage() {
     setTab("floor");
   };
   const saveSettings=async()=>{if(!scope)return;setBusy(true);try{await authenticatedApi.posUpdateSettings(scope.organizationId,scope.companyId,settingsDraft);setSettingsDirty(false);await refresh()}finally{setBusy(false)}};
+  const employeeLoginEnabled=Boolean(data.config?.settings.pos_module_pos_hr),isManager=!employeeLoginEnabled||data.activeOperator?.role==="manager",isMinimal=data.activeOperator?.role==="minimal";
+  const loginOperator=async(operatorId=selectedOperatorId)=>{if(!scope||!operatorId)return;setBusy(true);setOperatorError("");try{await authenticatedApi.posLoginOperator(scope.organizationId,scope.companyId,operatorId,operatorPin||undefined);setSelectedOperatorId("");setOperatorPin("");await refresh()}catch(error){setOperatorError(error instanceof Error&&error.message==="pos_operator_pin_invalid"?"PIN incorrecto":"No se pudo iniciar la sesión del empleado") }finally{setBusy(false)}};
+  const logoutOperator=async()=>{if(!scope)return;await authenticatedApi.posLogoutOperator(scope.organizationId,scope.companyId);await refresh()};
+  const saveOperator=async()=>{if(!scope||!operatorDraft.displayName.trim())return;setBusy(true);try{await authenticatedApi.posSaveOperator(scope.organizationId,scope.companyId,{...(operatorDraft.id?{id:operatorDraft.id}:{}),displayName:operatorDraft.displayName,role:operatorDraft.role,...(operatorDraft.pin?{pin:operatorDraft.pin}:{})});setOperatorDraft({displayName:"",role:"cashier",pin:""});await refresh()}finally{setBusy(false)}};
+  if(employeeLoginEnabled&&!data.activeOperator)return <main className="grid min-h-full place-items-center bg-[#f6f7f8] p-6"><section className="w-full max-w-3xl rounded-xl border border-kumo-line bg-kumo-base p-8 text-center shadow-xl"><p className="text-sm text-[#FE4A23]">Punto de venta</p><h1 className="mt-2 text-3xl font-normal">Selecciona tu usuario</h1><p className="mt-2 text-kumo-subtle">Identifícate como encargado, cajero o garzón para continuar.</p><div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{data.operators.map(operator=><button key={operator.id} onClick={()=>{setSelectedOperatorId(operator.id);setOperatorPin("");setOperatorError("");if(!operator.hasPin&&operator.linkedToCurrentIdentity)void loginOperator(operator.id)}} className={`rounded-xl border p-6 text-left ${selectedOperatorId===operator.id?"border-[#FE4A23] bg-orange-50":"border-kumo-line"}`}><span className="block text-xl">{operator.displayName}</span><span className="mt-2 block text-sm text-kumo-subtle">{{manager:"Encargado",cashier:"Cajero",minimal:"Garzón"}[operator.role]}</span></button>)}</div>{selectedOperatorId&&data.operators.find(operator=>operator.id===selectedOperatorId)?.hasPin&&<form onSubmit={event=>{event.preventDefault();void loginOperator()}} className="mx-auto mt-6 max-w-sm"><label className="block text-left">PIN<input autoFocus inputMode="numeric" type="password" value={operatorPin} onChange={event=>setOperatorPin(event.target.value.replace(/\D/g,"").slice(0,12))} className="mt-2 w-full rounded-xl border border-kumo-line p-4 text-center text-2xl tracking-[.35em]"/></label>{operatorError&&<p className="mt-2 text-red-600">{operatorError}</p>}<button disabled={busy||operatorPin.length<4} className="mt-4 w-full rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40">Entrar</button></form>}</section></main>;
   if(screen==="settings"&&data.config)return <main className="min-h-full bg-[#f6f7f8] text-[#202124]">
     <header className="sticky top-0 z-20 flex min-h-14 items-center gap-3 border-b border-kumo-line bg-kumo-base px-5">
       <button onClick={()=>setScreen("dashboard")} className="rounded-xl border border-kumo-line px-4 py-2">Volver</button>
@@ -1062,6 +1068,7 @@ export default function PosPage() {
           </label>})}
         </div>
       </section>)}
+      {employeeLoginEnabled&&isManager&&<section className="mb-4 overflow-hidden rounded-xl border border-kumo-line bg-kumo-base"><h2 className="border-b border-kumo-line bg-[#eef0f2] px-5 py-3 text-base font-normal">Empleados del punto de venta</h2><div className="grid gap-4 p-5 md:grid-cols-[1fr_360px]"><div>{data.operators.map(operator=><button key={operator.id} onClick={()=>setOperatorDraft({id:operator.id,displayName:operator.displayName,role:operator.role,pin:""})} className="grid w-full grid-cols-[1fr_140px] border-b border-kumo-line p-4 text-left"><span>{operator.displayName}</span><span className="text-kumo-subtle">{{manager:"Encargado",cashier:"Cajero",minimal:"Garzón"}[operator.role]}</span></button>)}</div><div className="space-y-3 rounded-xl border border-kumo-line p-4"><h3 className="text-lg font-normal">{operatorDraft.id?"Editar empleado":"Nuevo empleado"}</h3><input aria-label="Nombre del empleado" value={operatorDraft.displayName} onChange={event=>setOperatorDraft(current=>({...current,displayName:event.target.value}))} placeholder="Nombre" className="w-full rounded-xl border border-kumo-line p-3"/><select aria-label="Rol del empleado" value={operatorDraft.role} onChange={event=>setOperatorDraft(current=>({...current,role:event.target.value as PosOperatorRoleView}))} className="w-full rounded-xl border border-kumo-line p-3"><option value="manager">Encargado</option><option value="cashier">Cajero</option><option value="minimal">Garzón</option></select><input aria-label="PIN del empleado" inputMode="numeric" type="password" value={operatorDraft.pin} onChange={event=>setOperatorDraft(current=>({...current,pin:event.target.value.replace(/\D/g,"").slice(0,12)}))} placeholder={operatorDraft.id?"Nuevo PIN (opcional)":"PIN de 4 a 12 dígitos"} className="w-full rounded-xl border border-kumo-line p-3"/><div className="flex gap-2"><button disabled={busy||!operatorDraft.displayName.trim()||Boolean(operatorDraft.pin&&operatorDraft.pin.length<4)} onClick={()=>void saveOperator()} className="flex-1 rounded-xl bg-[#FE4A23] p-3 text-white disabled:opacity-40">Guardar</button><button onClick={()=>setOperatorDraft({displayName:"",role:"cashier",pin:""})} className="rounded-xl border border-kumo-line px-4">Limpiar</button></div></div></div></section>}
     </div>
   </main>;
   if (screen === "dashboard" || !data.session)
@@ -1072,7 +1079,7 @@ export default function PosPage() {
             <p className="text-sm text-[#FE4A23]">Punto de venta</p>
             <h1 className="mt-1 text-2xl font-normal">Cajas</h1>
           </div>
-          <div className="flex gap-2"><button onClick={()=>setScreen("settings")} className="rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-2">Ajustes</button><button onClick={() => void refresh()} className="rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-2">Actualizar</button></div>
+          <div className="flex gap-2">{isManager&&<button onClick={()=>setScreen("settings")} className="rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-2">Ajustes</button>}<button onClick={() => void refresh()} className="rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-2">Actualizar</button></div>
         </header>
         <section className="max-w-4xl rounded-xl border border-kumo-line bg-kumo-elevated p-6">
           <h2 className="text-2xl font-normal">{data.config?.name ?? "Restaurant"}</h2>
@@ -1085,7 +1092,7 @@ export default function PosPage() {
               >
                 {data.session ? "Continuar vendiendo" : "Abrir caja"}
               </button>
-              {data.session && data.orders.length === 0 && (
+              {isManager && data.session && data.orders.length === 0 && (
                 <button onClick={() => { setCountedCashMinor(data.session?.expectedCashMinor ?? 0); setClosingDialog(true); }} className="mt-3 w-full rounded-xl border border-kumo-line p-3">Cerrar caja</button>
               )}
             </div>
@@ -1099,7 +1106,7 @@ export default function PosPage() {
               </dl>
             ) : <p className="text-kumo-subtle">No hay una caja abierta. Ingresa el efectivo inicial para comenzar.</p>}
           </div>
-          {data.session && <div className="mt-5 flex justify-end gap-2 border-t border-kumo-line pt-4"><button onClick={()=>void cashMove("in")} className="rounded-xl border border-kumo-line px-4 py-2">Entrada de efectivo</button><button onClick={()=>void cashMove("out")} className="rounded-xl border border-kumo-line px-4 py-2">Salida de efectivo</button></div>}
+          {isManager&&data.session && <div className="mt-5 flex justify-end gap-2 border-t border-kumo-line pt-4"><button onClick={()=>void cashMove("in")} className="rounded-xl border border-kumo-line px-4 py-2">Entrada de efectivo</button><button onClick={()=>void cashMove("out")} className="rounded-xl border border-kumo-line px-4 py-2">Salida de efectivo</button></div>}
         </section>
         {openingDialog && (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
@@ -1212,7 +1219,7 @@ export default function PosPage() {
         </section>
         <aside className="flex min-h-full flex-col border-l border-kumo-line bg-kumo-elevated p-4">
           <div className="space-y-2">
-            {data.paymentMethods.map((method) => <button key={method.id} onClick={() => { const rest=Math.max(0,total-allocatedTotal); setPaymentMethodId(method.id); if(method.methodType!=="cash") { setPaymentAmounts((current)=>({...current,[method.id]:(current[method.id]??0)+rest})); setSplitPayment(true); } }} className="flex w-full justify-between rounded-xl border border-kumo-line p-5 text-left"><span>{method.name}</span><span>{money(paymentAmounts[method.id] ?? 0)}</span></button>)}
+            {data.paymentMethods.filter(method=>!isMinimal||method.methodType!=="customer_account").map((method) => <button key={method.id} onClick={() => { const rest=Math.max(0,total-allocatedTotal); setPaymentMethodId(method.id); if(method.methodType!=="cash") { setPaymentAmounts((current)=>({...current,[method.id]:(current[method.id]??0)+rest})); setSplitPayment(true); } }} className="flex w-full justify-between rounded-xl border border-kumo-line p-5 text-left"><span>{method.name}</span><span>{money(paymentAmounts[method.id] ?? 0)}</span></button>)}
           </div>
           <div className="mt-auto space-y-2">
             <div className="grid grid-cols-2 gap-2"><button onClick={() => setPartnerDialog(true)} className="rounded-xl border border-kumo-line p-4">{selectedPartner?.displayName ?? "Cliente"}</button><button onClick={() => setInvoiceRequested((value) => !value)} className={`rounded-xl border p-4 ${invoiceRequested ? "border-[#FE4A23] bg-orange-50" : "border-kumo-line"}`}>Factura</button></div>
@@ -1265,7 +1272,7 @@ export default function PosPage() {
         </button>
         <span className="m-auto" />
         {tab==="register"&&<label className="my-2 mr-4 flex w-[min(30vw,380px)] items-center gap-3 rounded-xl border border-kumo-line px-4"><span className="text-2xl">⌕</span><input aria-label="Buscar productos" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar productos…" className="min-w-0 flex-1 bg-transparent outline-none"/></label>}
-        <button aria-label="Usuario" className="my-auto mr-4 h-7 w-7 rounded-lg bg-purple-700 text-sm text-white">A</button>
+        {employeeLoginEnabled&&data.activeOperator?<button aria-label="Cambiar empleado" title={`${data.activeOperator.displayName} · cambiar empleado`} onClick={()=>void logoutOperator()} className="my-auto mr-4 rounded-xl border border-kumo-line px-3 py-2 text-sm">{data.activeOperator.displayName}</button>:<button aria-label="Usuario" className="my-auto mr-4 h-7 w-7 rounded-lg bg-purple-700 text-sm text-white">A</button>}
         <button aria-label="Menú principal" onClick={()=>setScreen("dashboard")} className="my-auto mr-5 text-2xl">☰</button>
         {offlinePending > 0 && (
           <span className="my-auto mr-4 rounded-xl bg-amber-100 px-3 py-1 text-sm text-amber-800">
