@@ -61,7 +61,9 @@ export default function PosPage() {
     [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>({}),
     [lineNotes, setLineNotes] = useState<Record<string, string>>({}),
     [manualPrices, setManualPrices] = useState<Record<string, number>>({}),
-    [lineCourses, setLineCourses] = useState<Record<string, number>>({});
+    [lineCourses, setLineCourses] = useState<Record<string, number>>({}),
+    [pricelistId, setPricelistId] = useState(""),
+    [shippingDate, setShippingDate] = useState("");
   const orderUuid = useRef<string>(crypto.randomUUID());
   const scannerBuffer = useRef(""),
     scannerAt = useRef(0);
@@ -86,7 +88,9 @@ export default function PosPage() {
       scannerAt.current = now;
       if (event.key === "Enter") {
         const product = data?.products.find(
-          (item) => item.sku?.toLowerCase() === scannerBuffer.current.toLowerCase(),
+          (item) =>
+            item.sku?.toLowerCase() === scannerBuffer.current.toLowerCase() ||
+            item.barcode?.toLowerCase() === scannerBuffer.current.toLowerCase(),
         );
         if (product) change(product.id, 1);
         scannerBuffer.current = "";
@@ -177,6 +181,8 @@ export default function PosPage() {
     setPartnerId(existing?.metadata.partnerId ?? "");
     setInvoiceRequested(existing?.metadata.invoiceRequested ?? false);
     setTakeaway(existing?.metadata.takeaway ?? false);
+    setPricelistId(existing?.metadata.pricelistId ?? "");
+    setShippingDate(existing?.metadata.shippingDate ?? "");
     setLineNotes(
       Object.fromEntries(
         existing?.lines.flatMap((line) =>
@@ -216,6 +222,8 @@ export default function PosPage() {
         tipMinor,
         invoiceRequested,
         takeaway,
+        ...(pricelistId ? { pricelistId } : {}),
+        ...(shippingDate ? { shippingDate } : {}),
       ...(partnerId ? { partnerId } : {}),
     },
       lines: lines.map((line) => ({
@@ -475,6 +483,8 @@ export default function PosPage() {
     setLineNotes({});
     setManualPrices({});
     setLineCourses({});
+    setPricelistId("");
+    setShippingDate("");
     setTable(null);
     orderUuid.current = crypto.randomUUID();
     setTab("floor");
@@ -655,6 +665,28 @@ export default function PosPage() {
               </option>
             ))}
           </select>
+          <select
+            aria-label="Lista de precios"
+            value={pricelistId}
+            onChange={(event) => setPricelistId(event.target.value)}
+            className="max-w-52 rounded-xl border border-kumo-line bg-kumo-base p-2"
+          >
+            <option value="">Precio general</option>
+            {data.pricelists.map((list) => (
+              <option key={list.id} value={list.id}>
+                {list.name}
+              </option>
+            ))}
+          </select>
+          {takeaway && (
+            <input
+              aria-label="Fecha de entrega"
+              type="date"
+              value={shippingDate}
+              onChange={(event) => setShippingDate(event.target.value)}
+              className="rounded-xl border border-kumo-line bg-kumo-base p-2"
+            />
+          )}
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -932,7 +964,8 @@ export default function PosPage() {
                   (product) =>
                     (!search ||
                       product.name.toLowerCase().includes(search.toLowerCase()) ||
-                      product.sku?.toLowerCase().includes(search.toLowerCase())) &&
+                      product.sku?.toLowerCase().includes(search.toLowerCase()) ||
+                      product.barcode?.toLowerCase().includes(search.toLowerCase())) &&
                     (!category || product.category === category),
                 )
                 .map((product) => (
