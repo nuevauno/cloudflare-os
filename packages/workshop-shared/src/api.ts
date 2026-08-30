@@ -1084,6 +1084,7 @@ export interface AuthenticatedApi extends RpcTarget {
   posRefundOrder(input:{organizationId:string;companyId:string;orderId:string;lines:Array<{lineId:string;quantity:number}>;requestId:string}):Promise<PosOrderView>;
   posSendToPreparation(organizationId:string,companyId:string,orderId:string):Promise<PosOrderView>;
   posTransferOrder(organizationId:string,companyId:string,orderId:string,tableId:string):Promise<PosOrderView>;
+  posMergeOrders(organizationId:string,companyId:string,sourceOrderId:string,targetOrderId:string):Promise<PosOrderView>;
   posCancelOrder(organizationId:string,companyId:string,orderId:string):Promise<void>;
   posCloseSession(organizationId:string,companyId:string,sessionId:string,countedCashMinor:number):Promise<{expectedCashMinor:number;countedCashMinor:number;differenceMinor:number}>;
 

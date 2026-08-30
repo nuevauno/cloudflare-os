@@ -280,6 +280,44 @@ export default function PosPage() {
     setTable(target);
     await refresh();
   };
+  const merge = async () => {
+    if (!order) return;
+    const targets = data.orders.filter((item) => item.id !== order.id),
+      name = window.prompt(
+        `Unir con mesa: ${targets
+          .map((item) => {
+            const targetTable = data.floors
+              .flatMap((floor) => floor.tables)
+              .find((candidate) => candidate.id === item.tableId);
+            return targetTable?.name ?? item.id;
+          })
+          .join(", ")}`,
+      ),
+      target = targets.find((item) => {
+        const targetTable = data.floors
+          .flatMap((floor) => floor.tables)
+          .find((candidate) => candidate.id === item.tableId);
+        return (targetTable?.name ?? item.id).toLowerCase() === name?.trim().toLowerCase();
+      });
+    if (!target) return;
+    const merged = await authenticatedApi.posMergeOrders(
+      scope.organizationId,
+      scope.companyId,
+      order.id,
+      target.id,
+    );
+    const targetTable = data.floors
+      .flatMap((floor) => floor.tables)
+      .find((candidate) => candidate.id === target.tableId);
+    setOrder(merged);
+    setCart(
+      Object.fromEntries(
+        merged.lines.map((line) => [line.productVariantId, line.quantity]),
+      ),
+    );
+    if (targetTable) setTable(targetTable);
+    await refresh();
+  };
   const split = async () => {
     if (!order || !order.lines.length) return;
     const lineQuantities = order.lines.flatMap((line) => {
@@ -606,6 +644,13 @@ export default function PosPage() {
                 className="rounded-xl border border-kumo-line px-4 py-2"
               >
                 Dividir
+              </button>
+              <button
+                onClick={merge}
+                disabled={data.orders.length < 2}
+                className="rounded-xl border border-kumo-line px-4 py-2 disabled:opacity-40"
+              >
+                Unir mesas
               </button>
               <button
                 onClick={() => window.print()}
