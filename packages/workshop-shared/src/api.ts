@@ -672,8 +672,10 @@ export interface CertificateListView {
   /** Newest certificates first. */
   certificates: CertificateView[];
 }
-export interface PosLoadDataView { organizationId:string; companyId:string; entitled:boolean; config?:{id:string;name:string;restaurant:boolean;taxIncluded:boolean}; session?:{id:string;state:'opening'|'opened'|'closing'|'closed';openingCashMinor:number}; products:Array<{id:string;name:string;sku?:string;category:string;priceMinor:number;taxBasisPoints:number}>; floors:Array<{id:string;name:string;tables:Array<{id:string;name:string;seats:number}>}>; orders:PosOrderView[] }
-export interface PosOrderView { id:string;uuid:string;organizationId:string;companyId:string;sessionId:string;tableId?:string;state:'draft'|'paid'|'cancelled';untaxedMinor:number;taxMinor:number;totalMinor:number;lines:Array<{productVariantId:string;quantity:number;description:string;unitPriceMinor:number;subtotalMinor:number;taxMinor:number;totalMinor:number}> }
+export interface PosOrderMetadataView {partnerId?:string;orderName?:string;generalNote?:string;internalNote?:string;guestCount:number;tipMinor:number;takeaway:boolean;invoiceRequested:boolean;preparationState:'draft'|'sent'|'preparing'|'ready'|'served'}
+export interface PosOrderLineInputView {productVariantId:string;quantity:number;customerNote?:string;internalNote?:string;discountBasisPoints?:number;courseNumber?:number;unitPriceMinor?:number;refundOriginLineId?:string}
+export interface PosLoadDataView { organizationId:string; companyId:string; entitled:boolean; config?:{id:string;name:string;restaurant:boolean;taxIncluded:boolean}; session?:{id:string;state:'opening'|'opened'|'closing'|'closed';openingCashMinor:number}; products:Array<{id:string;name:string;sku?:string;category:string;priceMinor:number;taxBasisPoints:number}>; floors:Array<{id:string;name:string;backgroundColor?:string;tables:Array<{id:string;name:string;seats:number;shape:'square'|'round';color?:string;width:number;height:number;positionX:number;positionY:number;parentTableId?:string}>}>;paymentMethods:Array<{id:string;name:string;methodType:'cash'|'bank'|'customer_account'|'terminal';requiresTerminal:boolean;splitTransactions:boolean}>; orders:PosOrderView[] }
+export interface PosOrderView { id:string;uuid:string;organizationId:string;companyId:string;sessionId:string;tableId?:string;state:'draft'|'paid'|'cancelled';untaxedMinor:number;taxMinor:number;totalMinor:number;metadata:PosOrderMetadataView;lines:Array<PosOrderLineInputView&{id:string;description:string;unitPriceMinor:number;subtotalMinor:number;taxMinor:number;totalMinor:number}> }
 
 /** One exact line belonging to a dispatch document. */
 export interface DispatchLineView {
@@ -1075,8 +1077,13 @@ export interface AuthenticatedApi extends RpcTarget {
   listCertificates(organizationId: string, companyId: string, limit?: number): Promise<CertificateListView>;
   posLoadData(organizationId:string,companyId:string):Promise<PosLoadDataView>;
   posOpenSession(organizationId:string,companyId:string,openingCashMinor:number):Promise<PosLoadDataView['session']>;
-  posSyncOrder(input:{organizationId:string;companyId:string;sessionId:string;tableId?:string;uuid:string;lines:Array<{productVariantId:string;quantity:number}>}):Promise<PosOrderView>;
-  posPayOrder(input:{organizationId:string;companyId:string;orderId:string;tenderedMinor:number;requestId:string}):Promise<{order:PosOrderView;payment:{id:string;tenderedMinor:number;changeMinor:number}}>;
+  posSyncOrder(input:{organizationId:string;companyId:string;sessionId:string;tableId?:string;uuid:string;metadata?:Partial<PosOrderMetadataView>;lines:PosOrderLineInputView[]}):Promise<PosOrderView>;
+  posPayOrder(input:{organizationId:string;companyId:string;orderId:string;tenderedMinor:number;paymentMethodId?:string;requestId:string}):Promise<{order:PosOrderView;payment:{id:string;tenderedMinor:number;changeMinor:number}}>;
+  posCashMove(input:{organizationId:string;companyId:string;sessionId:string;direction:'in'|'out';amountMinor:number;reason:string;requestId:string}):Promise<void>;
+  posSplitOrder(input:{organizationId:string;companyId:string;orderId:string;lineQuantities:Array<{lineId:string;quantity:number}>;requestId:string}):Promise<{source:PosOrderView;split:PosOrderView}>;
+  posRefundOrder(input:{organizationId:string;companyId:string;orderId:string;lines:Array<{lineId:string;quantity:number}>;requestId:string}):Promise<PosOrderView>;
+  posSendToPreparation(organizationId:string,companyId:string,orderId:string):Promise<PosOrderView>;
+  posTransferOrder(organizationId:string,companyId:string,orderId:string,tableId:string):Promise<PosOrderView>;
   posCancelOrder(organizationId:string,companyId:string,orderId:string):Promise<void>;
   posCloseSession(organizationId:string,companyId:string,sessionId:string):Promise<void>;
 
