@@ -1,3 +1,4 @@
+// @ts-expect-error The test runtime is Node; the production frontend intentionally omits Node types.
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
