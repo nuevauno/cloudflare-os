@@ -290,9 +290,6 @@ export default function PosPage() {
     () => [...new Set(data?.products.map((p) => p.category) ?? [])],
     [data],
   );
-  useEffect(() => {
-    if (!category && categories.length) setCategory(categories[0]);
-  }, [categories, category]);
   const lines = useMemo(
     () =>
       Object.entries(cart).flatMap(([id, quantity]) => {
@@ -1642,7 +1639,7 @@ export default function PosPage() {
               {categories.map((name) => (
                 <button
                   key={name}
-                  onClick={() => setCategory(name)}
+                  onClick={() => setCategory(current=>current===name?"":name)}
                   className={`h-16 min-w-32 rounded-lg border px-5 ${category === name ? "border-[#FE4A23]" : "border-transparent"} ${name==="Bar"?"bg-[#fee28a]":name==="Cocina"?"bg-[#f7a3a8]":"bg-[#f8d1a8]"}`}
                 >
                   {name}
