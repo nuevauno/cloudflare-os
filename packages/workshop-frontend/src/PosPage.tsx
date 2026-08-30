@@ -33,6 +33,7 @@ export default function PosPage() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi(),
     scope = resolveSalesScope(businessSession);
   const [data, setData] = useState<PosLoadDataView | null>(null),
+    [screen, setScreen] = useState<"dashboard" | "terminal">("dashboard"),
     [tab, setTab] = useState<Tab>("floor"),
     [table, setTable] = useState<{
       id: string;
@@ -53,7 +54,11 @@ export default function PosPage() {
       lines: Array<{ name: string; quantity: number; total: number }>;
       total: number;
     }>({ lines: [], total: 0 }),
-    [layoutEditing, setLayoutEditing] = useState(false);
+    [layoutEditing, setLayoutEditing] = useState(false),
+    [openingDialog, setOpeningDialog] = useState(false),
+    [openingCashMinor, setOpeningCashMinor] = useState(0),
+    [closingDialog, setClosingDialog] = useState(false),
+    [countedCashMinor, setCountedCashMinor] = useState(0);
   const [generalNote, setGeneralNote] = useState(""),
     [guestCount, setGuestCount] = useState(1),
     [tipMinor, setTipMinor] = useState(0),
@@ -250,9 +255,11 @@ export default function PosPage() {
       await authenticatedApi.posOpenSession(
         scope.organizationId,
         scope.companyId,
-        0,
+        openingCashMinor,
       );
       await refresh();
+      setOpeningDialog(false);
+      setScreen("terminal");
     } finally {
       setBusy(false);
     }
@@ -781,7 +788,6 @@ export default function PosPage() {
   };
   const closeSession = async () => {
     if (!data.session || data.orders.length) return;
-    const countedCashMinor = Number(window.prompt("Efectivo contado al cerrar"));
     if (!Number.isSafeInteger(countedCashMinor) || countedCashMinor < 0) return;
     const result = await authenticatedApi.posCloseSession(
       scope.organizationId,
@@ -789,8 +795,10 @@ export default function PosPage() {
       data.session.id,
       countedCashMinor,
     );
-    window.alert(`Diferencia de caja: ${money(result.differenceMinor)}`);
+    setClosingDialog(false);
+    setScreen("dashboard");
     await refresh();
+    window.alert(`Caja cerrada. Diferencia: ${money(result.differenceMinor)}`);
   };
   const createTable = async (floorId: string) => {
     const name = window.prompt("Nombre de la mesa")?.trim(),
@@ -887,25 +895,67 @@ export default function PosPage() {
     orderUuid.current = crypto.randomUUID();
     setTab("floor");
   };
-  if (!data.session)
+  if (screen === "dashboard" || !data.session)
     return (
-      <main className="mx-auto max-w-xl p-8">
-        <p className="text-xs uppercase tracking-widest text-[#FE4A23]">
-          Punto de venta
-        </p>
-        <h1 className="mt-2 text-3xl font-normal">
-          {data.config?.name ?? "Restaurant"}
-        </h1>
-        <p className="mt-3 text-kumo-subtle">
-          Abre la caja para comenzar a registrar pedidos.
-        </p>
-        <button
-          disabled={busy}
-          onClick={open}
-          className="mt-8 w-full rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40"
-        >
-          Abrir sesión
-        </button>
+      <main className="min-h-full bg-kumo-base p-6">
+        <header className="mb-6 flex items-center justify-between border-b border-kumo-line pb-4">
+          <div>
+            <p className="text-sm text-[#FE4A23]">Punto de venta</p>
+            <h1 className="mt-1 text-2xl font-normal">Cajas</h1>
+          </div>
+          <button onClick={() => void refresh()} className="rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-2">Actualizar</button>
+        </header>
+        <section className="max-w-4xl rounded-xl border border-kumo-line bg-kumo-elevated p-6">
+          <h2 className="text-2xl font-normal">{data.config?.name ?? "Restaurant"}</h2>
+          <div className="mt-8 grid gap-6 md:grid-cols-[240px_1fr]">
+            <div>
+              <button
+                disabled={busy}
+                onClick={() => data.session ? setScreen("terminal") : setOpeningDialog(true)}
+                className="w-full rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40"
+              >
+                {data.session ? "Continuar vendiendo" : "Abrir caja"}
+              </button>
+              {data.session && data.orders.length === 0 && (
+                <button onClick={() => { setCountedCashMinor(data.session?.expectedCashMinor ?? 0); setClosingDialog(true); }} className="mt-3 w-full rounded-xl border border-kumo-line p-3">Cerrar caja</button>
+              )}
+            </div>
+            {data.session ? (
+              <dl className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-2 text-sm">
+                <dt>Fecha</dt><dd>{data.session.openedAt ? new Date(data.session.openedAt).toLocaleString("es-CL") : "En curso"}</dd>
+                <dt>Apertura</dt><dd>{money(data.session.openingCashMinor)}</dd>
+                <dt>Vendido</dt><dd>{money(data.session.grossSalesMinor)} ({data.session.paidOrderCount} pedidos)</dd>
+                <dt>En curso</dt><dd>{money(data.session.draftSalesMinor)} ({data.session.draftOrderCount} pedidos)</dd>
+                <dt>Caja esperada</dt><dd>{money(data.session.expectedCashMinor)}</dd>
+              </dl>
+            ) : <p className="text-kumo-subtle">No hay una caja abierta. Ingresa el efectivo inicial para comenzar.</p>}
+          </div>
+        </section>
+        {openingDialog && (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+            <section role="dialog" aria-modal="true" aria-label="Control de apertura" className="w-full max-w-lg rounded-xl bg-kumo-elevated p-6 shadow-xl">
+              <h2 className="text-2xl font-normal">Control de apertura</h2>
+              <label className="mt-6 block">Efectivo inicial
+                <input autoFocus type="number" min="0" value={openingCashMinor} onChange={(event) => setOpeningCashMinor(Math.max(0, Number(event.target.value)))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" />
+              </label>
+              <div className="mt-6 flex justify-end gap-2">
+                <button onClick={() => setOpeningDialog(false)} className="rounded-xl border border-kumo-line px-4 py-3">Descartar</button>
+                <button disabled={busy || !Number.isSafeInteger(openingCashMinor)} onClick={open} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white disabled:opacity-40">Abrir caja</button>
+              </div>
+            </section>
+          </div>
+        )}
+        {closingDialog && data.session && (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+            <section role="dialog" aria-modal="true" aria-label="Cerrar caja" className="w-full max-w-lg rounded-xl bg-kumo-elevated p-6 shadow-xl">
+              <h2 className="text-2xl font-normal">Cerrar caja</h2>
+              <dl className="mt-6 grid grid-cols-2 gap-3"><dt>Apertura</dt><dd className="text-right">{money(data.session.openingCashMinor)}</dd><dt>Ventas</dt><dd className="text-right">{money(data.session.grossSalesMinor)}</dd><dt>Esperado</dt><dd className="text-right">{money(data.session.expectedCashMinor)}</dd></dl>
+              <label className="mt-6 block">Efectivo contado<input autoFocus type="number" min="0" value={countedCashMinor} onChange={(event) => setCountedCashMinor(Math.max(0, Number(event.target.value)))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label>
+              <p className="mt-3 text-kumo-subtle">Diferencia: {money(countedCashMinor - data.session.expectedCashMinor)}</p>
+              <div className="mt-6 flex justify-end gap-2"><button onClick={() => setClosingDialog(false)} className="rounded-xl border border-kumo-line px-4 py-3">Descartar</button><button disabled={busy || data.orders.length > 0} onClick={closeSession} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white disabled:opacity-40">Cerrar caja</button></div>
+            </section>
+          </div>
+        )}
       </main>
     );
   if (receipt)
@@ -968,6 +1018,7 @@ export default function PosPage() {
   return (
     <main className="flex min-h-full flex-col bg-kumo-base">
       <nav className="flex h-14 items-stretch border-b border-kumo-line bg-kumo-elevated">
+        <button className="px-5 text-[#FE4A23]" onClick={() => setScreen("dashboard")}>Caja</button>
         <button
           className={`px-7 ${tab === "floor" ? "bg-kumo-line" : ""}`}
           onClick={() => setTab("floor")}
