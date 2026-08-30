@@ -42,7 +42,9 @@ export default function PosPage() {
     [search, setSearch] = useState(""),
     [ticketSearch, setTicketSearch] = useState(""),
     [invoiceRequested, setInvoiceRequested] = useState(false),
-    [takeaway, setTakeaway] = useState(false);
+    [takeaway, setTakeaway] = useState(false),
+    [splitPayment, setSplitPayment] = useState(false),
+    [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>({});
   const orderUuid = useRef<string>(crypto.randomUUID());
   const refresh = async () => {
     if (scope)
@@ -174,6 +176,19 @@ export default function PosPage() {
     ),
     isCash =
       !selectedPaymentMethod || selectedPaymentMethod.methodType === "cash";
+  const allocatedPayments = data.paymentMethods
+    .filter((method) => (paymentAmounts[method.id] ?? 0) > 0)
+    .map((method) => ({
+      paymentMethodId: method.id,
+      amountMinor: paymentAmounts[method.id]!,
+      ...(method.methodType === "cash"
+        ? { tenderedMinor: paymentAmounts[method.id]! }
+        : {}),
+    })),
+    allocatedTotal = allocatedPayments.reduce(
+      (sum, payment) => sum + payment.amountMinor,
+      0,
+    );
   const pay = async () => {
     if (!order || !data.session || !lines.length) return;
     setBusy(true);
@@ -183,8 +198,12 @@ export default function PosPage() {
         organizationId: scope.organizationId,
         companyId: scope.companyId,
         orderId: updated.id,
-        tenderedMinor: isCash ? Number(tender) : updated.totalMinor,
-        ...(paymentMethodId ? { paymentMethodId } : {}),
+        ...(splitPayment
+          ? { payments: allocatedPayments }
+          : {
+              tenderedMinor: isCash ? Number(tender) : updated.totalMinor,
+              ...(paymentMethodId ? { paymentMethodId } : {}),
+            }),
         requestId: crypto.randomUUID(),
       });
       setReceipt({ order: result.order, change: result.payment.changeMinor });
@@ -274,11 +293,15 @@ export default function PosPage() {
   };
   const closeSession = async () => {
     if (!data.session || data.orders.length) return;
-    await authenticatedApi.posCloseSession(
+    const countedCashMinor = Number(window.prompt("Efectivo contado al cerrar"));
+    if (!Number.isSafeInteger(countedCashMinor) || countedCashMinor < 0) return;
+    const result = await authenticatedApi.posCloseSession(
       scope.organizationId,
       scope.companyId,
       data.session.id,
+      countedCashMinor,
     );
+    window.alert(`Diferencia de caja: ${money(result.differenceMinor)}`);
     await refresh();
   };
   const refund = async (ticket: PosOrderView) => {
@@ -304,6 +327,8 @@ export default function PosPage() {
     setOrder(null);
     setCart({});
     setTender("");
+    setSplitPayment(false);
+    setPaymentAmounts({});
     setTable(null);
     orderUuid.current = crypto.randomUUID();
     setTab("floor");
@@ -544,10 +569,18 @@ export default function PosPage() {
         </section>
       )}
       {tab === "floor" && (
-        <section className="flex items-center gap-2 border-b border-kumo-line px-4 pb-3">
-          <span className="mr-auto text-sm text-kumo-subtle">
-            Caja esperada: {money(data.session.expectedCashMinor)}
-          </span>
+        <section className="flex flex-wrap items-center gap-2 border-b border-kumo-line px-4 pb-3">
+          <div className="mr-auto flex flex-wrap gap-4 text-sm text-kumo-subtle">
+            <span>Caja esperada: {money(data.session.expectedCashMinor)}</span>
+            <span>Ventas: {money(data.session.grossSalesMinor)}</span>
+            <span>Pedidos pagados: {data.session.paidOrderCount}</span>
+            <span>Devoluciones: {money(data.session.refundMinor)}</span>
+            {data.session.paymentsByMethod.map((method) => (
+              <span key={method.paymentMethodId}>
+                {method.name}: {money(method.amountMinor)}
+              </span>
+            ))}
+          </div>
           <button
             onClick={() => cashMove("in")}
             className="rounded-xl border border-kumo-line px-4 py-2"
@@ -832,7 +865,41 @@ export default function PosPage() {
                 </button>
               ) : (
                 <>
-                  {isCash && (
+                  <label className="mt-4 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={splitPayment}
+                      onChange={(event) => setSplitPayment(event.target.checked)}
+                    />
+                    Dividir pago
+                  </label>
+                  {splitPayment && (
+                    <div className="mt-2 space-y-2 rounded-xl border border-kumo-line p-3">
+                      {data.paymentMethods.map((method) => (
+                        <label key={method.id} className="flex items-center gap-2">
+                          <span className="flex-1">{method.name}</span>
+                          <input
+                            aria-label={`Monto ${method.name}`}
+                            type="number"
+                            min="0"
+                            value={paymentAmounts[method.id] ?? ""}
+                            onChange={(event) =>
+                              setPaymentAmounts((current) => ({
+                                ...current,
+                                [method.id]: Math.max(0, Number(event.target.value)),
+                              }))
+                            }
+                            className="w-32 rounded-xl border border-kumo-line bg-kumo-base p-2"
+                          />
+                        </label>
+                      ))}
+                      <div className="flex justify-between text-sm text-kumo-subtle">
+                        <span>Asignado</span>
+                        <span>{money(allocatedTotal)} / {money(total)}</span>
+                      </div>
+                    </div>
+                  )}
+                  {!splitPayment && isCash && (
                     <input
                       aria-label="Efectivo recibido"
                       type="number"
@@ -843,7 +910,12 @@ export default function PosPage() {
                     />
                   )}
                   <button
-                    disabled={(isCash && Number(tender) < total) || busy}
+                    disabled={
+                      busy ||
+                      (splitPayment
+                        ? allocatedPayments.length < 2 || allocatedTotal !== total
+                        : isCash && Number(tender) < total)
+                    }
                     onClick={pay}
                     className="mt-2 w-full rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40"
                   >
