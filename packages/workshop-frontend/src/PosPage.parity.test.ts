@@ -117,4 +117,13 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("openingNote.trim() || undefined");
     expect(source).toContain("closingNote.trim() || undefined");
   });
+
+  it("cuenta efectivo por denominaciones y concilia cada medio bancario",()=>{
+    for(const text of ["Detalle de efectivo","billetes y monedas","Total contado","Autocompletar","Diferencias de pagos","Otros medios"])expect(source).toContain(text);
+    expect(source).toContain("CLP_DENOMINATIONS");
+    expect(source).toContain("denominationLines(openingDenominations)");
+    expect(source).toContain("denominationLines(closingDenominations)");
+    expect(source).toContain("setNonCashCounts");
+    expect(source).toContain("paymentDifferences");
+  });
 });
