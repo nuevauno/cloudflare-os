@@ -39,7 +39,10 @@ export default function PosPage() {
     [discountBasisPoints, setDiscountBasisPoints] = useState(0),
     [paymentMethodId, setPaymentMethodId] = useState(""),
     [partnerId, setPartnerId] = useState(""),
-    [search, setSearch] = useState("");
+    [search, setSearch] = useState(""),
+    [ticketSearch, setTicketSearch] = useState(""),
+    [invoiceRequested, setInvoiceRequested] = useState(false),
+    [takeaway, setTakeaway] = useState(false);
   const orderUuid = useRef<string>(crypto.randomUUID());
   const refresh = async () => {
     if (scope)
@@ -107,6 +110,8 @@ export default function PosPage() {
     setTipMinor(existing?.metadata.tipMinor ?? 0);
     setDiscountBasisPoints(existing?.lines[0]?.discountBasisPoints ?? 0);
     setPartnerId(existing?.metadata.partnerId ?? "");
+    setInvoiceRequested(existing?.metadata.invoiceRequested ?? false);
+    setTakeaway(existing?.metadata.takeaway ?? false);
     setTab("register");
   };
   const orderPayload = () => ({
@@ -115,10 +120,12 @@ export default function PosPage() {
     sessionId: data.session!.id,
     ...(table ? { tableId: table.id } : {}),
     uuid: orderUuid.current,
-    metadata: {
-      generalNote,
-      guestCount,
-      tipMinor,
+      metadata: {
+        generalNote,
+        guestCount,
+        tipMinor,
+        invoiceRequested,
+        takeaway,
       ...(partnerId ? { partnerId } : {}),
     },
     lines: lines.map((line) => ({
@@ -362,12 +369,20 @@ export default function PosPage() {
               <span>{money(receipt.change)}</span>
             </div>
           </div>
-          <button
-            onClick={reset}
-            className="mt-8 w-full rounded-xl bg-[#FE4A23] p-3 text-white"
-          >
-            Nueva venta
-          </button>
+          <div className="mt-8 flex gap-2">
+            <button
+              onClick={() => window.print()}
+              className="flex-1 rounded-xl border border-kumo-line p-3"
+            >
+              Imprimir
+            </button>
+            <button
+              onClick={reset}
+              className="flex-1 rounded-xl bg-[#FE4A23] p-3 text-white"
+            >
+              Nueva venta
+            </button>
+          </div>
         </section>
       </main>
     );
@@ -469,6 +484,22 @@ export default function PosPage() {
               </option>
             ))}
           </select>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={takeaway}
+              onChange={(event) => setTakeaway(event.target.checked)}
+            />
+            Para llevar
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={invoiceRequested}
+              onChange={(event) => setInvoiceRequested(event.target.checked)}
+            />
+            Solicitar factura
+          </label>
           <select
             aria-label="Medio de pago"
             value={paymentMethodId}
@@ -501,6 +532,12 @@ export default function PosPage() {
                 className="rounded-xl border border-kumo-line px-4 py-2"
               >
                 Dividir
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="rounded-xl border border-kumo-line px-4 py-2"
+              >
+                Cuenta provisoria
               </button>
             </>
           )}
@@ -622,10 +659,27 @@ export default function PosPage() {
       )}
       {tab === "orders" && (
         <section className="border-t border-kumo-line p-6">
-          <h2 className="text-xl font-normal">Historial de tickets</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-normal">Historial de tickets</h2>
+            <input
+              aria-label="Buscar tickets"
+              value={ticketSearch}
+              onChange={(event) => setTicketSearch(event.target.value)}
+              placeholder="Buscar ticket"
+              className="ml-auto rounded-xl border border-kumo-line bg-kumo-elevated p-2"
+            />
+          </div>
           <div className="mt-4 grid gap-2">
             {data.tickets
-              .filter((ticket) => ticket.state !== "draft")
+              .filter(
+                (ticket) =>
+                  ticket.state !== "draft" &&
+                  (!ticketSearch ||
+                    ticket.id.toLowerCase().includes(ticketSearch.toLowerCase()) ||
+                    ticket.metadata.orderName
+                      ?.toLowerCase()
+                      .includes(ticketSearch.toLowerCase())),
+              )
               .map((ticket) => (
                 <article
                   key={ticket.id}
@@ -636,6 +690,12 @@ export default function PosPage() {
                     {ticket.state === "paid" ? "Pagado" : "Cancelado"}
                   </span>
                   <span>{money(ticket.totalMinor)}</span>
+                  <button
+                    onClick={() => setReceipt({ order: ticket, change: 0 })}
+                    className="rounded-xl border border-kumo-line px-3 py-2"
+                  >
+                    Reimprimir
+                  </button>
                   {ticket.state === "paid" && (
                     <button
                       onClick={() => refund(ticket)}
