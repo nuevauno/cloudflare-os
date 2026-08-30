@@ -127,6 +127,7 @@ export default function PosPage() {
       seats: number;
     } | null>(null);
   const [cart, setCart] = useState<Record<string, number>>({}),
+    [selectedLineId,setSelectedLineId]=useState(""),
     [order, setOrder] = useState<PosOrderView | null>(null),
     [category, setCategory] = useState(""),
     [tender, setTender] = useState(""),
@@ -153,6 +154,7 @@ export default function PosPage() {
     [partnerDialog, setPartnerDialog] = useState(false),
     [partnerSearch, setPartnerSearch] = useState(""),
     [partnerCreate, setPartnerCreate] = useState(false),
+    [actionsOpen,setActionsOpen]=useState(false),
     [partnerDraft, setPartnerDraft] = useState({displayName:"",email:"",phone:"",taxIdentifier:""}),
     [dialog, setDialog] = useState<PosDialogState | null>(null),
     [dialogText, setDialogText] = useState(""),
@@ -1193,7 +1195,6 @@ export default function PosPage() {
   return (
     <main className="flex min-h-full flex-col bg-kumo-base">
       <nav className="flex h-14 items-stretch border-b border-kumo-line bg-kumo-elevated">
-        <button className="px-5 text-[#FE4A23]" onClick={() => setScreen("dashboard")}>Caja</button>
         <button
           className={`px-7 ${tab === "floor" ? "bg-kumo-line" : ""}`}
           onClick={() => setTab("floor")}
@@ -1217,28 +1218,18 @@ export default function PosPage() {
             </span>
           )}
         </button>
-        <button
-          className={`px-7 ${tab === "preparation" ? "bg-kumo-line" : ""}`}
-          onClick={() => setTab("preparation")}
-        >
-          Cocina
-          {data.orders.some((item) => item.metadata.preparationState !== "draft" && item.metadata.preparationState !== "served") && (
-            <span className="ml-2 rounded-full bg-[#FE4A23] px-2 py-1 text-xs text-white">
-              {data.orders.filter((item) => item.metadata.preparationState !== "draft" && item.metadata.preparationState !== "served").length}
-            </span>
-          )}
-        </button>
-        <span className="m-auto text-sm text-kumo-subtle">
-          {data.config?.name}
-        </span>
+        <span className="m-auto" />
+        {tab==="register"&&<label className="my-2 mr-4 flex w-[min(30vw,380px)] items-center gap-3 rounded-xl border border-kumo-line px-4"><span className="text-2xl">⌕</span><input aria-label="Buscar productos" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar productos…" className="min-w-0 flex-1 bg-transparent outline-none"/></label>}
+        <button aria-label="Usuario" className="my-auto mr-4 h-7 w-7 rounded-lg bg-purple-700 text-sm text-white">A</button>
+        <button aria-label="Menú principal" onClick={()=>setScreen("dashboard")} className="my-auto mr-5 text-2xl">☰</button>
         {offlinePending > 0 && (
           <span className="my-auto mr-4 rounded-xl bg-amber-100 px-3 py-1 text-sm text-amber-800">
             {offlinePending} pendiente{offlinePending === 1 ? "" : "s"} de sincronizar
           </span>
         )}
       </nav>
-      {tab === "register" && (
-        <section className="flex flex-wrap items-center gap-2 border-b border-kumo-line bg-kumo-elevated p-3">
+      {data && false && tab === "register" && (
+        <section aria-hidden="true" className="hidden">
           <label className="flex items-center gap-2">
             Comensales
             <input
@@ -1299,7 +1290,7 @@ export default function PosPage() {
             className="max-w-52 rounded-xl border border-kumo-line bg-kumo-base p-2"
           >
             <option value="">Cliente ocasional</option>
-            {data.partners.map((partner) => (
+            {data?.partners.map((partner) => (
               <option key={partner.id} value={partner.id}>
                 {partner.displayName}
               </option>
@@ -1312,7 +1303,7 @@ export default function PosPage() {
             className="max-w-52 rounded-xl border border-kumo-line bg-kumo-base p-2"
           >
             <option value="">Precio general</option>
-            {data.pricelists.map((list) => (
+            {data?.pricelists.map((list) => (
               <option key={list.id} value={list.id}>
                 {list.name}
               </option>
@@ -1325,7 +1316,7 @@ export default function PosPage() {
             className="max-w-52 rounded-xl border border-kumo-line bg-kumo-base p-2"
           >
             <option value="">Impuestos generales</option>
-            {data.fiscalPositions.map((position) => (
+            {data?.fiscalPositions.map((position) => (
               <option key={position.id} value={position.id}>
                 {position.name}
               </option>
@@ -1363,7 +1354,7 @@ export default function PosPage() {
             className="rounded-xl border border-kumo-line bg-kumo-base p-2"
           >
             <option value="">Efectivo</option>
-            {data.paymentMethods.map((method) => (
+            {data?.paymentMethods.map((method) => (
               <option key={method.id} value={method.id}>
                 {method.name}
               </option>
@@ -1391,7 +1382,7 @@ export default function PosPage() {
               </button>
               <button
                 onClick={merge}
-                disabled={data.orders.length < 2}
+                disabled={(data?.orders.length??0) < 2}
                 className="rounded-xl border border-kumo-line px-4 py-2 disabled:opacity-40"
               >
                 Unir mesas
@@ -1647,35 +1638,18 @@ export default function PosPage() {
       {tab === "register" && (
         <section className="grid flex-1 lg:grid-cols-[1fr_450px]">
           <div className="border-r border-kumo-line p-4">
-            <input
-              aria-label="Buscar productos o escanear código"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                const product = data.products.find(
-                  (item) => item.sku?.toLowerCase() === search.trim().toLowerCase(),
-                );
-                if (product) {
-                  change(product.id, 1);
-                  setSearch("");
-                }
-              }}
-              placeholder="Buscar productos o escanear código"
-              className="mb-3 w-full rounded-xl border border-kumo-line bg-kumo-elevated p-3"
-            />
             <div className="mb-4 flex gap-2">
               {categories.map((name) => (
                 <button
                   key={name}
                   onClick={() => setCategory(name)}
-                  className={`min-w-32 rounded-xl border px-5 py-4 ${category === name ? "border-[#FE4A23] bg-orange-100" : "border-kumo-line bg-kumo-elevated"}`}
+                  className={`h-16 min-w-32 rounded-lg border px-5 ${category === name ? "border-[#FE4A23]" : "border-transparent"} ${name==="Bar"?"bg-[#fee28a]":name==="Cocina"?"bg-[#f7a3a8]":"bg-[#f8d1a8]"}`}
                 >
                   {name}
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="flex flex-wrap gap-2">
               {data.products
                 .filter(
                   (product) =>
@@ -1689,128 +1663,21 @@ export default function PosPage() {
                   <button
                     key={product.id}
                     onClick={() => addProduct(product)}
-                    className="min-h-20 rounded-xl border border-kumo-line bg-kumo-elevated p-4 text-left"
+                    className="relative h-20 w-32 rounded-lg border border-kumo-line bg-kumo-elevated p-3 text-center shadow-[0_4px_0_#e4e6e9]"
                   >
                     <span className="block">{product.name}</span>
-                    <span className="mt-2 block text-[#FE4A23]">
-                      {money(
-                        Math.round(
-                          product.priceMinor *
-                            (1 + product.taxBasisPoints / 10000),
-                        ),
-                      )}
-                    </span>
+                    {(cart[product.id]??0)>0&&<span className="absolute bottom-1 right-1 rounded bg-black px-2 py-0.5 text-xs text-white">{cart[product.id]}</span>}
                   </button>
                 ))}
             </div>
           </div>
-          <aside className="flex flex-col bg-kumo-elevated p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl">
-                {table ? `Mesa ${table.name}` : "Pedido"}
-              </h2>
-              {order && (
-                <button onClick={cancel} className="text-sm text-red-500">
-                  Cancelar
-                </button>
-              )}
+          <aside className="flex min-h-0 flex-col bg-kumo-elevated">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {lines.map(line=><button key={line.id} onClick={()=>setSelectedLineId(line.id)} className={`grid w-full grid-cols-[36px_1fr_auto] gap-3 border-b px-3 py-3 text-left ${selectedLineId===line.id?"border-[#FE4A23] bg-[#fff1ed]":"border-kumo-line"}`}>
+                <span>{line.quantity}</span><span>{line.name}{lineNotes[line.id]&&<small className="block text-kumo-subtle">{lineNotes[line.id]}</small>}</span><span>{money(line.total)}</span>
+              </button>)}
             </div>
-            <div className="flex-1">
-              {lines.map((line) => (
-                <div
-                  key={line.id}
-                  className="flex items-center gap-3 border-b border-kumo-line py-3"
-                >
-                  <button
-                    onClick={() => removeProduct(line.id)}
-                    className="h-8 w-8 rounded border"
-                  >
-                    −
-                  </button>
-                  <input
-                    aria-label={`Cantidad de ${line.name}`}
-                    type="number"
-                    min="0.001"
-                    step="0.001"
-                    value={line.quantity}
-                    disabled={line.lots.some((lot) => lot.tracking === "serial")}
-                    onChange={(event) =>
-                      setQuantity(line.id, Number(event.target.value))
-                    }
-                    className="w-20 rounded border border-kumo-line bg-kumo-base p-1 text-center"
-                  />
-                  <button
-                    onClick={() =>
-                      line.lots.length ? addProduct(line) : change(line.id, 1)
-                    }
-                    className="h-8 w-8 rounded border"
-                  >
-                    ＋
-                  </button>
-                  <div className="flex-1">
-                    <span className="block">{line.name}</span>
-                    {lineNotes[line.id] && (
-                      <span className="block text-xs text-kumo-subtle">
-                        {lineNotes[line.id]}
-                      </span>
-                    )}
-                    <span className="block text-xs text-kumo-subtle">
-                      Curso {lineCourses[line.id] ?? 1}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setNoteEditor({
-                      productId: line.id,
-                      productName: line.name,
-                      value: lineNotes[line.id] ?? "",
-                    })}
-                    className="rounded border border-kumo-line px-2 py-1 text-xs"
-                  >
-                    Nota
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const price = Number(await requestDialog({ kind: "number", title: "Cambiar precio", label: line.name, value: line.unitPriceMinor, min: 0 }));
-                      if (Number.isSafeInteger(price) && price >= 0)
-                        setManualPrices((current) => ({
-                          ...current,
-                          [line.id]: price,
-                        }));
-                    }}
-                    className="rounded border border-kumo-line px-2 py-1 text-xs"
-                  >
-                    Precio
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const course = Number(await requestDialog({ kind: "number", title: "Curso", label: line.name, value: lineCourses[line.id] ?? 1, min: 1 }));
-                      if (Number.isSafeInteger(course) && course > 0)
-                        setLineCourses((current) => ({
-                          ...current,
-                          [line.id]: course,
-                        }));
-                    }}
-                    className="rounded border border-kumo-line px-2 py-1 text-xs"
-                  >
-                    Curso
-                  </button>
-                  {window.NUEVAUNOBridge && (
-                    <button
-                      onClick={async () => {
-                        const reading = await window.NUEVAUNOBridge?.readScale();
-                        if (reading?.ok !== false && reading?.weight)
-                          setQuantity(line.id, reading.weight);
-                      }}
-                      className="rounded border border-kumo-line px-2 py-1 text-xs"
-                    >
-                      Báscula
-                    </button>
-                  )}
-                  <span>{money(line.total)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="border-t border-kumo-line pt-4">
+            <div className="border-t border-kumo-line p-3">
               <div className="flex justify-between text-sm text-kumo-subtle">
                 <span>Impuestos</span>
                 <span>{money(tax)}</span>
@@ -1825,106 +1692,33 @@ export default function PosPage() {
                 <span>Total</span>
                 <span>{money(total)}</span>
               </div>
-              {!order ? (
-                <button
-                  disabled={!lines.length || busy}
-                  onClick={save}
-                  className="mt-4 w-full rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40"
-                >
-                  Guardar pedido
-                </button>
-              ) : (
-                <>
-                  <label className="mt-4 flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={splitPayment}
-                      onChange={(event) => setSplitPayment(event.target.checked)}
-                    />
-                    Dividir pago
-                  </label>
-                  {splitPayment && (
-                    <div className="mt-2 space-y-2 rounded-xl border border-kumo-line p-3">
-                      {data.paymentMethods.map((method) => (
-                        <div key={method.id} className="flex items-center gap-2">
-                          <label className="contents">
-                            <span className="flex-1">{method.name}</span>
-                            <input
-                              aria-label={`Monto ${method.name}`}
-                              type="number"
-                              min="0"
-                              value={paymentAmounts[method.id] ?? ""}
-                              onChange={(event) =>
-                                setPaymentAmounts((current) => ({
-                                  ...current,
-                                  [method.id]: Math.max(
-                                    0,
-                                    Number(event.target.value),
-                                  ),
-                                }))
-                              }
-                              className="w-32 rounded-xl border border-kumo-line bg-kumo-base p-2"
-                            />
-                          </label>
-                          {method.requiresTerminal && (
-                            <input
-                              aria-label={`Referencia ${method.name}`}
-                              value={terminalReferences[method.id] ?? ""}
-                              onChange={(event) =>
-                                setTerminalReferences((current) => ({
-                                  ...current,
-                                  [method.id]: event.target.value,
-                                }))
-                              }
-                              placeholder="Referencia terminal"
-                              className="w-40 rounded-xl border border-kumo-line bg-kumo-base p-2"
-                            />
-                          )}
-                        </div>
-                      ))}
-                      <div className="flex justify-between text-sm text-kumo-subtle">
-                        <span>Asignado</span>
-                        <span>{money(allocatedTotal)} / {money(total)}</span>
-                      </div>
-                    </div>
-                  )}
-                  {!splitPayment && isCash && (
-                    <input
-                      aria-label="Efectivo recibido"
-                      type="number"
-                      value={tender}
-                      onChange={(event) => setTender(event.target.value)}
-                      placeholder="Efectivo recibido"
-                      className="mt-4 w-full rounded-xl border border-kumo-line bg-kumo-base p-3"
-                    />
-                  )}
-                  {!splitPayment && selectedPaymentMethod?.requiresTerminal && (
-                    <input
-                      aria-label="Referencia terminal"
-                      value={terminalReferences[selectedPaymentMethod.id] ?? ""}
-                      onChange={(event) =>
-                        setTerminalReferences((current) => ({
-                          ...current,
-                          [selectedPaymentMethod.id]: event.target.value,
-                        }))
-                      }
-                      placeholder="Referencia de autorización"
-                      className="mt-4 w-full rounded-xl border border-kumo-line bg-kumo-base p-3"
-                    />
-                  )}
-                  <button
-                    disabled={busy || !lines.length}
-                    onClick={() => setScreen("payment")}
-                    className="mt-2 w-full rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40"
-                  >
-                    Pago
-                  </button>
-                </>
-              )}
+              <div className="mt-3 grid grid-cols-[1fr_1fr_44px_1fr_44px] gap-2"><button onClick={()=>setPartnerDialog(true)} className="rounded-lg border border-kumo-line py-3">Cliente</button><button onClick={()=>{const line=lines.find(item=>item.id===selectedLineId);if(line)setNoteEditor({productId:line.id,productName:line.name,value:lineNotes[line.id]??""});else void requestDialog({kind:"text",title:"Nota para el cliente",value:generalNote}).then(value=>typeof value==="string"&&setGeneralNote(value))}} className="rounded-lg border border-kumo-line py-3">Nota</button><button onClick={()=>order&&void sendToPreparation()} aria-label="Enviar comanda" className="rounded-lg border border-kumo-line">↥</button><button onClick={async()=>{const line=lines.find(item=>item.id===selectedLineId);if(!line)return;const course=Number(await requestDialog({kind:"number",title:"Tiempo",label:"Curso",value:lineCourses[line.id]??1,min:1}));if(course>0)setLineCourses(current=>({...current,[line.id]:course}))}} className="rounded-lg border border-kumo-line">Tiempo</button><button onClick={()=>setActionsOpen(true)} aria-label="Acciones" className="rounded-lg border border-kumo-line text-xl">⋮</button></div>
+              <div className="mt-2 grid grid-cols-4">{["1","2","3","Ctdad","4","5","6","%","7","8","9","Precio","+/−","0",",","⌫"].map(key=><button key={key} onClick={async()=>{
+                const line=lines.find(item=>item.id===selectedLineId);if(!line)return;
+                if(/^\d$/.test(key))setQuantity(line.id,Number(key));
+                else if(key==="⌫")removeProduct(line.id);
+                else if(key==="%") {const discount=Number(await requestDialog({kind:"number",title:"Descuento",value:discountBasisPoints/100,min:0,max:100}));if(Number.isFinite(discount))setDiscountBasisPoints(Math.round(discount*100));}
+                else if(key==="Precio"){const price=Number(await requestDialog({kind:"number",title:"Cambiar precio",label:line.name,value:line.unitPriceMinor,min:0}));if(price>=0)setManualPrices(current=>({...current,[line.id]:price}));}
+              }} className={`h-13 border border-kumo-line ${(key==="Ctdad"||key==="Precio")?"bg-[#fff1ed]":key==="+/−"?"bg-[#fee28a]":""}`}>{key}</button>)}</div>
+              <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={reset} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length} onClick={async()=>{if(!order)await save();setScreen("payment")}} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">Pago</button></div>
             </div>
           </aside>
         </section>
       )}
+      {actionsOpen&&<div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"><section role="dialog" aria-modal="true" aria-label="Acciones" className="w-full max-w-5xl rounded-lg bg-kumo-elevated shadow-xl"><header className="flex items-center justify-between border-b border-kumo-line p-4"><h2 className="text-lg font-normal">Acciones</h2><button onClick={()=>setActionsOpen(false)} aria-label="Cerrar" className="text-2xl text-kumo-subtle">×</button></header><div className="grid grid-cols-3 gap-2 p-4">
+        <button onClick={async()=>{const value=await requestDialog({kind:"text",title:"Nota para el cliente",value:generalNote});if(typeof value==="string")setGeneralNote(value);setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▣ Nota para el cliente</button>
+        <button disabled={!order} onClick={()=>{if(order)void printTicket(order,"receipt");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">▣ Cuenta</button>
+        <button onClick={async()=>{const value=Number(await requestDialog({kind:"number",title:"Comensales",value:guestCount,min:1}));if(value>0)setGuestCount(value);setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">● Comensales</button>
+        <button disabled={!order} onClick={()=>{void split();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">▱ Dividir</button>
+        <button disabled={!order} onClick={()=>{void transfer();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">→ Transferir / Fusionar</button>
+        <button disabled={!order} onClick={()=>{void sendToPreparation();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">↓ Transferir comida</button>
+        <button onClick={async()=>{const id=await requestDialog({kind:"selection",title:"Tarifa",options:data.pricelists.map(item=>({id:item.id,label:item.name})),selected:pricelistId?[pricelistId]:[],max:1});if(Array.isArray(id))setPricelistId(id[0]??"");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▦ Tarifa</button>
+        <button onClick={()=>{setTab("orders");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">↶ Reembolso</button>
+        <button onClick={()=>{void requestDialog({kind:"message",title:"Información",body:`${table?`Mesa ${table.name}`:"Pedido"} · ${lines.length} líneas · ${money(total)}`});setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">● Información</button>
+        <button disabled={!order} onClick={()=>{void cancel();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">♜ Cancelar orden</button>
+        <button onClick={()=>{window.open(`${window.location.pathname}?display=customer`,"nuevauno-customer-display","popup,width=900,height=700");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▣ Pantalla cliente</button>
+        <button disabled={data.orders.length<2} onClick={()=>{void merge();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">⇄ Unir órdenes</button>
+      </div></section></div>}
       {dialog && (
         <div className="fixed inset-0 z-[60] grid place-items-center bg-black/45 p-4">
           <section role="dialog" aria-modal="true" aria-label={dialog.title} className="w-full max-w-xl rounded-xl bg-kumo-elevated shadow-xl">
