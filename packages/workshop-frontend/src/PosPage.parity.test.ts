@@ -7,9 +7,10 @@ const source = readFileSync(new URL("./PosPage.tsx", import.meta.url), "utf8");
 const rootRoute = readFileSync(new URL("./routes/__root.tsx", import.meta.url), "utf8");
 
 describe("recorridos POS portados desde la fuente 19", () => {
-  it("renderiza el POS como aplicación de pantalla completa, sin el shell lateral", () => {
-    expect(rootRoute).toContain("pathname === '/pos'");
+  it("mantiene el POS dentro del shell de NUEVAUNO y conserva el acceso a la plataforma", () => {
+    expect(rootRoute).not.toContain("pathname === '/pos'");
     expect(rootRoute).toContain("isFullscreenApplication");
+    expect(rootRoute).toContain("<AppShell>");
   });
   it("usa un diálogo de nota de línea con accesos rápidos y no un prompt", () => {
     expect(source).toContain('aria-label={`Nota de ${noteEditor.productName}`}');
