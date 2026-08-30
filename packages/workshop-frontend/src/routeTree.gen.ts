@@ -34,6 +34,7 @@ import { Route as WorkspacesRouteImport } from './routes/workspaces'
 import { Route as BlueprintIdRouteImport } from './routes/blueprint.$id'
 import { Route as GadgetIdRouteImport } from './routes/gadget.$id'
 import { Route as GatekeepersAppIdRouteImport } from './routes/gatekeepers_.$appId'
+import { Route as PosProductsRouteImport } from './routes/pos.products'
 import { Route as WorkspaceIdRouteImport } from './routes/workspace.$id'
 import { Route as ShareVaultTokenRouteImport } from './routes/share.vault.$token'
 
@@ -162,6 +163,11 @@ const GatekeepersAppIdRoute = GatekeepersAppIdRouteImport.update({
   path: '/gatekeepers/$appId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PosProductsRoute = PosProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => PosRoute,
+} as any)
 const WorkspaceIdRoute = WorkspaceIdRouteImport.update({
   id: '/workspace/$id',
   path: '/workspace/$id',
@@ -189,7 +195,7 @@ export interface FileRoutesByFullPath {
   '/gatekeepers': typeof GatekeepersRoute
   '/kodo': typeof KodoRoute
   '/outputs': typeof OutputsRoute
-  '/pos': typeof PosRoute
+  '/pos': typeof PosRouteWithChildren
   '/profile': typeof ProfileRoute
   '/providers': typeof ProvidersRoute
   '/sales': typeof SalesRoute
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/blueprint/$id': typeof BlueprintIdRoute
   '/gadget/$id': typeof GadgetIdRoute
   '/gatekeepers/$appId': typeof GatekeepersAppIdRoute
+  '/pos/products': typeof PosProductsRoute
   '/workspace/$id': typeof WorkspaceIdRoute
   '/share/vault/$token': typeof ShareVaultTokenRoute
 }
@@ -218,7 +225,7 @@ export interface FileRoutesByTo {
   '/gatekeepers': typeof GatekeepersRoute
   '/kodo': typeof KodoRoute
   '/outputs': typeof OutputsRoute
-  '/pos': typeof PosRoute
+  '/pos': typeof PosRouteWithChildren
   '/profile': typeof ProfileRoute
   '/providers': typeof ProvidersRoute
   '/sales': typeof SalesRoute
@@ -228,6 +235,7 @@ export interface FileRoutesByTo {
   '/blueprint/$id': typeof BlueprintIdRoute
   '/gadget/$id': typeof GadgetIdRoute
   '/gatekeepers/$appId': typeof GatekeepersAppIdRoute
+  '/pos/products': typeof PosProductsRoute
   '/workspace/$id': typeof WorkspaceIdRoute
   '/share/vault/$token': typeof ShareVaultTokenRoute
 }
@@ -248,7 +256,7 @@ export interface FileRoutesById {
   '/gatekeepers': typeof GatekeepersRoute
   '/kodo': typeof KodoRoute
   '/outputs': typeof OutputsRoute
-  '/pos': typeof PosRoute
+  '/pos': typeof PosRouteWithChildren
   '/profile': typeof ProfileRoute
   '/providers': typeof ProvidersRoute
   '/sales': typeof SalesRoute
@@ -258,6 +266,7 @@ export interface FileRoutesById {
   '/blueprint/$id': typeof BlueprintIdRoute
   '/gadget/$id': typeof GadgetIdRoute
   '/gatekeepers_/$appId': typeof GatekeepersAppIdRoute
+  '/pos/products': typeof PosProductsRoute
   '/workspace/$id': typeof WorkspaceIdRoute
   '/share/vault/$token': typeof ShareVaultTokenRoute
 }
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | '/blueprint/$id'
     | '/gadget/$id'
     | '/gatekeepers/$appId'
+    | '/pos/products'
     | '/workspace/$id'
     | '/share/vault/$token'
   fileRoutesByTo: FileRoutesByTo
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/blueprint/$id'
     | '/gadget/$id'
     | '/gatekeepers/$appId'
+    | '/pos/products'
     | '/workspace/$id'
     | '/share/vault/$token'
   id:
@@ -347,6 +358,7 @@ export interface FileRouteTypes {
     | '/blueprint/$id'
     | '/gadget/$id'
     | '/gatekeepers_/$appId'
+    | '/pos/products'
     | '/workspace/$id'
     | '/share/vault/$token'
   fileRoutesById: FileRoutesById
@@ -367,7 +379,7 @@ export interface RootRouteChildren {
   GatekeepersRoute: typeof GatekeepersRoute
   KodoRoute: typeof KodoRoute
   OutputsRoute: typeof OutputsRoute
-  PosRoute: typeof PosRoute
+  PosRoute: typeof PosRouteWithChildren
   ProfileRoute: typeof ProfileRoute
   ProvidersRoute: typeof ProvidersRoute
   SalesRoute: typeof SalesRoute
@@ -558,6 +570,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GatekeepersAppIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pos/products': {
+      id: '/pos/products'
+      path: '/products'
+      fullPath: '/pos/products'
+      preLoaderRoute: typeof PosProductsRouteImport
+      parentRoute: typeof PosRoute
+    }
     '/workspace/$id': {
       id: '/workspace/$id'
       path: '/workspace/$id'
@@ -575,6 +594,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface PosRouteChildren {
+  PosProductsRoute: typeof PosProductsRoute
+}
+
+const PosRouteChildren: PosRouteChildren = {
+  PosProductsRoute: PosProductsRoute,
+}
+
+const PosRouteWithChildren = PosRoute._addFileChildren(PosRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountingRoute: AccountingRoute,
@@ -591,7 +620,7 @@ const rootRouteChildren: RootRouteChildren = {
   GatekeepersRoute: GatekeepersRoute,
   KodoRoute: KodoRoute,
   OutputsRoute: OutputsRoute,
-  PosRoute: PosRoute,
+  PosRoute: PosRouteWithChildren,
   ProfileRoute: ProfileRoute,
   ProvidersRoute: ProvidersRoute,
   SalesRoute: SalesRoute,

@@ -1348,6 +1348,7 @@ export default function PosPage() {
             </span>
           )}
         </button>
+        <a href="/pos/products" className="flex items-center px-7 hover:bg-kumo-line">Productos</a>
         <span className="m-auto" />
         {tab==="register"&&<label className="my-2 mr-4 flex w-[min(30vw,380px)] items-center gap-3 rounded-xl border border-kumo-line px-4"><span className="text-2xl">⌕</span><input aria-label="Buscar productos" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar productos…" className="min-w-0 flex-1 bg-transparent outline-none"/></label>}
         {employeeLoginEnabled&&data.activeOperator?<button aria-label="Cambiar empleado" title={`${data.activeOperator.displayName} · cambiar empleado`} onClick={()=>void logoutOperator()} className="my-auto mr-4 rounded-xl border border-kumo-line px-3 py-2 text-sm">{data.activeOperator.displayName}</button>:<button aria-label="Usuario" className="my-auto mr-4 h-7 w-7 rounded-lg bg-purple-700 text-sm text-white">A</button>}
