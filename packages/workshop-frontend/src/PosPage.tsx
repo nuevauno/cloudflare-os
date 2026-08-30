@@ -63,7 +63,11 @@ export default function PosPage() {
     [manualPrices, setManualPrices] = useState<Record<string, number>>({}),
     [lineCourses, setLineCourses] = useState<Record<string, number>>({}),
     [pricelistId, setPricelistId] = useState(""),
-    [shippingDate, setShippingDate] = useState("");
+    [shippingDate, setShippingDate] = useState(""),
+    [fiscalPositionId, setFiscalPositionId] = useState(""),
+    [lineLots, setLineLots] = useState<
+      Record<string, Array<{ lotId: string; quantityMilli: number }>>
+    >({});
   const orderUuid = useRef<string>(crypto.randomUUID());
   const scannerBuffer = useRef(""),
     scannerAt = useRef(0);
@@ -92,7 +96,7 @@ export default function PosPage() {
             item.sku?.toLowerCase() === scannerBuffer.current.toLowerCase() ||
             item.barcode?.toLowerCase() === scannerBuffer.current.toLowerCase(),
         );
-        if (product) change(product.id, 1);
+        if (product) addProduct(product);
         scannerBuffer.current = "";
       } else if (event.key.length === 1) scannerBuffer.current += event.key;
     };
@@ -116,12 +120,27 @@ export default function PosPage() {
             (unitPriceMinor * (10000 - discountBasisPoints)) / 10000,
           ),
           subtotal = discounted * quantity,
-          tax = Math.round((subtotal * p.taxBasisPoints) / 10000);
+          fiscalRate =
+            data?.fiscalPositions
+              .find((position) => position.id === fiscalPositionId)
+              ?.mappings.find(
+                (mapping) =>
+                  mapping.sourceRateBasisPoints === p.taxBasisPoints,
+              )?.destinationRateBasisPoints ?? p.taxBasisPoints,
+          tax = Math.round((subtotal * fiscalRate) / 10000);
         return [{ ...p, unitPriceMinor, quantity, subtotal, tax, total: subtotal + tax }];
       }),
-    [cart, data, discountBasisPoints, manualPrices],
+    [cart, data, discountBasisPoints, manualPrices, fiscalPositionId],
   );
-  const total = lines.reduce((sum, line) => sum + line.total, 0) + tipMinor,
+  const rawTotal = lines.reduce((sum, line) => sum + line.total, 0) + tipMinor,
+    roundingIncrement = data?.config?.cashRoundingIncrementMinor ?? 1,
+    total =
+      data?.config?.cashRoundingMethod === "up"
+        ? Math.ceil(rawTotal / roundingIncrement) * roundingIncrement
+        : data?.config?.cashRoundingMethod === "down"
+          ? Math.floor(rawTotal / roundingIncrement) * roundingIncrement
+          : Math.round(rawTotal / roundingIncrement) * roundingIncrement,
+    roundingMinor = total - rawTotal,
     tax = lines.reduce((sum, line) => sum + line.tax, 0);
   if (!scope || !data)
     return <div className="p-8 text-kumo-subtle">Cargando Punto de venta…</div>;
@@ -183,6 +202,7 @@ export default function PosPage() {
     setTakeaway(existing?.metadata.takeaway ?? false);
     setPricelistId(existing?.metadata.pricelistId ?? "");
     setShippingDate(existing?.metadata.shippingDate ?? "");
+    setFiscalPositionId(existing?.metadata.fiscalPositionId ?? "");
     setLineNotes(
       Object.fromEntries(
         existing?.lines.flatMap((line) =>
@@ -208,6 +228,15 @@ export default function PosPage() {
           [],
       ),
     );
+    setLineLots(
+      Object.fromEntries(
+        existing?.lines.flatMap((line) =>
+          line.lotLines?.length
+            ? [[line.productVariantId, line.lotLines]]
+            : [],
+        ) ?? [],
+      ),
+    );
     setTab("register");
   };
   const orderPayload = () => ({
@@ -224,6 +253,7 @@ export default function PosPage() {
         takeaway,
         ...(pricelistId ? { pricelistId } : {}),
         ...(shippingDate ? { shippingDate } : {}),
+        ...(fiscalPositionId ? { fiscalPositionId } : {}),
       ...(partnerId ? { partnerId } : {}),
     },
       lines: lines.map((line) => ({
@@ -235,6 +265,7 @@ export default function PosPage() {
           ? {}
           : { unitPriceMinor: manualPrices[line.id] }),
         courseNumber: lineCourses[line.id] ?? 1,
+        ...(lineLots[line.id]?.length ? { lotLines: lineLots[line.id] } : {}),
       })),
   });
   const save = async () => {
@@ -258,6 +289,69 @@ export default function PosPage() {
       ...current,
       [id]: Math.max(0, Math.round(quantity * 1000) / 1000),
     }));
+  const addProduct = (
+    initial: PosLoadDataView["products"][number],
+  ) => {
+    const variants = data.products.filter(
+        (product) => product.templateId === initial.templateId,
+      ),
+      variantName =
+        variants.length > 1
+          ? window.prompt(
+              `Elige variante: ${variants
+                .map(
+                  (product) =>
+                    `${product.name}${product.attributes.length ? ` (${product.attributes.map((attribute) => attribute.valueName).join(", ")})` : ""}`,
+                )
+                .join(", ")}`,
+              initial.name,
+            )
+          : initial.name,
+      product =
+        variants.find(
+          (candidate) =>
+            candidate.name.toLowerCase() === variantName?.trim().toLowerCase(),
+        ) ?? initial;
+    if (product.lots.length) {
+      const lotName = window.prompt(
+          `Lote o serie: ${product.lots.map((lot) => lot.name).join(", ")}`,
+          product.lots[0]?.name,
+        ),
+        lot = product.lots.find(
+          (candidate) =>
+            candidate.name.toLowerCase() === lotName?.trim().toLowerCase(),
+        );
+      if (!lot) return;
+      setLineLots((current) => ({
+        ...current,
+        [product.id]: [{ lotId: lot.id, quantityMilli: 1000 }],
+      }));
+    }
+    change(product.id, 1);
+    for (const optionalId of product.optionalProductIds) {
+      const optional = data.products.find((candidate) => candidate.id === optionalId);
+      if (optional && window.confirm(`¿Agregar ${optional.name}?`)) change(optional.id, 1);
+    }
+    for (const component of product.comboComponents) {
+      const choiceName = window.prompt(
+          `${component.name}: elige ${component.minChoices}-${component.maxChoices} entre ${data.products
+            .filter((candidate) => candidate.id !== product.id)
+            .map((candidate) => candidate.name)
+            .join(", ")}`,
+        ),
+        choice = data.products.find(
+          (candidate) =>
+            candidate.name.toLowerCase() === choiceName?.trim().toLowerCase(),
+        );
+      if (choice) {
+        change(choice.id, component.quantity);
+        setLineNotes((current) => ({
+          ...current,
+          [choice.id]: `Parte de ${product.name}: ${component.name}`,
+        }));
+      }
+    }
+  };
   const cancel = async () => {
     if (order)
       await authenticatedApi.posCancelOrder(
@@ -485,6 +579,8 @@ export default function PosPage() {
     setLineCourses({});
     setPricelistId("");
     setShippingDate("");
+    setFiscalPositionId("");
+    setLineLots({});
     setTable(null);
     orderUuid.current = crypto.randomUUID();
     setTab("floor");
@@ -675,6 +771,19 @@ export default function PosPage() {
             {data.pricelists.map((list) => (
               <option key={list.id} value={list.id}>
                 {list.name}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Posición fiscal"
+            value={fiscalPositionId}
+            onChange={(event) => setFiscalPositionId(event.target.value)}
+            className="max-w-52 rounded-xl border border-kumo-line bg-kumo-base p-2"
+          >
+            <option value="">Impuestos generales</option>
+            {data.fiscalPositions.map((position) => (
+              <option key={position.id} value={position.id}>
+                {position.name}
               </option>
             ))}
           </select>
@@ -971,7 +1080,7 @@ export default function PosPage() {
                 .map((product) => (
                   <button
                     key={product.id}
-                    onClick={() => change(product.id, 1)}
+                    onClick={() => addProduct(product)}
                     className="min-h-20 rounded-xl border border-kumo-line bg-kumo-elevated p-4 text-left"
                   >
                     <span className="block">{product.name}</span>
@@ -1108,6 +1217,12 @@ export default function PosPage() {
                 <span>Impuestos</span>
                 <span>{money(tax)}</span>
               </div>
+              {roundingMinor !== 0 && (
+                <div className="flex justify-between text-sm text-kumo-subtle">
+                  <span>Redondeo</span>
+                  <span>{money(roundingMinor)}</span>
+                </div>
+              )}
               <div className="mt-2 flex justify-between text-xl">
                 <span>Total</span>
                 <span>{money(total)}</span>
