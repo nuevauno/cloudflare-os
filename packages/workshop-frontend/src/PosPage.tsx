@@ -15,6 +15,9 @@ const money = (n: number) =>
     currency: "CLP",
     maximumFractionDigits: 0,
   }).format(n);
+const CLP_DENOMINATIONS = [20_000, 10_000, 5_000, 2_000, 1_000, 500, 100, 50, 10] as const;
+const denominationLines = (counts:Record<number,number>) => CLP_DENOMINATIONS.map(denominationMinor=>({denominationMinor,quantity:counts[denominationMinor]??0}));
+const denominationTotal = (counts:Record<number,number>) => denominationLines(counts).reduce((sum,item)=>sum+item.denominationMinor*item.quantity,0);
 const elapsedLabel = (startedAt: string | undefined, now: number) => {
   if (!startedAt) return "0m";
   const minutes = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 60_000));
@@ -170,9 +173,15 @@ export default function PosPage() {
     [openingDialog, setOpeningDialog] = useState(false),
     [openingCashMinor, setOpeningCashMinor] = useState(0),
     [openingNote, setOpeningNote] = useState(""),
+    [openingDenominations,setOpeningDenominations]=useState<Record<number,number>>({}),
     [closingDialog, setClosingDialog] = useState(false),
     [countedCashMinor, setCountedCashMinor] = useState(0),
     [closingNote, setClosingNote] = useState(""),
+    [closingDenominations,setClosingDenominations]=useState<Record<number,number>>({}),
+    [nonCashCounts,setNonCashCounts]=useState<Record<string,number>>({}),
+    [moneyDetailsPhase,setMoneyDetailsPhase]=useState<"opening"|"closing"|null>(null),
+    [moneyDetailsDraft,setMoneyDetailsDraft]=useState<Record<number,number>>({}),
+    [moneyDetailsNoteDraft,setMoneyDetailsNoteDraft]=useState(""),
     [noteEditor, setNoteEditor] = useState<{
       productId: string;
       productName: string;
@@ -413,6 +422,7 @@ export default function PosPage() {
         scope.companyId,
         openingCashMinor,
         openingNote.trim() || undefined,
+        denominationLines(openingDenominations).filter(item=>item.quantity>0),
       );
       await refresh();
       setOpeningDialog(false);
@@ -938,17 +948,24 @@ export default function PosPage() {
   const closeSession = async () => {
     if (!data.session || data.orders.length) return;
     if (!Number.isSafeInteger(countedCashMinor) || countedCashMinor < 0) return;
+    const paymentCounts=Object.entries(nonCashCounts).map(([paymentMethodId,countedMinor])=>({paymentMethodId,countedMinor}));
+    const differences=data.session.paymentsByMethod.filter(method=>{const type=data.paymentMethods.find(candidate=>candidate.id===method.paymentMethodId)?.methodType;return type==="bank"||type==="terminal"}).map(method=>(nonCashCounts[method.paymentMethodId]??method.amountMinor)-method.amountMinor);
+    const maximumDifference=Math.max(Math.abs(countedCashMinor-data.session.expectedCashMinor),...differences.map(Math.abs),0),authorizedDifference=Number(data.config?.settings.pos_amount_authorized_diff??0);
+    if(Boolean(data.config?.settings.pos_set_maximum_difference)&&maximumDifference>authorizedDifference){const proceed=await requestDialog({kind:"confirm",title:"Diferencias de pagos",body:`La diferencia máxima es ${money(maximumDifference)} y supera los ${money(authorizedDifference)} autorizados. ¿Registrar la diferencia de todos modos?`,confirmLabel:"Continuar"});if(!proceed)return;}
     const result = await authenticatedApi.posCloseSession(
       scope.organizationId,
       scope.companyId,
       data.session.id,
       countedCashMinor,
       closingNote.trim() || undefined,
+      paymentCounts,
+      denominationLines(closingDenominations).filter(item=>item.quantity>0),
     );
     setClosingDialog(false);
     setScreen("dashboard");
     await refresh();
-    await requestDialog({ kind: "message", title: "Caja cerrada", body: `Diferencia: ${money(result.differenceMinor)}` });
+    const nonCashDifference=result.paymentDifferences.reduce((sum,item)=>sum+item.differenceMinor,0);
+    await requestDialog({ kind: "message", title: "Caja cerrada", body: `Diferencia de efectivo: ${money(result.differenceMinor)} · Otros medios: ${money(nonCashDifference)}` });
   };
   const downloadSalesReport = () => {
     if (!data.session) return;
@@ -1135,7 +1152,7 @@ export default function PosPage() {
                 {data.session ? "Continuar vendiendo" : "Abrir caja"}
               </button>
               {isManager && data.session && data.orders.length === 0 && (
-                <button onClick={() => { setCountedCashMinor(data.session?.expectedCashMinor ?? 0); setClosingDialog(true); }} className="mt-3 w-full rounded-xl border border-kumo-line p-3">Cerrar caja</button>
+                <button onClick={() => { const counts=Object.fromEntries(data.session?.paymentsByMethod.filter(method=>{const type=data.paymentMethods.find(candidate=>candidate.id===method.paymentMethodId)?.methodType;return type==="bank"||type==="terminal"}).map(method=>[method.paymentMethodId,method.amountMinor])??[]);setCountedCashMinor(data.session?.expectedCashMinor ?? 0);setClosingDenominations({});setNonCashCounts(counts);setClosingDialog(true); }} className="mt-3 w-full rounded-xl border border-kumo-line p-3">Cerrar caja</button>
               )}
             </div>
             {data.session ? (
@@ -1155,7 +1172,7 @@ export default function PosPage() {
             <section role="dialog" aria-modal="true" aria-label="Control de apertura" className="w-full max-w-lg rounded-xl bg-kumo-elevated p-6 shadow-xl">
               <h2 className="text-2xl font-normal">Control de apertura</h2>
               <label className="mt-6 block">Efectivo inicial
-                <input autoFocus type="number" min="0" value={openingCashMinor} onChange={(event) => setOpeningCashMinor(Math.max(0, Number(event.target.value)))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" />
+                <span className="mt-2 flex gap-2"><input autoFocus type="number" min="0" value={openingCashMinor} onChange={(event) => {setOpeningCashMinor(Math.max(0, Number(event.target.value)));setOpeningDenominations({})}} className="min-w-0 flex-1 rounded-xl border border-kumo-line bg-kumo-base p-3" /><button type="button" onClick={()=>{setMoneyDetailsDraft(openingDenominations);setMoneyDetailsNoteDraft(openingNote);setMoneyDetailsPhase("opening")}} className="rounded-xl border border-kumo-line px-4" aria-label="Contar efectivo inicial por denominaciones">Contar</button></span>
               </label>
               {data.orders.length > 0 && <p role="status" className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sky-800">Hay {data.orders.length} pedidos abiertos que continuarán en esta sesión.</p>}
               <label className="mt-4 block">Nota de apertura<textarea rows={4} value={openingNote} onChange={(event) => setOpeningNote(event.target.value)} placeholder="Agrega una nota de apertura…" className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label>
@@ -1171,14 +1188,26 @@ export default function PosPage() {
             <section role="dialog" aria-modal="true" aria-label="Cerrar caja" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-kumo-elevated p-6 shadow-xl">
               <header className="flex items-center justify-between"><h2 className="text-2xl font-normal">Cerrar caja</h2><span>{data.session.paidOrderCount} pedidos · {money(data.session.grossSalesMinor)}</span></header>
               <dl className="mt-6 grid grid-cols-2 gap-3"><dt>Apertura</dt><dd className="text-right">{money(data.session.openingCashMinor)}</dd><dt>Ventas</dt><dd className="text-right">{money(data.session.grossSalesMinor)}</dd><dt>Devoluciones</dt><dd className="text-right">{money(data.session.refundMinor)}</dd><dt>Esperado</dt><dd className="text-right">{money(data.session.expectedCashMinor)}</dd></dl>
-              <section className="mt-5 border-t border-kumo-line pt-4"><h3 className="text-lg font-normal">Medios de pago</h3>{data.session.paymentsByMethod.map((method) => <div key={method.paymentMethodId} className="mt-2 flex justify-between"><span>{method.name}</span><span>{money(method.amountMinor)}</span></div>)}{!data.session.paymentsByMethod.length && <p className="mt-2 text-kumo-subtle">Sin pagos registrados.</p>}</section>
+              <section className="mt-5 border-t border-kumo-line pt-4"><h3 className="text-lg font-normal">Medios de pago</h3>{data.session.paymentsByMethod.map((method) => {const type=data.paymentMethods.find(candidate=>candidate.id===method.paymentMethodId)?.methodType,isCounted=type==="bank"||type==="terminal",counted=nonCashCounts[method.paymentMethodId]??method.amountMinor;return <div key={method.paymentMethodId} className="mt-3 grid grid-cols-[1fr_120px_120px] items-center gap-3"><span>{method.name}<span className="block text-sm text-kumo-subtle">Esperado {money(method.amountMinor)}</span></span>{isCounted?<input aria-label={`${method.name} contado`} type="number" min="0" value={counted} onChange={event=>setNonCashCounts(current=>({...current,[method.paymentMethodId]:Math.max(0,Number(event.target.value))}))} className="rounded-xl border border-kumo-line p-2 text-right"/>:<span className="text-right">{money(method.amountMinor)}</span>}<span className={`text-right ${isCounted&&counted!==method.amountMinor?"text-red-600":"text-kumo-subtle"}`}>Diferencia {money(isCounted?counted-method.amountMinor:0)}</span></div>})}{!data.session.paymentsByMethod.length && <p className="mt-2 text-kumo-subtle">Sin pagos registrados.</p>}</section>
               <section className="mt-5 border-t border-kumo-line pt-4"><h3 className="text-lg font-normal">Entradas y salidas</h3>{data.session.cashMoves.map((move) => <div key={move.id} className="mt-2 grid grid-cols-[80px_1fr_auto] gap-3"><span>{move.direction === "in" ? "Entrada" : "Salida"}</span><span>{move.reason}</span><span>{money(move.direction === "in" ? move.amountMinor : -move.amountMinor)}</span></div>)}{!data.session.cashMoves.length && <p className="mt-2 text-kumo-subtle">Sin movimientos de caja.</p>}</section>
-              <label className="mt-6 block">Efectivo contado<input autoFocus type="number" min="0" value={countedCashMinor} onChange={(event) => setCountedCashMinor(Math.max(0, Number(event.target.value)))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label>
+              <label className="mt-6 block">Efectivo contado<span className="mt-2 flex gap-2"><input autoFocus type="number" min="0" value={countedCashMinor} onChange={(event) => {setCountedCashMinor(Math.max(0, Number(event.target.value)));setClosingDenominations({})}} className="min-w-0 flex-1 rounded-xl border border-kumo-line bg-kumo-base p-3" /><button type="button" onClick={()=>{setMoneyDetailsDraft(closingDenominations);setMoneyDetailsNoteDraft(closingNote);setMoneyDetailsPhase("closing")}} className="rounded-xl border border-kumo-line px-4" aria-label="Contar efectivo de cierre por denominaciones">Contar</button><button type="button" onClick={()=>{setCountedCashMinor(data.session!.expectedCashMinor);setClosingDenominations({})}} className="rounded-xl border border-kumo-line px-4" aria-label="Autocompletar efectivo esperado">Autocompletar</button></span></label>
               <p className="mt-3 text-kumo-subtle">Diferencia: {money(countedCashMinor - data.session.expectedCashMinor)}</p>
               {data.session.openingNote && <label className="mt-5 block">Nota de apertura<textarea readOnly rows={3} value={data.session.openingNote} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-line p-3" /></label>}
               <label className="mt-4 block">Nota de cierre<textarea rows={3} value={closingNote} onChange={(event) => setClosingNote(event.target.value)} placeholder="Agrega una nota de cierre…" className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label>
               {data.orders.length > 0 && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800">Debes resolver {data.orders.length} pedidos abiertos antes de cerrar.</p>}
               <div className="mt-6 flex flex-wrap justify-between gap-2"><div className="flex gap-2"><button onClick={() => setClosingDialog(false)} className="rounded-xl border border-kumo-line px-4 py-3">Descartar</button><button disabled={busy || data.orders.length > 0} onClick={closeSession} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white disabled:opacity-40">Cerrar caja</button></div><div className="flex gap-2"><button onClick={()=>void cashMove("in")} className="rounded-xl border border-kumo-line px-4 py-3">Entrada</button><button onClick={()=>void cashMove("out")} className="rounded-xl border border-kumo-line px-4 py-3">Salida</button><button onClick={downloadSalesReport} className="rounded-xl border border-kumo-line px-4 py-3">Venta diaria</button></div></div>
+            </section>
+          </div>
+        )}
+        {moneyDetailsPhase && (
+          <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4">
+            <section role="dialog" aria-modal="true" aria-label="Detalle de efectivo" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-kumo-elevated p-6 shadow-xl">
+              <h2 className="text-2xl font-normal">Detalle de efectivo</h2>
+              <p className="mt-2 text-kumo-subtle">Ingresa la cantidad de billetes y monedas.</p>
+              <div className="mt-5 divide-y divide-kumo-line">{CLP_DENOMINATIONS.map(denomination=>{const quantity=moneyDetailsDraft[denomination]??0;return <label key={denomination} className="grid grid-cols-[1fr_110px_130px] items-center gap-3 py-2"><span>{money(denomination)}</span><input aria-label={`Cantidad de ${money(denomination)}`} type="number" min="0" step="1" value={quantity} onChange={event=>{const value=Math.max(0,Math.floor(Number(event.target.value)));setMoneyDetailsDraft(current=>({...current,[denomination]:value}))}} className="rounded-xl border border-kumo-line p-2 text-right"/><span className="text-right text-kumo-subtle">{money(denomination*quantity)}</span></label>})}</div>
+              <div className="mt-5 flex items-center justify-between border-t border-kumo-line pt-4 text-xl"><span>Total contado</span><span>{money(denominationTotal(moneyDetailsDraft))}</span></div>
+              <label className="mt-4 block">Nota<textarea rows={3} value={moneyDetailsNoteDraft} onChange={event=>setMoneyDetailsNoteDraft(event.target.value)} className="mt-2 w-full rounded-xl border border-kumo-line p-3"/></label>
+              <div className="mt-5 flex justify-end gap-2"><button onClick={()=>setMoneyDetailsPhase(null)} className="rounded-xl border border-kumo-line px-4 py-3">Descartar</button><button onClick={()=>{const total=denominationTotal(moneyDetailsDraft);if(moneyDetailsPhase==="opening"){setOpeningDenominations(moneyDetailsDraft);setOpeningCashMinor(total);setOpeningNote(moneyDetailsNoteDraft)}else{setClosingDenominations(moneyDetailsDraft);setCountedCashMinor(total);setClosingNote(moneyDetailsNoteDraft)}setMoneyDetailsPhase(null)}} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white">Aplicar</button></div>
             </section>
           </div>
         )}
