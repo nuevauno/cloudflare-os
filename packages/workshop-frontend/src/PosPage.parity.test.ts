@@ -55,4 +55,11 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("posUpdateSettings");
     expect(source).toContain("settingsDirty");
   });
+
+  it("mantiene el registro limpio y mueve las acciones secundarias al menú contextual",()=>{
+    for(const text of ["⋮","Nota para el cliente","Transferir / Fusionar","Comensales","Tarifa","Cancelar orden"])expect(source).toContain(text);
+    expect(source).toContain('grid-cols-[1fr_1fr_44px_1fr_44px]');
+    expect(source).toContain('["1","2","3","Ctdad"');
+    expect(source).toContain('setActionsOpen(true)');
+  });
 });
