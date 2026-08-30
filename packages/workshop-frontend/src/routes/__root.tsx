@@ -38,7 +38,6 @@ function RootComponent() {
   // here so the chrome doesn't flash in during the redirect to /workspace/.
   const isFullscreenApplication = pathname.startsWith('/workspace/')
     || pathname.startsWith('/gadget/')
-    || pathname === '/pos'
 
   const handleLoginSuccess = () => {
     const token = localStorage.getItem('authToken')
