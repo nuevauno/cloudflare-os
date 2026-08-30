@@ -63,4 +63,15 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain('setActionsOpen(true)');
     expect(source).not.toContain('setCategory(categories[0])');
   });
+
+  it("mantiene Mesas como superficie operativa limpia y deja caja/edición fuera del salón", () => {
+    const floorStart = source.indexOf('{tab === "floor" && (');
+    const ordersStart = source.indexOf('{tab === "orders" && (', floorStart);
+    const floor = source.slice(floorStart, ordersStart);
+    expect(floor).toContain("＋ Nueva orden");
+    expect(floor).toContain('fixed inset-x-0 bottom-0');
+    for (const state of ["Libre", "Ocupada", "Demorada", "Pendiente", "Envío parcial", "Enviado"]) expect(floor).toContain(state);
+    expect(floor).not.toContain("Caja esperada");
+    expect(floor).not.toContain("Editar salón");
+  });
 });
