@@ -14,6 +14,13 @@ const money = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 type Tab = "floor" | "register" | "orders";
+type PosDialogRequest =
+  | { kind: "text"; title: string; label?: string; value?: string }
+  | { kind: "number"; title: string; label?: string; value?: number; min?: number; max?: number }
+  | { kind: "selection"; title: string; options: Array<{ id: string; label: string }>; selected?: string[]; min?: number; max?: number }
+  | { kind: "confirm"; title: string; body?: string; confirmLabel?: string }
+  | { kind: "message"; title: string; body: string };
+type PosDialogState = PosDialogRequest & { resolve: (value: string | string[] | number | boolean | null) => void };
 type DeviceBridge = {
   readScale(id?: string): Promise<{ ok?: boolean; weight: number | null }>;
   createPrintJob(job: {
@@ -67,7 +74,10 @@ export default function PosPage() {
     [partnerDialog, setPartnerDialog] = useState(false),
     [partnerSearch, setPartnerSearch] = useState(""),
     [partnerCreate, setPartnerCreate] = useState(false),
-    [partnerDraft, setPartnerDraft] = useState({displayName:"",email:"",phone:"",taxIdentifier:""});
+    [partnerDraft, setPartnerDraft] = useState({displayName:"",email:"",phone:"",taxIdentifier:""}),
+    [dialog, setDialog] = useState<PosDialogState | null>(null),
+    [dialogText, setDialogText] = useState(""),
+    [dialogSelections, setDialogSelections] = useState<string[]>([]);
   const [generalNote, setGeneralNote] = useState(""),
     [guestCount, setGuestCount] = useState(1),
     [tipMinor, setTipMinor] = useState(0),
@@ -96,6 +106,16 @@ export default function PosPage() {
   const scannerBuffer = useRef(""),
     scannerAt = useRef(0),
     syncChannel = useRef<BroadcastChannel | null>(null);
+  const requestDialog = (request: PosDialogRequest) =>
+    new Promise<string | string[] | number | boolean | null>((resolve) => {
+      setDialogText("value" in request ? String(request.value ?? "") : "");
+      setDialogSelections(request.kind === "selection" ? request.selected ?? [] : []);
+      setDialog({ ...request, resolve });
+    });
+  const finishDialog = (value: string | string[] | number | boolean | null) => {
+    dialog?.resolve(value);
+    setDialog(null);
+  };
   const refresh = async () => {
     if (scope)
       setData(
@@ -464,29 +484,29 @@ export default function PosPage() {
       [id]: normalized,
     }));
   };
-  const addProduct = (
+  const addProduct = async (
     initial: PosLoadDataView["products"][number],
   ) => {
     const variants = data.products.filter(
         (product) => product.templateId === initial.templateId,
       ),
-      variantName =
+      variantId =
         variants.length > 1
-          ? window.prompt(
-              `Elige variante: ${variants
-                .map(
-                  (product) =>
-                    `${product.name}${product.attributes.length ? ` (${product.attributes.map((attribute) => attribute.valueName).join(", ")})` : ""}`,
-                )
-                .join(", ")}`,
-              initial.name,
-            )
-          : initial.name,
-      product =
-        variants.find(
-          (candidate) =>
-            candidate.name.toLowerCase() === variantName?.trim().toLowerCase(),
-        ) ?? initial,
+          ? await requestDialog({
+              kind: "selection",
+              title: "Configurar producto",
+              options: variants.map((product) => ({
+                id: product.id,
+                label: `${product.name}${product.attributes.length ? ` · ${product.attributes.map((attribute) => attribute.valueName).join(", ")}` : ""}`,
+              })),
+              selected: [initial.id],
+              min: 1,
+              max: 1,
+            })
+          : [initial.id];
+    if (variantId === null) return;
+    const product =
+        variants.find((candidate) => candidate.id === (variantId as string[] | null)?.[0]) ?? initial,
       comboSelections: Array<{
         componentName: string;
         product: PosLoadDataView["products"][number];
@@ -496,30 +516,21 @@ export default function PosPage() {
       const available = data.products.filter(
           (candidate) => candidate.id !== product.id,
         ),
-        response = window.prompt(
-          `${component.name}: elige entre ${component.minChoices} y ${component.maxChoices}. Separa varias opciones con coma.\n${available
-            .map((candidate) => candidate.name)
-            .join(", ")}`,
-          available[0]?.name ?? "",
-        );
-      if (response === null) return;
-      const names = response
-          .split(",")
-          .map((name) => name.trim())
-          .filter(Boolean),
-        choices = names.map((name) =>
-          available.find(
-            (candidate) => candidate.name.toLowerCase() === name.toLowerCase(),
-          ),
-        );
+        selected = await requestDialog({
+          kind: "selection",
+          title: component.name,
+          options: available.map((candidate) => ({ id: candidate.id, label: candidate.name })),
+          min: component.minChoices,
+          max: component.maxChoices,
+        });
+      if (selected === null) return;
+      const choices = (selected as string[]).map((id) => available.find((candidate) => candidate.id === id));
       if (
         choices.some((choice) => !choice) ||
         choices.length < component.minChoices ||
         choices.length > component.maxChoices
       ) {
-        window.alert(
-          `Debes elegir entre ${component.minChoices} y ${component.maxChoices} opciones válidas para ${component.name}.`,
-        );
+        await requestDialog({ kind: "message", title: "Selección incompleta", body: `Debes elegir entre ${component.minChoices} y ${component.maxChoices} opciones para ${component.name}.` });
         return;
       }
       for (const choice of choices) {
@@ -531,20 +542,21 @@ export default function PosPage() {
       }
     }
     if (product.lots.length) {
-      const lotName = window.prompt(
-          `Lote o serie: ${product.lots.map((lot) => lot.name).join(", ")}`,
-          product.lots[0]?.name,
-        ),
-        lot = product.lots.find(
-          (candidate) =>
-            candidate.name.toLowerCase() === lotName?.trim().toLowerCase(),
-        );
+      const lotSelection = await requestDialog({
+          kind: "selection",
+          title: product.lots.some((lot) => lot.tracking === "serial") ? "Seleccionar número de serie" : "Seleccionar lote",
+          options: product.lots.map((lot) => ({ id: lot.id, label: lot.name })),
+          selected: product.lots[0] ? [product.lots[0].id] : [],
+          min: 1,
+          max: 1,
+        }),
+        lot = product.lots.find((candidate) => candidate.id === (lotSelection as string[] | null)?.[0]);
       if (!lot) return;
       const alreadySelected = lineLots[product.id]?.some(
         (selection) => selection.lotId === lot.id,
       );
       if (lot.tracking === "serial" && alreadySelected) {
-        window.alert("Ese número de serie ya está agregado.");
+        await requestDialog({ kind: "message", title: "Número de serie duplicado", body: "Ese número de serie ya está agregado." });
         return;
       }
       setLineLots((current) => {
@@ -568,7 +580,7 @@ export default function PosPage() {
     change(product.id, 1);
     for (const optionalId of product.optionalProductIds) {
       const optional = data.products.find((candidate) => candidate.id === optionalId);
-      if (optional && window.confirm(`¿Agregar ${optional.name}?`)) change(optional.id, 1);
+      if (optional && await requestDialog({ kind: "confirm", title: "Producto opcional", body: `¿Agregar ${optional.name}?`, confirmLabel: "Agregar" })) change(optional.id, 1);
     }
     for (const selection of comboSelections) {
       change(selection.product.id, selection.quantity);
@@ -687,12 +699,8 @@ export default function PosPage() {
     const available = data.floors
         .flatMap((floor) => floor.tables)
         .filter((item) => item.id !== table?.id),
-      name = window.prompt(
-        `Mover a mesa: ${available.map((item) => item.name).join(", ")}`,
-      );
-    const target = available.find(
-      (item) => item.name.toLowerCase() === name?.trim().toLowerCase(),
-    );
+      selected = await requestDialog({ kind: "selection", title: "Mover mesa", options: available.map((item) => ({ id: item.id, label: item.name })), min: 1, max: 1 });
+    const target = available.find((item) => item.id === (selected as string[] | null)?.[0]);
     if (!target) return;
     setOrder(
       await authenticatedApi.posTransferOrder(
@@ -708,22 +716,17 @@ export default function PosPage() {
   const merge = async () => {
     if (!order) return;
     const targets = data.orders.filter((item) => item.id !== order.id),
-      name = window.prompt(
-        `Unir con mesa: ${targets
-          .map((item) => {
-            const targetTable = data.floors
-              .flatMap((floor) => floor.tables)
-              .find((candidate) => candidate.id === item.tableId);
-            return targetTable?.name ?? item.id;
-          })
-          .join(", ")}`,
-      ),
-      target = targets.find((item) => {
-        const targetTable = data.floors
-          .flatMap((floor) => floor.tables)
-          .find((candidate) => candidate.id === item.tableId);
-        return (targetTable?.name ?? item.id).toLowerCase() === name?.trim().toLowerCase();
-      });
+      selected = await requestDialog({
+        kind: "selection",
+        title: "Unir mesas",
+        options: targets.map((item) => ({
+          id: item.id,
+          label: data.floors.flatMap((floor) => floor.tables).find((candidate) => candidate.id === item.tableId)?.name ?? item.id,
+        })),
+        min: 1,
+        max: 1,
+      }),
+      target = targets.find((item) => item.id === (selected as string[] | null)?.[0]);
     if (!target) return;
     const merged = await authenticatedApi.posMergeOrders(
       scope.organizationId,
@@ -745,17 +748,11 @@ export default function PosPage() {
   };
   const split = async () => {
     if (!order || !order.lines.length) return;
-    const lineQuantities = order.lines.flatMap((line) => {
-      const quantity = Number(
-        window.prompt(
-          `Cantidad de ${line.description} para la cuenta separada (máximo ${line.quantity})`,
-          "0",
-        ),
-      );
-      return quantity > 0 && quantity <= line.quantity
-        ? [{ lineId: line.id, quantity }]
-        : [];
-    });
+    const lineQuantities: Array<{ lineId: string; quantity: number }> = [];
+    for (const line of order.lines) {
+      const quantity = Number(await requestDialog({ kind: "number", title: "Dividir cuenta", label: line.description, value: 0, min: 0, max: line.quantity }));
+      if (quantity > 0 && quantity <= line.quantity) lineQuantities.push({ lineId: line.id, quantity });
+    }
     if (!lineQuantities.length) return;
     const result = await authenticatedApi.posSplitOrder({
       organizationId: scope.organizationId,
@@ -777,12 +774,9 @@ export default function PosPage() {
   };
   const cashMove = async (direction: "in" | "out") => {
     if (!data.session) return;
-    const amount = Number(
-        window.prompt(
-          direction === "in" ? "Monto que entra" : "Monto que sale",
-        ),
-      ),
-      reason = window.prompt("Motivo")?.trim();
+    const amount = Number(await requestDialog({ kind: "number", title: direction === "in" ? "Entrada de efectivo" : "Salida de efectivo", label: "Monto", min: 1 })),
+      reasonValue = await requestDialog({ kind: "text", title: "Movimiento de caja", label: "Motivo" }),
+      reason = typeof reasonValue === "string" ? reasonValue.trim() : "";
     if (!Number.isSafeInteger(amount) || amount <= 0 || !reason) return;
     await authenticatedApi.posCashMove({
       organizationId: scope.organizationId,
@@ -807,11 +801,12 @@ export default function PosPage() {
     setClosingDialog(false);
     setScreen("dashboard");
     await refresh();
-    window.alert(`Caja cerrada. Diferencia: ${money(result.differenceMinor)}`);
+    await requestDialog({ kind: "message", title: "Caja cerrada", body: `Diferencia: ${money(result.differenceMinor)}` });
   };
   const createTable = async (floorId: string) => {
-    const name = window.prompt("Nombre de la mesa")?.trim(),
-      seats = Number(window.prompt("Cantidad de asientos", "4"));
+    const nameValue = await requestDialog({ kind: "text", title: "Nueva mesa", label: "Nombre" }),
+      seats = Number(await requestDialog({ kind: "number", title: "Nueva mesa", label: "Cantidad de asientos", value: 4, min: 1 })),
+      name = typeof nameValue === "string" ? nameValue.trim() : "";
     if (!name || !Number.isSafeInteger(seats) || seats <= 0) return;
     await authenticatedApi.posCreateTable(
       scope.organizationId,
@@ -825,14 +820,17 @@ export default function PosPage() {
   const editTable = async (
     current: PosLoadDataView["floors"][number]["tables"][number],
   ) => {
-    const name = window.prompt("Nombre", current.name)?.trim(),
-      seats = Number(window.prompt("Asientos", String(current.seats))),
-      shape = window.prompt("Forma: square o round", current.shape),
-      color = window.prompt("Color", current.color ?? "#FE4A23")?.trim(),
-      width = Number(window.prompt("Ancho", String(current.width))),
-      height = Number(window.prompt("Alto", String(current.height))),
-      positionX = Number(window.prompt("Posición X", String(current.positionX))),
-      positionY = Number(window.prompt("Posición Y", String(current.positionY)));
+    const nameValue = await requestDialog({ kind: "text", title: "Editar mesa", label: "Nombre", value: current.name }),
+      seats = Number(await requestDialog({ kind: "number", title: "Editar mesa", label: "Asientos", value: current.seats, min: 1 })),
+      shapeSelection = await requestDialog({ kind: "selection", title: "Forma de la mesa", options: [{ id: "square", label: "Cuadrada" }, { id: "round", label: "Redonda" }], selected: [current.shape], min: 1, max: 1 }),
+      colorValue = await requestDialog({ kind: "text", title: "Editar mesa", label: "Color", value: current.color ?? "#FE4A23" }),
+      width = Number(await requestDialog({ kind: "number", title: "Editar mesa", label: "Ancho", value: current.width, min: 1 })),
+      height = Number(await requestDialog({ kind: "number", title: "Editar mesa", label: "Alto", value: current.height, min: 1 })),
+      positionX = Number(await requestDialog({ kind: "number", title: "Editar mesa", label: "Posición horizontal", value: current.positionX })),
+      positionY = Number(await requestDialog({ kind: "number", title: "Editar mesa", label: "Posición vertical", value: current.positionY })),
+      name = typeof nameValue === "string" ? nameValue.trim() : "",
+      color = typeof colorValue === "string" ? colorValue.trim() : "",
+      shape = (shapeSelection as string[] | null)?.[0];
     if (!name || !Number.isSafeInteger(seats) || seats <= 0) return;
     await authenticatedApi.posUpdateTable(
       scope.organizationId,
@@ -854,7 +852,7 @@ export default function PosPage() {
   const deleteTable = async (
     current: PosLoadDataView["floors"][number]["tables"][number],
   ) => {
-    if (!window.confirm(`Eliminar mesa ${current.name}`)) return;
+    if (!await requestDialog({ kind: "confirm", title: "Eliminar mesa", body: `¿Eliminar mesa ${current.name}?`, confirmLabel: "Eliminar" })) return;
     await authenticatedApi.posDeleteTable(
       scope.organizationId,
       scope.companyId,
@@ -864,17 +862,11 @@ export default function PosPage() {
   };
   const refund = async (ticket: PosOrderView) => {
     if (ticket.state !== "paid") return;
-    const refundLines = ticket.lines.flatMap((line) => {
-      const quantity = Number(
-        window.prompt(
-          `Cantidad a devolver de ${line.description} (máximo ${line.quantity})`,
-          String(line.quantity),
-        ),
-      );
-      return quantity > 0 && quantity <= line.quantity
-        ? [{ lineId: line.id, quantity }]
-        : [];
-    });
+    const refundLines: Array<{ lineId: string; quantity: number }> = [];
+    for (const line of ticket.lines) {
+      const quantity = Number(await requestDialog({ kind: "number", title: "Devolver productos", label: line.description, value: line.quantity, min: 0, max: line.quantity }));
+      if (quantity > 0 && quantity <= line.quantity) refundLines.push({ lineId: line.id, quantity });
+    }
     if (!refundLines.length) return;
     await authenticatedApi.posRefundOrder({
       organizationId: scope.organizationId,
@@ -1598,10 +1590,8 @@ export default function PosPage() {
                     Nota
                   </button>
                   <button
-                    onClick={() => {
-                      const price = Number(
-                        window.prompt("Precio unitario", String(line.unitPriceMinor)),
-                      );
+                    onClick={async () => {
+                      const price = Number(await requestDialog({ kind: "number", title: "Cambiar precio", label: line.name, value: line.unitPriceMinor, min: 0 }));
                       if (Number.isSafeInteger(price) && price >= 0)
                         setManualPrices((current) => ({
                           ...current,
@@ -1613,13 +1603,8 @@ export default function PosPage() {
                     Precio
                   </button>
                   <button
-                    onClick={() => {
-                      const course = Number(
-                        window.prompt(
-                          "Número de curso",
-                          String(lineCourses[line.id] ?? 1),
-                        ),
-                      );
+                    onClick={async () => {
+                      const course = Number(await requestDialog({ kind: "number", title: "Curso", label: line.name, value: lineCourses[line.id] ?? 1, min: 1 }));
                       if (Number.isSafeInteger(course) && course > 0)
                         setLineCourses((current) => ({
                           ...current,
@@ -1760,6 +1745,70 @@ export default function PosPage() {
             </div>
           </aside>
         </section>
+      )}
+      {dialog && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/45 p-4">
+          <section role="dialog" aria-modal="true" aria-label={dialog.title} className="w-full max-w-xl rounded-xl bg-kumo-elevated shadow-xl">
+            <header className="flex items-center justify-between border-b border-kumo-line px-5 py-4">
+              <h2 className="text-xl font-normal">{dialog.title}</h2>
+              <button aria-label="Cerrar" onClick={() => finishDialog(null)} className="px-2 text-2xl text-kumo-subtle">×</button>
+            </header>
+            <div className="p-5">
+              {dialog.kind === "message" && <p className="text-lg">{dialog.body}</p>}
+              {dialog.kind === "confirm" && <p className="text-lg">{dialog.body}</p>}
+              {(dialog.kind === "text" || dialog.kind === "number") && (
+                <label className="grid gap-2">
+                  <span>{dialog.label ?? dialog.title}</span>
+                  <input
+                    autoFocus
+                    type={dialog.kind === "number" ? "number" : "text"}
+                    value={dialogText}
+                    min={dialog.kind === "number" ? dialog.min : undefined}
+                    max={dialog.kind === "number" ? dialog.max : undefined}
+                    onChange={(event) => setDialogText(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") finishDialog(dialog.kind === "number" ? Number(dialogText) : dialogText);
+                    }}
+                    className="rounded-xl border border-[#FE4A23] bg-kumo-base p-4 outline-none"
+                  />
+                </label>
+              )}
+              {dialog.kind === "selection" && (
+                <div className="grid max-h-[55vh] gap-2 overflow-auto sm:grid-cols-2">
+                  {dialog.options.map((option) => {
+                    const selected = dialogSelections.includes(option.id);
+                    return (
+                      <button
+                        key={option.id}
+                        onClick={() => setDialogSelections((current) => selected ? current.filter((id) => id !== option.id) : dialog.max === 1 ? [option.id] : [...current, option.id])}
+                        className={`rounded-xl border p-4 text-left ${selected ? "border-[#FE4A23] bg-orange-100" : "border-kumo-line bg-kumo-base"}`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <footer className="flex justify-end gap-2 border-t border-kumo-line px-5 py-4">
+              {dialog.kind !== "message" && <button onClick={() => finishDialog(null)} className="rounded-xl border border-kumo-line px-5 py-3">Descartar</button>}
+              {dialog.kind === "confirm" && <button onClick={() => finishDialog(true)} className="rounded-xl bg-[#FE4A23] px-5 py-3 text-white">{dialog.confirmLabel ?? "Confirmar"}</button>}
+              {dialog.kind === "message" && <button onClick={() => finishDialog(true)} className="rounded-xl bg-[#FE4A23] px-5 py-3 text-white">Aceptar</button>}
+              {(dialog.kind === "text" || dialog.kind === "number") && (
+                <button onClick={() => finishDialog(dialog.kind === "number" ? Number(dialogText) : dialogText)} className="rounded-xl bg-[#FE4A23] px-5 py-3 text-white">Aplicar</button>
+              )}
+              {dialog.kind === "selection" && (
+                <button
+                  disabled={dialogSelections.length < (dialog.min ?? 0) || dialogSelections.length > (dialog.max ?? Number.POSITIVE_INFINITY)}
+                  onClick={() => finishDialog(dialogSelections)}
+                  className="rounded-xl bg-[#FE4A23] px-5 py-3 text-white disabled:opacity-40"
+                >
+                  Confirmar
+                </button>
+              )}
+            </footer>
+          </section>
+        </div>
       )}
       {noteEditor && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4">

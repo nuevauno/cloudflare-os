@@ -22,4 +22,19 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("Nuevo cliente");
     expect(source).toContain("posCreatePartner");
   });
+
+  it("no delega ningún recorrido operativo a diálogos nativos del navegador", () => {
+    expect(source).not.toMatch(/window\.(prompt|confirm|alert)/);
+    for (const title of [
+      "Configurar producto",
+      "Seleccionar lote",
+      "Mover mesa",
+      "Unir mesas",
+      "Dividir cuenta",
+      "Movimiento de caja",
+      "Devolver productos",
+      "Cambiar precio",
+      "Curso",
+    ]) expect(source).toContain(title);
+  });
 });
