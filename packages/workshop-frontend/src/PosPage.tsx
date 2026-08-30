@@ -1021,6 +1021,7 @@ export default function PosPage() {
       <button onClick={()=>setScreen("dashboard")} className="rounded-xl border border-kumo-line px-4 py-2">Volver</button>
       <button disabled={!settingsDirty||busy} onClick={()=>void saveSettings()} className="rounded-xl bg-[#FE4A23] px-5 py-2 text-white disabled:opacity-40">Guardar</button>
       <button disabled={!settingsDirty||busy} onClick={()=>{setSettingsDraft(data.config?.settings??{});setSettingsDirty(false)}} className="rounded-xl border border-kumo-line px-4 py-2 disabled:opacity-40">Descartar</button>
+      <button onClick={()=>{setLayoutEditing(true);setTab("floor");setScreen("terminal")}} className="rounded-xl border border-kumo-line px-4 py-2">Editar mesas</button>
       <h1 className="ml-4 text-xl font-normal">Ajustes del punto de venta</h1>
     </header>
     <div className="mx-auto max-w-6xl p-5">
@@ -1075,6 +1076,7 @@ export default function PosPage() {
               </dl>
             ) : <p className="text-kumo-subtle">No hay una caja abierta. Ingresa el efectivo inicial para comenzar.</p>}
           </div>
+          {data.session && <div className="mt-5 flex justify-end gap-2 border-t border-kumo-line pt-4"><button onClick={()=>void cashMove("in")} className="rounded-xl border border-kumo-line px-4 py-2">Entrada de efectivo</button><button onClick={()=>void cashMove("out")} className="rounded-xl border border-kumo-line px-4 py-2">Salida de efectivo</button></div>}
         </section>
         {openingDialog && (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
@@ -1419,42 +1421,12 @@ export default function PosPage() {
         </section>
       )}
       {tab === "floor" && (
-        <section className="flex flex-wrap items-center gap-2 border-b border-kumo-line px-4 pb-3">
-          <div className="mr-auto flex flex-wrap gap-4 text-sm text-kumo-subtle">
-            <span>Caja esperada: {money(data.session.expectedCashMinor)}</span>
-            <span>Ventas: {money(data.session.grossSalesMinor)}</span>
-            <span>Pedidos pagados: {data.session.paidOrderCount}</span>
-            <span>Devoluciones: {money(data.session.refundMinor)}</span>
-            {data.session.paymentsByMethod.map((method) => (
-              <span key={method.paymentMethodId}>
-                {method.name}: {money(method.amountMinor)}
-              </span>
-            ))}
-          </div>
-          <button
-            onClick={() => cashMove("in")}
-            className="rounded-xl border border-kumo-line px-4 py-2"
-          >
-            Entrada
-          </button>
-          <button
-            onClick={() => cashMove("out")}
-            className="rounded-xl border border-kumo-line px-4 py-2"
-          >
-            Salida
-          </button>
-          <button
-            disabled={data.orders.length > 0}
-            onClick={closeSession}
-            className="rounded-xl border border-kumo-line px-4 py-2 disabled:opacity-40"
-          >
-            Cerrar caja
-          </button>
-        </section>
-      )}
-      {tab === "floor" && (
-        <section className="p-4">
-          <div className="mb-4 flex items-center justify-between">
+        <section className="relative flex min-h-[calc(100vh-5.5rem)] flex-col pb-12">
+          {layoutEditing && <div className="flex items-center justify-end gap-2 border-b border-kumo-line bg-kumo-elevated px-3 py-2">
+            {data.floors.map((floor)=><button key={floor.id} onClick={()=>void createTable(floor.id)} className="rounded-lg border border-kumo-line px-4 py-2">＋ Mesa en {floor.name}</button>)}
+            <button onClick={()=>setLayoutEditing(false)} className="rounded-lg bg-[#FE4A23] px-5 py-2 text-white">Guardar plano</button>
+          </div>}
+          <div className="grid grid-cols-3 items-center border-b border-kumo-line px-1 py-2">
             <button
               onClick={() => {
                 setTable(null);
@@ -1463,38 +1435,20 @@ export default function PosPage() {
                 orderUuid.current = crypto.randomUUID();
                 setTab("register");
               }}
-              className="rounded-xl bg-[#FE4A23] px-5 py-3 text-white"
+              className="justify-self-start rounded-lg bg-[#FE4A23] px-5 py-3 text-white"
             >
               ＋ Nueva orden
             </button>
-            <button
-              onClick={() => setLayoutEditing((current) => !current)}
-              className="ml-2 rounded-xl border border-kumo-line px-5 py-3"
-            >
-              {layoutEditing ? "Terminar edición" : "Editar salón"}
-            </button>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-kumo-subtle">
-              <span><i className="mr-1 inline-block h-3 w-3 rounded bg-kumo-line" />Libre</span>
-              <span><i className="mr-1 inline-block h-3 w-3 rounded bg-[#FE4A23]" />Ocupada</span>
-              <span><i className="mr-1 inline-block h-3 w-3 rounded bg-red-500" />Demorada</span>
-              <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] text-white">P</i>Pendiente</span>
-              <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-[9px] text-white">EP</i>Envío parcial</span>
-              <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[9px] text-white">EC</i>Enviado</span>
+            <div className="justify-self-center rounded-lg border border-[#FE4A23] bg-orange-50 px-5 py-3 text-[#FE4A23]">
+              {data.floors[0]?.name ?? "Salón"}
+            </div>
+            <div className="flex items-center gap-3 justify-self-end pr-3 text-sm">
+              <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-kumo-line" />{data.floors.flatMap((floor) => floor.tables).length - data.orders.length} Libres</span>
+              <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[#FE4A23]" />{data.orders.length} Ocupadas</span>
             </div>
           </div>
           {data.floors.map((floor) => (
-            <section key={floor.id}>
-              <div className="mb-4 flex items-center justify-center gap-3">
-                <h1 className="text-lg font-normal">{floor.name}</h1>
-                {layoutEditing && (
-                  <button
-                    onClick={() => createTable(floor.id)}
-                    className="rounded-xl border border-kumo-line px-3 py-2 text-sm"
-                  >
-                    Nueva mesa
-                  </button>
-                )}
-              </div>
+            <section className="p-3" key={floor.id}>
               <div className="flex flex-wrap gap-3">
                 {floor.tables.map((item) => {
                   const current = data.orders.find(
@@ -1531,6 +1485,14 @@ export default function PosPage() {
               </div>
             </section>
           ))}
+          <div className="fixed inset-x-0 bottom-0 z-10 flex flex-wrap items-center gap-4 border-t border-kumo-line bg-kumo-base px-3 py-2 text-xs text-kumo-subtle">
+            <span><i className="mr-1 inline-block h-3 w-3 rounded bg-kumo-line" />Libre</span>
+            <span><i className="mr-1 inline-block h-3 w-3 rounded bg-[#FE4A23]" />Ocupada</span>
+            <span><i className="mr-1 inline-block h-3 w-3 rounded bg-red-500" />Demorada</span>
+            <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] text-white">P</i>Pendiente</span>
+            <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-[9px] text-white">EP</i>Envío parcial</span>
+            <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[9px] text-white">EC</i>Enviado</span>
+          </div>
         </section>
       )}
       {tab === "orders" && (
