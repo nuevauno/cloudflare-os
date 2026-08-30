@@ -33,7 +33,7 @@ export default function PosPage() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi(),
     scope = resolveSalesScope(businessSession);
   const [data, setData] = useState<PosLoadDataView | null>(null),
-    [screen, setScreen] = useState<"dashboard" | "terminal">("dashboard"),
+    [screen, setScreen] = useState<"dashboard" | "terminal" | "payment">("dashboard"),
     [tab, setTab] = useState<Tab>("floor"),
     [table, setTable] = useState<{
       id: string;
@@ -58,7 +58,16 @@ export default function PosPage() {
     [openingDialog, setOpeningDialog] = useState(false),
     [openingCashMinor, setOpeningCashMinor] = useState(0),
     [closingDialog, setClosingDialog] = useState(false),
-    [countedCashMinor, setCountedCashMinor] = useState(0);
+    [countedCashMinor, setCountedCashMinor] = useState(0),
+    [noteEditor, setNoteEditor] = useState<{
+      productId: string;
+      productName: string;
+      value: string;
+    } | null>(null),
+    [partnerDialog, setPartnerDialog] = useState(false),
+    [partnerSearch, setPartnerSearch] = useState(""),
+    [partnerCreate, setPartnerCreate] = useState(false),
+    [partnerDraft, setPartnerDraft] = useState({displayName:"",email:"",phone:"",taxIdentifier:""});
   const [generalNote, setGeneralNote] = useState(""),
     [guestCount, setGuestCount] = useState(1),
     [tipMinor, setTipMinor] = useState(0),
@@ -1015,6 +1024,47 @@ export default function PosPage() {
         </section>
       </main>
     );
+  if (screen === "payment") {
+    const remaining = Math.max(0, total - allocatedTotal),
+      selectedPartner = data.partners.find((partner) => partner.id === partnerId),
+      canValidate = splitPayment
+        ? allocatedPayments.length > 0 && allocatedTotal === total
+        : Boolean(selectedPaymentMethod) && (!isCash || Number(tender) >= total);
+    return (
+      <main className="grid min-h-full grid-cols-[minmax(260px,340px)_1fr_minmax(300px,440px)] bg-kumo-base">
+        <aside className="flex min-h-full flex-col border-r border-kumo-line bg-kumo-elevated p-5">
+          <h1 className="text-lg font-normal">Pedido</h1>
+          <div className="mt-4 flex-1 space-y-3 overflow-y-auto">
+            {lines.map((line) => <div key={line.id} className="grid grid-cols-[32px_1fr_auto] gap-2 text-sm"><span>{line.quantity}</span><span>{line.name}</span><span>{money(line.total)}</span></div>)}
+            {tipMinor > 0 && <div className="grid grid-cols-[32px_1fr_auto] gap-2 border-l-4 border-[#FE4A23] bg-orange-50 p-2 text-sm"><span>1</span><span>Propina</span><span>{money(tipMinor)}</span></div>}
+          </div>
+          <div className="space-y-2 border-t border-kumo-line pt-4"><div className="flex justify-between text-kumo-subtle"><span>Impuestos</span><span>{money(tax)}</span></div><div className="flex justify-between text-xl"><span>Total</span><span>{money(total)}</span></div></div>
+        </aside>
+        <section className="flex min-h-full flex-col p-8">
+          <div className="text-center"><p className="text-[clamp(64px,8vw,125px)] leading-none">{money(remaining)}</p><p className="mt-4 text-2xl text-kumo-subtle">Restante</p></div>
+          <div className="mx-auto mt-10 w-full max-w-3xl flex-1 space-y-3">
+            {allocatedPayments.map((payment) => {
+              const method = data.paymentMethods.find((item) => item.id === payment.paymentMethodId);
+              return <div key={payment.paymentMethodId} className="flex items-center justify-between rounded-xl border border-[#FE4A23] bg-orange-50 p-5"><span>{method?.name}</span><span>{money(payment.amountMinor)}</span><button onClick={() => setPaymentAmounts((current) => ({...current,[payment.paymentMethodId]:0}))} className="text-[#FE4A23]">×</button></div>;
+            })}
+          </div>
+        </section>
+        <aside className="flex min-h-full flex-col border-l border-kumo-line bg-kumo-elevated p-4">
+          <div className="space-y-2">
+            {data.paymentMethods.map((method) => <button key={method.id} onClick={() => { const rest=Math.max(0,total-allocatedTotal); setPaymentMethodId(method.id); if(method.methodType!=="cash") { setPaymentAmounts((current)=>({...current,[method.id]:(current[method.id]??0)+rest})); setSplitPayment(true); } }} className="flex w-full justify-between rounded-xl border border-kumo-line p-5 text-left"><span>{method.name}</span><span>{money(paymentAmounts[method.id] ?? 0)}</span></button>)}
+          </div>
+          <div className="mt-auto space-y-2">
+            <div className="grid grid-cols-2 gap-2"><button onClick={() => setPartnerDialog(true)} className="rounded-xl border border-kumo-line p-4">{selectedPartner?.displayName ?? "Cliente"}</button><button onClick={() => setInvoiceRequested((value) => !value)} className={`rounded-xl border p-4 ${invoiceRequested ? "border-[#FE4A23] bg-orange-50" : "border-kumo-line"}`}>Factura</button></div>
+            <button onClick={() => setTipMinor(Math.round((rawTotal-tipMinor)*0.1))} className={`flex w-full justify-between rounded-xl border p-4 ${tipMinor ? "border-[#FE4A23] bg-orange-50" : "border-kumo-line"}`}><span>Propina</span><span>{tipMinor ? money(tipMinor) : "Agregar"}</span></button>
+            {selectedPaymentMethod?.methodType === "cash" && <input autoFocus aria-label="Efectivo recibido" type="number" value={tender} onChange={(event)=>setTender(event.target.value)} placeholder="Efectivo recibido" className="w-full rounded-xl border border-kumo-line bg-kumo-base p-4" />}
+            <label className="flex items-center gap-2 p-2"><input type="checkbox" checked={splitPayment} onChange={(event)=>setSplitPayment(event.target.checked)} /> Pago múltiple</label>
+            <div className="grid grid-cols-2 gap-2"><button onClick={()=>setScreen("terminal")} className="rounded-xl border border-kumo-line p-4">Regresar</button><button disabled={!canValidate||busy} onClick={pay} className="rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40">Validar</button></div>
+          </div>
+        </aside>
+        {partnerDialog && <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"><section role="dialog" aria-modal="true" aria-label="Elegir cliente" className="flex h-[75vh] w-full max-w-5xl flex-col rounded-xl bg-kumo-elevated shadow-xl"><header className="flex items-center gap-3 border-b border-kumo-line p-4"><button onClick={()=>setPartnerCreate((value)=>!value)} className="rounded-xl bg-[#FE4A23] px-5 py-3 text-white">{partnerCreate?"Volver":"Crear"}</button><h2 className="text-xl font-normal">{partnerCreate?"Nuevo cliente":"Elige un cliente"}</h2>{!partnerCreate&&<input autoFocus value={partnerSearch} onChange={(event)=>setPartnerSearch(event.target.value)} placeholder="Buscar clientes…" className="ml-auto w-72 rounded-xl border border-kumo-line bg-kumo-base p-3" />}</header>{partnerCreate?<form onSubmit={async(event)=>{event.preventDefault();const created=await authenticatedApi.posCreatePartner(scope.organizationId,scope.companyId,{displayName:partnerDraft.displayName,...(partnerDraft.email?{email:partnerDraft.email}:{}),...(partnerDraft.phone?{phone:partnerDraft.phone}:{}),...(partnerDraft.taxIdentifier?{taxIdentifier:partnerDraft.taxIdentifier}:{})});setPartnerId(created.id);setPartnerDialog(false);setPartnerCreate(false);setPartnerDraft({displayName:"",email:"",phone:"",taxIdentifier:""});await refresh()}} className="grid flex-1 content-start gap-4 overflow-y-auto p-6 md:grid-cols-2"><label>Nombre<input required autoFocus value={partnerDraft.displayName} onChange={(event)=>setPartnerDraft((current)=>({...current,displayName:event.target.value}))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label><label>RUT<input value={partnerDraft.taxIdentifier} onChange={(event)=>setPartnerDraft((current)=>({...current,taxIdentifier:event.target.value}))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label><label>Correo<input type="email" value={partnerDraft.email} onChange={(event)=>setPartnerDraft((current)=>({...current,email:event.target.value}))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label><label>Teléfono<input value={partnerDraft.phone} onChange={(event)=>setPartnerDraft((current)=>({...current,phone:event.target.value}))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label><button className="rounded-xl bg-[#FE4A23] p-4 text-white md:col-span-2">Guardar cliente</button></form>:<div className="flex-1 overflow-y-auto">{data.partners.filter((partner)=>[partner.displayName,partner.email,partner.phone].filter(Boolean).join(" ").toLowerCase().includes(partnerSearch.toLowerCase())).map((partner)=><button key={partner.id} onClick={()=>{setPartnerId(partner.id);setPartnerDialog(false)}} className={`grid w-full grid-cols-[1fr_1fr_1fr] border-b border-kumo-line p-5 text-left hover:bg-kumo-line ${partner.id===partnerId?"bg-orange-50":""}`}><span>{partner.displayName}</span><span>{partner.email}</span><span>{partner.phone}</span></button>)}</div>}<footer className="border-t border-kumo-line p-4"><button onClick={()=>setPartnerDialog(false)} className="w-full rounded-xl border border-kumo-line p-4">Descartar</button></footer></section></div>}
+      </main>
+    );
+  }
   return (
     <main className="flex min-h-full flex-col bg-kumo-base">
       <nav className="flex h-14 items-stretch border-b border-kumo-line bg-kumo-elevated">
@@ -1538,17 +1588,11 @@ export default function PosPage() {
                     </span>
                   </div>
                   <button
-                    onClick={() => {
-                      const note = window.prompt(
-                        "Nota de la línea",
-                        lineNotes[line.id] ?? "",
-                      );
-                      if (note !== null)
-                        setLineNotes((current) => ({
-                          ...current,
-                          [line.id]: note.trim(),
-                        }));
-                    }}
+                    onClick={() => setNoteEditor({
+                      productId: line.id,
+                      productName: line.name,
+                      value: lineNotes[line.id] ?? "",
+                    })}
                     className="rounded border border-kumo-line px-2 py-1 text-xs"
                   >
                     Nota
@@ -1705,22 +1749,8 @@ export default function PosPage() {
                     />
                   )}
                   <button
-                    disabled={
-                      busy ||
-                      (splitPayment
-                        ? allocatedPayments.length < 2 ||
-                          allocatedTotal !== total ||
-                          allocatedPayments.some(
-                            (payment) =>
-                              data.paymentMethods.find(
-                                (method) => method.id === payment.paymentMethodId,
-                              )?.requiresTerminal && !payment.terminalReference,
-                          )
-                        : (isCash && Number(tender) < total) ||
-                          (selectedPaymentMethod?.requiresTerminal &&
-                            !terminalReferences[selectedPaymentMethod.id]))
-                    }
-                    onClick={pay}
+                    disabled={busy || !lines.length}
+                    onClick={() => setScreen("payment")}
                     className="mt-2 w-full rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40"
                   >
                     Pago
@@ -1730,6 +1760,61 @@ export default function PosPage() {
             </div>
           </aside>
         </section>
+      )}
+      {noteEditor && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Nota de ${noteEditor.productName}`}
+            className="w-full max-w-4xl rounded-xl bg-kumo-elevated shadow-xl"
+          >
+            <header className="flex items-center justify-between border-b border-kumo-line px-5 py-4">
+              <h2 className="text-lg font-normal">{noteEditor.productName}: Agregar nota</h2>
+              <button aria-label="Cerrar" onClick={() => setNoteEditor(null)} className="px-2 text-2xl text-kumo-subtle">×</button>
+            </header>
+            <div className="p-5">
+              <div className="mb-2 flex flex-wrap gap-2">
+                {[
+                  ["Esperar", "border-red-500 bg-red-100"],
+                  ["Servir", "border-orange-400 bg-orange-100"],
+                  ["Urgente", "border-amber-400 bg-amber-100"],
+                  ["Sin aderezo", "border-sky-500 bg-sky-100"],
+                ].map(([label, color]) => (
+                  <button
+                    key={label}
+                    onClick={() => setNoteEditor((current) => current ? {
+                      ...current,
+                      value: [current.value.trim(), label].filter(Boolean).join(" · "),
+                    } : current)}
+                    className={`rounded-lg border px-3 py-2 ${color}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                autoFocus
+                rows={5}
+                value={noteEditor.value}
+                onChange={(event) => setNoteEditor((current) => current ? { ...current, value: event.target.value } : current)}
+                className="w-full resize-y rounded-xl border border-[#FE4A23] bg-kumo-base p-4 outline-none"
+              />
+            </div>
+            <footer className="flex gap-2 border-t border-kumo-line px-5 py-4">
+              <button
+                onClick={() => {
+                  setLineNotes((current) => ({ ...current, [noteEditor.productId]: noteEditor.value.trim() }));
+                  setNoteEditor(null);
+                }}
+                className="rounded-xl bg-[#FE4A23] px-5 py-3 text-white"
+              >
+                Aplicar
+              </button>
+              <button onClick={() => setNoteEditor(null)} className="rounded-xl border border-kumo-line px-5 py-3">Descartar</button>
+            </footer>
+          </section>
+        </div>
       )}
     </main>
   );

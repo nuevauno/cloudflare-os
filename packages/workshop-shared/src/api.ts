@@ -1076,6 +1076,7 @@ export interface AuthenticatedApi extends RpcTarget {
   /** Read authorized certificates for one company. */
   listCertificates(organizationId: string, companyId: string, limit?: number): Promise<CertificateListView>;
   posLoadData(organizationId:string,companyId:string):Promise<PosLoadDataView>;
+  posCreatePartner(organizationId:string,companyId:string,input:{displayName:string;email?:string;phone?:string;taxIdentifier?:string}):Promise<PosLoadDataView['partners'][number]>;
   posOpenSession(organizationId:string,companyId:string,openingCashMinor:number):Promise<PosLoadDataView['session']>;
   posSyncOrder(input:{organizationId:string;companyId:string;sessionId:string;tableId?:string;uuid:string;metadata?:Partial<PosOrderMetadataView>;lines:PosOrderLineInputView[]}):Promise<PosOrderView>;
   posPayOrder(input:{organizationId:string;companyId:string;orderId:string;tenderedMinor?:number;paymentMethodId?:string;payments?:Array<{paymentMethodId:string;amountMinor:number;tenderedMinor?:number;terminalReference?:string}>;requestId:string}):Promise<{order:PosOrderView;payment:{id:string;paymentMethodId:string;amountMinor:number;tenderedMinor:number;changeMinor:number};payments:Array<{id:string;paymentMethodId:string;amountMinor:number;tenderedMinor:number;changeMinor:number}>}>;
