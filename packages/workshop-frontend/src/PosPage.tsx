@@ -1020,10 +1020,17 @@ export default function PosPage() {
     });
     await refresh();
   };
-  const reset = () => {
+  const resetOrderState = () => {
     setReceipt(null);
     setOrder(null);
     setCart({});
+    setGeneralNote("");
+    setGuestCount(1);
+    setTipMinor(0);
+    setDiscountBasisPoints(0);
+    setPartnerId("");
+    setInvoiceRequested(false);
+    setTakeaway(false);
     setTender("");
     setSplitPayment(false);
     setPaymentAmounts({});
@@ -1036,8 +1043,16 @@ export default function PosPage() {
     setLineLots({});
     setTerminalReferences({});
     setTable(null);
+    setSelectedLineId("");
     orderUuid.current = crypto.randomUUID();
+  };
+  const reset = () => {
+    resetOrderState();
     setTab("floor");
+  };
+  const startNewOrder = () => {
+    resetOrderState();
+    setTab("register");
   };
   const saveSettings=async()=>{if(!scope)return;setBusy(true);try{await authenticatedApi.posUpdateSettings(scope.organizationId,scope.companyId,settingsDraft);setSettingsDirty(false);await refresh()}finally{setBusy(false)}};
   const employeeLoginEnabled=Boolean(data.config?.settings.pos_module_pos_hr),isManager=!employeeLoginEnabled||data.activeOperator?.role==="manager",isMinimal=data.activeOperator?.role==="minimal";
@@ -1469,13 +1484,7 @@ export default function PosPage() {
           </div>}
           <div className="grid grid-cols-3 items-center border-b border-kumo-line px-1 py-2">
             <button
-              onClick={() => {
-                setTable(null);
-                setCart({});
-                setOrder(null);
-                orderUuid.current = crypto.randomUUID();
-                setTab("register");
-              }}
+              onClick={startNewOrder}
               className="justify-self-start rounded-lg bg-[#FE4A23] px-5 py-3 text-white"
             >
               ＋ Nueva orden
@@ -1711,7 +1720,7 @@ export default function PosPage() {
                 else if(key==="%") {const discount=Number(await requestDialog({kind:"number",title:"Descuento",value:discountBasisPoints/100,min:0,max:100}));if(Number.isFinite(discount))setDiscountBasisPoints(Math.round(discount*100));}
                 else if(key==="Precio"){const price=Number(await requestDialog({kind:"number",title:"Cambiar precio",label:line.name,value:line.unitPriceMinor,min:0}));if(price>=0)setManualPrices(current=>({...current,[line.id]:price}));}
               }} className={`h-13 border border-kumo-line ${(key==="Ctdad"||key==="Precio")?"bg-[#fff1ed]":key==="+/−"?"bg-[#fee28a]":""}`}>{key}</button>)}</div>
-              <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={reset} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length} onClick={async()=>{if(!order)await save();setScreen("payment")}} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">Pago</button></div>
+              <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={startNewOrder} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length} onClick={async()=>{if(!order)await save();setScreen("payment")}} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">Pago</button></div>
             </div>
           </aside>
         </section>

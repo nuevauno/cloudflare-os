@@ -64,6 +64,21 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).not.toContain('setCategory(categories[0])');
   });
 
+  it("Nueva orden limpia todo el contexto comercial antes de abrir el registro", () => {
+    expect(source).toContain("const startNewOrder = () =>");
+    for (const reset of [
+      'setGeneralNote("")',
+      "setGuestCount(1)",
+      "setTipMinor(0)",
+      "setDiscountBasisPoints(0)",
+      'setPartnerId("")',
+      "setInvoiceRequested(false)",
+      "setTakeaway(false)",
+      'setSelectedLineId("")',
+    ]) expect(source).toContain(reset);
+    expect(source).toContain("onClick={startNewOrder}");
+  });
+
   it("mantiene Mesas como superficie operativa limpia y deja caja/edición fuera del salón", () => {
     const floorStart = source.indexOf('{tab === "floor" && (');
     const ordersStart = source.indexOf('{tab === "orders" && (', floorStart);
