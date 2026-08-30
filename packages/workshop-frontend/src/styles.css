@@ -3,6 +3,38 @@
 @import "tailwindcss";
 @custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
 
+/* Interactive-control contract.
+   Tailwind v4 deliberately leaves native buttons with the default arrow cursor.
+   Keep affordance and keyboard focus centralized so every current and future app
+   gets the same behaviour without remembering per-component utility classes. */
+:where(
+  button:not(:disabled),
+  a[href],
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  label[for]
+) {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(
+  button:disabled,
+  [role="button"][aria-disabled="true"]
+) {
+  cursor: not-allowed;
+}
+
+:where(
+  button,
+  a[href],
+  [role="button"],
+  summary
+):focus-visible {
+  outline: 2px solid var(--color-kumo-brand, #FE4A23);
+  outline-offset: 2px;
+}
+
 @font-face {
   font-family: "Urbanist";
   src: url("https://branding.nuevauno.com/fonts/urbanist-var.woff2") format("woff2");
