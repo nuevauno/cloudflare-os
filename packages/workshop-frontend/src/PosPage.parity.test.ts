@@ -71,6 +71,20 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).not.toContain('setCategory(categories[0])');
   });
 
+  it("mantiene el carrito a la derecha y muestra el teclado solo al seleccionar una línea",()=>{
+    expect(source).toContain('lg:grid-cols-[1fr_450px]');
+    expect(source).toContain('{selectedLineId&&<div className="mt-2 grid grid-cols-4">');
+    expect(source).toContain('setSelectedLineId(product.id)');
+    expect(source).toContain('current===line.id?"":line.id');
+  });
+
+  it("divide una cuenta en una pantalla dedicada y persiste la orden separada",()=>{
+    for(const text of ["Dividir la cuenta","producto{selectedQuantity","Dividir y continuar al pago"])expect(source).toContain(text);
+    expect(source).toContain('screen === "split"');
+    expect(source).toContain("posSplitOrder");
+    expect(source).toContain("setOrder(result.split)");
+  });
+
   it("Nueva orden limpia todo el contexto comercial antes de abrir el registro", () => {
     expect(source).toContain("const startNewOrder = () =>");
     for (const reset of [
