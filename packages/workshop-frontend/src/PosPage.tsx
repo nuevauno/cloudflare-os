@@ -74,7 +74,10 @@ export default function PosPage() {
     [fiscalPositionId, setFiscalPositionId] = useState(""),
     [lineLots, setLineLots] = useState<
       Record<string, Array<{ lotId: string; quantityMilli: number }>>
-    >({});
+    >({}),
+    [terminalReferences, setTerminalReferences] = useState<Record<string, string>>(
+      {},
+    );
   const orderUuid = useRef<string>(crypto.randomUUID());
   const scannerBuffer = useRef(""),
     scannerAt = useRef(0),
@@ -279,6 +282,41 @@ export default function PosPage() {
     }
     if (jobType === "receipt") window.print();
   };
+  const printPreparationChanges = async (
+    previous: PosOrderView | null,
+    current: PosOrderView,
+  ) => {
+    const previousByProduct = new Map(
+        (previous?.metadata.preparationState === "sent" ? previous.lines : []).map(
+          (line) => [line.productVariantId, line],
+        ),
+      ),
+      currentByProduct = new Map(
+        current.lines.map((line) => [line.productVariantId, line]),
+      ),
+      added = current.lines.flatMap((line) => {
+        const quantity =
+          line.quantity - (previousByProduct.get(line.productVariantId)?.quantity ?? 0);
+        return quantity > 0 ? [`+ ${quantity} × ${line.description}`] : [];
+      }),
+      removed = (previous?.lines ?? []).flatMap((line) => {
+        const quantity =
+          line.quantity - (currentByProduct.get(line.productVariantId)?.quantity ?? 0);
+        return quantity > 0 ? [`- ${quantity} × ${line.description}`] : [];
+      });
+    if (!window.NUEVAUNOBridge || (!added.length && !removed.length)) return;
+    await window.NUEVAUNOBridge.createPrintJob({
+      payload: [
+        data.config?.name ?? "Restaurant",
+        table ? `Mesa ${table.name}` : "Pedido",
+        ...added,
+        ...removed,
+      ].join("\n"),
+      format: "text",
+      jobType: "kitchen_ticket",
+      source: "nuevauno-os-pos",
+    });
+  };
   const selectTable = (next: { id: string; name: string; seats: number }) => {
     const existing = data.orders.find((value) => value.tableId === next.id);
     setTable(next);
@@ -395,11 +433,21 @@ export default function PosPage() {
       ...current,
       [id]: Math.max(0, (current[id] ?? 0) + delta),
     }));
-  const setQuantity = (id: string, quantity: number) =>
+  const setQuantity = (id: string, quantity: number) => {
+    const normalized = Math.max(0, Math.round(quantity * 1000) / 1000),
+      product = data?.products.find((item) => item.id === id);
+    if (lineLots[id]?.length && !product?.lots.some((lot) => lot.tracking === "serial"))
+      setLineLots((current) => ({
+        ...current,
+        [id]: [
+          { ...current[id]![0]!, quantityMilli: Math.round(normalized * 1000) },
+        ],
+      }));
     setCart((current) => ({
       ...current,
-      [id]: Math.max(0, Math.round(quantity * 1000) / 1000),
+      [id]: normalized,
     }));
+  };
   const addProduct = (
     initial: PosLoadDataView["products"][number],
   ) => {
@@ -422,7 +470,50 @@ export default function PosPage() {
         variants.find(
           (candidate) =>
             candidate.name.toLowerCase() === variantName?.trim().toLowerCase(),
-        ) ?? initial;
+        ) ?? initial,
+      comboSelections: Array<{
+        componentName: string;
+        product: PosLoadDataView["products"][number];
+        quantity: number;
+      }> = [];
+    for (const component of product.comboComponents) {
+      const available = data.products.filter(
+          (candidate) => candidate.id !== product.id,
+        ),
+        response = window.prompt(
+          `${component.name}: elige entre ${component.minChoices} y ${component.maxChoices}. Separa varias opciones con coma.\n${available
+            .map((candidate) => candidate.name)
+            .join(", ")}`,
+          available[0]?.name ?? "",
+        );
+      if (response === null) return;
+      const names = response
+          .split(",")
+          .map((name) => name.trim())
+          .filter(Boolean),
+        choices = names.map((name) =>
+          available.find(
+            (candidate) => candidate.name.toLowerCase() === name.toLowerCase(),
+          ),
+        );
+      if (
+        choices.some((choice) => !choice) ||
+        choices.length < component.minChoices ||
+        choices.length > component.maxChoices
+      ) {
+        window.alert(
+          `Debes elegir entre ${component.minChoices} y ${component.maxChoices} opciones válidas para ${component.name}.`,
+        );
+        return;
+      }
+      for (const choice of choices) {
+        comboSelections.push({
+          componentName: component.name,
+          product: choice!,
+          quantity: component.quantity,
+        });
+      }
+    }
     if (product.lots.length) {
       const lotName = window.prompt(
           `Lote o serie: ${product.lots.map((lot) => lot.name).join(", ")}`,
@@ -433,35 +524,64 @@ export default function PosPage() {
             candidate.name.toLowerCase() === lotName?.trim().toLowerCase(),
         );
       if (!lot) return;
-      setLineLots((current) => ({
-        ...current,
-        [product.id]: [{ lotId: lot.id, quantityMilli: 1000 }],
-      }));
+      const alreadySelected = lineLots[product.id]?.some(
+        (selection) => selection.lotId === lot.id,
+      );
+      if (lot.tracking === "serial" && alreadySelected) {
+        window.alert("Ese número de serie ya está agregado.");
+        return;
+      }
+      setLineLots((current) => {
+        const selections = current[product.id] ?? [],
+          existing = selections.find((selection) => selection.lotId === lot.id);
+        return {
+          ...current,
+          [product.id]: existing
+            ? selections.map((selection) =>
+                selection.lotId === lot.id
+                  ? {
+                      ...selection,
+                      quantityMilli: selection.quantityMilli + 1000,
+                    }
+                  : selection,
+              )
+            : [...selections, { lotId: lot.id, quantityMilli: 1000 }],
+        };
+      });
     }
     change(product.id, 1);
     for (const optionalId of product.optionalProductIds) {
       const optional = data.products.find((candidate) => candidate.id === optionalId);
       if (optional && window.confirm(`¿Agregar ${optional.name}?`)) change(optional.id, 1);
     }
-    for (const component of product.comboComponents) {
-      const choiceName = window.prompt(
-          `${component.name}: elige ${component.minChoices}-${component.maxChoices} entre ${data.products
-            .filter((candidate) => candidate.id !== product.id)
-            .map((candidate) => candidate.name)
-            .join(", ")}`,
-        ),
-        choice = data.products.find(
-          (candidate) =>
-            candidate.name.toLowerCase() === choiceName?.trim().toLowerCase(),
-        );
-      if (choice) {
-        change(choice.id, component.quantity);
-        setLineNotes((current) => ({
-          ...current,
-          [choice.id]: `Parte de ${product.name}: ${component.name}`,
-        }));
-      }
+    for (const selection of comboSelections) {
+      change(selection.product.id, selection.quantity);
+      setLineNotes((current) => ({
+        ...current,
+        [selection.product.id]: `Parte de ${product.name}: ${selection.componentName}`,
+      }));
     }
+  };
+  const removeProduct = (productId: string) => {
+    const selections = lineLots[productId];
+    if (selections?.length) {
+      const last = selections.at(-1)!;
+      setLineLots((current) => ({
+        ...current,
+        [productId]:
+          last.quantityMilli > 1000
+            ? current[productId]!.map((selection) =>
+                selection.lotId === last.lotId
+                  ? {
+                      ...selection,
+                      quantityMilli: selection.quantityMilli - 1000,
+                    }
+                  : selection,
+              )
+            : current[productId]!.slice(0, -1),
+      }));
+    }
+    change(productId, -1);
   };
   const cancel = async () => {
     if (order)
@@ -490,6 +610,9 @@ export default function PosPage() {
       ...(method.methodType === "cash"
         ? { tenderedMinor: paymentAmounts[method.id]! }
         : {}),
+      ...(method.requiresTerminal && terminalReferences[method.id]
+        ? { terminalReference: terminalReferences[method.id] }
+        : {}),
     })),
     allocatedTotal = allocatedPayments.reduce(
       (sum, payment) => sum + payment.amountMinor,
@@ -509,6 +632,19 @@ export default function PosPage() {
           : {
               tenderedMinor: isCash ? Number(tender) : updated.totalMinor,
               ...(paymentMethodId ? { paymentMethodId } : {}),
+              ...(selectedPaymentMethod?.requiresTerminal &&
+              terminalReferences[selectedPaymentMethod.id]
+                ? {
+                    payments: [
+                      {
+                        paymentMethodId: selectedPaymentMethod.id,
+                        amountMinor: updated.totalMinor,
+                        terminalReference:
+                          terminalReferences[selectedPaymentMethod.id],
+                      },
+                    ],
+                  }
+                : {}),
             }),
         requestId: crypto.randomUUID(),
       });
@@ -520,13 +656,14 @@ export default function PosPage() {
   };
   const sendToPreparation = async () => {
     if (!order) return;
+    const synchronized = await authenticatedApi.posSyncOrder(orderPayload());
     const sent = await authenticatedApi.posSendToPreparation(
         scope.organizationId,
         scope.companyId,
-        order.id,
+        synchronized.id,
       );
     setOrder(sent);
-    await printTicket(sent, "kitchen_ticket");
+    await printPreparationChanges(order, sent);
     await refresh();
   };
   const transfer = async () => {
@@ -745,6 +882,7 @@ export default function PosPage() {
     setShippingDate("");
     setFiscalPositionId("");
     setLineLots({});
+    setTerminalReferences({});
     setTable(null);
     orderUuid.current = crypto.randomUUID();
     setTab("floor");
@@ -1312,7 +1450,7 @@ export default function PosPage() {
                   className="flex items-center gap-3 border-b border-kumo-line py-3"
                 >
                   <button
-                    onClick={() => change(line.id, -1)}
+                    onClick={() => removeProduct(line.id)}
                     className="h-8 w-8 rounded border"
                   >
                     −
@@ -1323,13 +1461,16 @@ export default function PosPage() {
                     min="0.001"
                     step="0.001"
                     value={line.quantity}
+                    disabled={line.lots.some((lot) => lot.tracking === "serial")}
                     onChange={(event) =>
                       setQuantity(line.id, Number(event.target.value))
                     }
                     className="w-20 rounded border border-kumo-line bg-kumo-base p-1 text-center"
                   />
                   <button
-                    onClick={() => change(line.id, 1)}
+                    onClick={() =>
+                      line.lots.length ? addProduct(line) : change(line.id, 1)
+                    }
                     className="h-8 w-8 rounded border"
                   >
                     ＋
@@ -1446,22 +1587,41 @@ export default function PosPage() {
                   {splitPayment && (
                     <div className="mt-2 space-y-2 rounded-xl border border-kumo-line p-3">
                       {data.paymentMethods.map((method) => (
-                        <label key={method.id} className="flex items-center gap-2">
-                          <span className="flex-1">{method.name}</span>
-                          <input
-                            aria-label={`Monto ${method.name}`}
-                            type="number"
-                            min="0"
-                            value={paymentAmounts[method.id] ?? ""}
-                            onChange={(event) =>
-                              setPaymentAmounts((current) => ({
-                                ...current,
-                                [method.id]: Math.max(0, Number(event.target.value)),
-                              }))
-                            }
-                            className="w-32 rounded-xl border border-kumo-line bg-kumo-base p-2"
-                          />
-                        </label>
+                        <div key={method.id} className="flex items-center gap-2">
+                          <label className="contents">
+                            <span className="flex-1">{method.name}</span>
+                            <input
+                              aria-label={`Monto ${method.name}`}
+                              type="number"
+                              min="0"
+                              value={paymentAmounts[method.id] ?? ""}
+                              onChange={(event) =>
+                                setPaymentAmounts((current) => ({
+                                  ...current,
+                                  [method.id]: Math.max(
+                                    0,
+                                    Number(event.target.value),
+                                  ),
+                                }))
+                              }
+                              className="w-32 rounded-xl border border-kumo-line bg-kumo-base p-2"
+                            />
+                          </label>
+                          {method.requiresTerminal && (
+                            <input
+                              aria-label={`Referencia ${method.name}`}
+                              value={terminalReferences[method.id] ?? ""}
+                              onChange={(event) =>
+                                setTerminalReferences((current) => ({
+                                  ...current,
+                                  [method.id]: event.target.value,
+                                }))
+                              }
+                              placeholder="Referencia terminal"
+                              className="w-40 rounded-xl border border-kumo-line bg-kumo-base p-2"
+                            />
+                          )}
+                        </div>
                       ))}
                       <div className="flex justify-between text-sm text-kumo-subtle">
                         <span>Asignado</span>
@@ -1479,12 +1639,35 @@ export default function PosPage() {
                       className="mt-4 w-full rounded-xl border border-kumo-line bg-kumo-base p-3"
                     />
                   )}
+                  {!splitPayment && selectedPaymentMethod?.requiresTerminal && (
+                    <input
+                      aria-label="Referencia terminal"
+                      value={terminalReferences[selectedPaymentMethod.id] ?? ""}
+                      onChange={(event) =>
+                        setTerminalReferences((current) => ({
+                          ...current,
+                          [selectedPaymentMethod.id]: event.target.value,
+                        }))
+                      }
+                      placeholder="Referencia de autorización"
+                      className="mt-4 w-full rounded-xl border border-kumo-line bg-kumo-base p-3"
+                    />
+                  )}
                   <button
                     disabled={
                       busy ||
                       (splitPayment
-                        ? allocatedPayments.length < 2 || allocatedTotal !== total
-                        : isCash && Number(tender) < total)
+                        ? allocatedPayments.length < 2 ||
+                          allocatedTotal !== total ||
+                          allocatedPayments.some(
+                            (payment) =>
+                              data.paymentMethods.find(
+                                (method) => method.id === payment.paymentMethodId,
+                              )?.requiresTerminal && !payment.terminalReference,
+                          )
+                        : (isCash && Number(tender) < total) ||
+                          (selectedPaymentMethod?.requiresTerminal &&
+                            !terminalReferences[selectedPaymentMethod.id]))
                     }
                     onClick={pay}
                     className="mt-2 w-full rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40"
