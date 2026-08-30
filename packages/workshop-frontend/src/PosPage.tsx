@@ -1225,7 +1225,7 @@ export default function PosPage() {
           </span>
         )}
       </nav>
-      {data && false && tab === "register" && (
+      {data && tab === "register" && screen === "settings" && (
         <section aria-hidden="true" className="hidden">
           <label className="flex items-center gap-2">
             Comensales
