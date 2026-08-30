@@ -183,8 +183,9 @@ export default function PosPage() {
     [moneyDetailsDraft,setMoneyDetailsDraft]=useState<Record<number,number>>({}),
     [moneyDetailsNoteDraft,setMoneyDetailsNoteDraft]=useState(""),
     [noteEditor, setNoteEditor] = useState<{
-      productId: string;
-      productName: string;
+      target: "order" | "line";
+      productId?: string;
+      title: string;
       value: string;
     } | null>(null),
     [partnerDialog, setPartnerDialog] = useState(false),
@@ -1113,26 +1114,6 @@ export default function PosPage() {
     resetOrderState();
     setTab("register");
   };
-  const choosePartner = async () => {
-    const selected = await requestDialog({
-      kind: "selection",
-      title: "Elige un cliente",
-      options: [
-        { id: "__none__", label: "Consumidor final" },
-        ...data.partners.map((partner) => ({
-          id: partner.id,
-          label: [partner.displayName, partner.email, partner.phone]
-            .filter(Boolean)
-            .join(" · "),
-        })),
-      ],
-      selected: [partnerId || "__none__"],
-      min: 1,
-      max: 1,
-    });
-    if (Array.isArray(selected))
-      setPartnerId(selected[0] === "__none__" ? "" : (selected[0] ?? ""));
-  };
   const saveSettings=async()=>{if(!scope)return;setBusy(true);try{await authenticatedApi.posUpdateSettings(scope.organizationId,scope.companyId,settingsDraft);setSettingsDirty(false);await refresh()}finally{setBusy(false)}};
   const employeeLoginEnabled=Boolean(data.config?.settings.pos_module_pos_hr),isManager=!employeeLoginEnabled||data.activeOperator?.role==="manager",isMinimal=data.activeOperator?.role==="minimal";
   const loginOperator=async(operatorId=selectedOperatorId)=>{if(!scope||!operatorId)return;setBusy(true);setOperatorError("");try{await authenticatedApi.posLoginOperator(scope.organizationId,scope.companyId,operatorId,operatorPin||undefined);setSelectedOperatorId("");setOperatorPin("");await refresh()}catch(error){setOperatorError(error instanceof Error&&error.message==="pos_operator_pin_invalid"?"PIN incorrecto":"No se pudo iniciar la sesión del empleado") }finally{setBusy(false)}};
@@ -1856,7 +1837,7 @@ export default function PosPage() {
                 <span>Total</span>
                 <span>{money(total)}</span>
               </div>
-              <div className="mt-3 grid grid-cols-[1fr_1fr_44px_1fr_44px] gap-2"><button onClick={()=>void choosePartner()} className="truncate rounded-lg border border-kumo-line px-2 py-3">{data.partners.find(partner=>partner.id===partnerId)?.displayName??"Cliente"}</button><button onClick={()=>{const line=lines.find(item=>item.id===selectedLineId);if(line)setNoteEditor({productId:line.id,productName:line.name,value:lineNotes[line.id]??""});else void requestDialog({kind:"text",title:"Nota para el cliente",value:generalNote}).then(value=>typeof value==="string"&&setGeneralNote(value))}} className="rounded-lg border border-kumo-line py-3">Nota</button><button onClick={()=>order&&void sendToPreparation()} aria-label="Enviar comanda" className="rounded-lg border border-kumo-line">↥</button><button onClick={async()=>{const line=lines.find(item=>item.id===selectedLineId);if(!line)return;const course=Number(await requestDialog({kind:"number",title:"Tiempo",label:"Curso",value:lineCourses[line.id]??1,min:1}));if(course>0)setLineCourses(current=>({...current,[line.id]:course}))}} className="rounded-lg border border-kumo-line">Tiempo</button><button onClick={()=>setActionsOpen(true)} aria-label="Acciones" className="rounded-lg border border-kumo-line text-xl">⋮</button></div>
+              <div className="mt-3 grid grid-cols-[1fr_1fr_44px_1fr_44px] gap-2"><button onClick={()=>{setPartnerCreate(false);setPartnerDialog(true)}} className="truncate rounded-lg border border-kumo-line px-2 py-3">{data.partners.find(partner=>partner.id===partnerId)?.displayName??"Cliente"}</button><button onClick={()=>{const line=lines.find(item=>item.id===selectedLineId);setNoteEditor(line?{target:"line",productId:line.id,title:line.name,value:lineNotes[line.id]??""}:{target:"order",title:"Nota para el cliente",value:generalNote})}} className="rounded-lg border border-kumo-line py-3">Nota</button><button onClick={()=>order&&void sendToPreparation()} aria-label="Enviar comanda" className="rounded-lg border border-kumo-line">↥</button><button onClick={async()=>{const line=lines.find(item=>item.id===selectedLineId);if(!line)return;const course=Number(await requestDialog({kind:"number",title:"Tiempo",label:"Curso",value:lineCourses[line.id]??1,min:1}));if(course>0)setLineCourses(current=>({...current,[line.id]:course}))}} className="rounded-lg border border-kumo-line">Tiempo</button><button onClick={()=>setActionsOpen(true)} aria-label="Acciones" className="rounded-lg border border-kumo-line text-xl">⋮</button></div>
               {selectedLineId&&<div className="mt-2 grid grid-cols-4">{["1","2","3","Ctdad","4","5","6","%","7","8","9","Precio","+/−","0",",","⌫"].map(key=><button key={key} onClick={async()=>{
                 const line=lines.find(item=>item.id===selectedLineId);if(!line)return;
                 if(/^\d$/.test(key))setQuantity(line.id,Number(key));
@@ -1870,7 +1851,7 @@ export default function PosPage() {
         </section>
       )}
       {actionsOpen&&<div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"><section role="dialog" aria-modal="true" aria-label="Acciones" className="w-full max-w-5xl rounded-lg bg-kumo-elevated shadow-xl"><header className="flex items-center justify-between border-b border-kumo-line p-4"><h2 className="text-lg font-normal">Acciones</h2><button onClick={()=>setActionsOpen(false)} aria-label="Cerrar" className="text-2xl text-kumo-subtle">×</button></header><div className="grid grid-cols-3 gap-2 p-4">
-        <button onClick={async()=>{const value=await requestDialog({kind:"text",title:"Nota para el cliente",value:generalNote});if(typeof value==="string")setGeneralNote(value);setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▣ Nota para el cliente</button>
+        <button onClick={()=>{setNoteEditor({target:"order",title:"Nota para el cliente",value:generalNote});setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▣ Nota para el cliente</button>
         <button disabled={!order} onClick={()=>{if(order)void printTicket(order,"receipt");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">▣ Cuenta</button>
         <button onClick={async()=>{const value=Number(await requestDialog({kind:"number",title:"Comensales",value:guestCount,min:1}));if(value>0)setGuestCount(value);setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">● Comensales</button>
         <button disabled={!order} onClick={()=>{void split();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">▱ Dividir</button>
@@ -1883,6 +1864,13 @@ export default function PosPage() {
         <button onClick={()=>{window.open(`${window.location.pathname}?display=customer`,"nuevauno-customer-display","popup,width=900,height=700");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▣ Pantalla cliente</button>
         <button disabled={data.orders.length<2} onClick={()=>{void merge();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">⇄ Unir órdenes</button>
       </div></section></div>}
+      {partnerDialog&&<div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"><section role="dialog" aria-modal="true" aria-label="Elegir cliente" className="flex h-[75vh] w-full max-w-5xl flex-col rounded-xl bg-kumo-elevated shadow-xl">
+        <header className="flex items-center gap-3 border-b border-kumo-line p-4"><button onClick={()=>setPartnerCreate(value=>!value)} className="rounded-xl bg-[#FE4A23] px-5 py-3 text-white">{partnerCreate?"Volver":"Crear"}</button><h2 className="text-xl font-normal">{partnerCreate?"Nuevo cliente":"Elige un cliente"}</h2>{!partnerCreate&&<input autoFocus value={partnerSearch} onChange={event=>setPartnerSearch(event.target.value)} placeholder="Buscar clientes…" className="ml-auto w-72 rounded-xl border border-kumo-line bg-kumo-base p-3"/>}</header>
+        {partnerCreate?<form onSubmit={async event=>{event.preventDefault();const created=await authenticatedApi.posCreatePartner(scope.organizationId,scope.companyId,{displayName:partnerDraft.displayName,...(partnerDraft.email?{email:partnerDraft.email}:{}),...(partnerDraft.phone?{phone:partnerDraft.phone}:{}),...(partnerDraft.taxIdentifier?{taxIdentifier:partnerDraft.taxIdentifier}:{})});setPartnerId(created.id);setPartnerDialog(false);setPartnerCreate(false);setPartnerDraft({displayName:"",email:"",phone:"",taxIdentifier:""});await refresh()}} className="grid flex-1 content-start gap-4 overflow-y-auto p-6 md:grid-cols-2">
+          <label>Nombre<input required autoFocus value={partnerDraft.displayName} onChange={event=>setPartnerDraft(current=>({...current,displayName:event.target.value}))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3"/></label><label>RUT<input value={partnerDraft.taxIdentifier} onChange={event=>setPartnerDraft(current=>({...current,taxIdentifier:event.target.value}))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3"/></label><label>Correo<input type="email" value={partnerDraft.email} onChange={event=>setPartnerDraft(current=>({...current,email:event.target.value}))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3"/></label><label>Teléfono<input value={partnerDraft.phone} onChange={event=>setPartnerDraft(current=>({...current,phone:event.target.value}))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3"/></label><button className="rounded-xl bg-[#FE4A23] p-4 text-white md:col-span-2">Guardar cliente</button>
+        </form>:<div className="flex-1 overflow-y-auto"><button onClick={()=>{setPartnerId("");setPartnerDialog(false)}} className="grid w-full grid-cols-[1fr_1fr_1fr] border-b border-kumo-line p-5 text-left"><span>Consumidor final</span><span/><span/></button>{data.partners.filter(partner=>[partner.displayName,partner.email,partner.phone].filter(Boolean).join(" ").toLowerCase().includes(partnerSearch.toLowerCase())).map(partner=><button key={partner.id} onClick={()=>{setPartnerId(partner.id);setPartnerDialog(false)}} className={`grid w-full grid-cols-[1fr_1fr_1fr] border-b border-kumo-line p-5 text-left hover:bg-kumo-line ${partner.id===partnerId?"bg-orange-50":""}`}><span>{partner.displayName}</span><span>{partner.email}</span><span>{partner.phone}</span></button>)}</div>}
+        <footer className="border-t border-kumo-line p-4"><button onClick={()=>setPartnerDialog(false)} className="w-full rounded-xl border border-kumo-line p-4">Descartar</button></footer>
+      </section></div>}
       {dialog && (
         <div className="fixed inset-0 z-[60] grid place-items-center bg-black/45 p-4">
           <section role="dialog" aria-modal="true" aria-label={dialog.title} className="w-full max-w-xl rounded-xl bg-kumo-elevated shadow-xl">
@@ -1952,11 +1940,11 @@ export default function PosPage() {
           <section
             role="dialog"
             aria-modal="true"
-            aria-label={`Nota de ${noteEditor.productName}`}
+            aria-label={noteEditor.target === "line" ? `Nota de ${noteEditor.title}` : "Nota para el cliente"}
             className="w-full max-w-4xl rounded-xl bg-kumo-elevated shadow-xl"
           >
             <header className="flex items-center justify-between border-b border-kumo-line px-5 py-4">
-              <h2 className="text-lg font-normal">{noteEditor.productName}: Agregar nota</h2>
+              <h2 className="text-lg font-normal">{noteEditor.target === "line" ? `${noteEditor.title}: Agregar nota` : noteEditor.title}</h2>
               <button aria-label="Cerrar" onClick={() => setNoteEditor(null)} className="px-2 text-2xl text-kumo-subtle">×</button>
             </header>
             <div className="p-5">
@@ -1990,7 +1978,9 @@ export default function PosPage() {
             <footer className="flex gap-2 border-t border-kumo-line px-5 py-4">
               <button
                 onClick={() => {
-                  setLineNotes((current) => ({ ...current, [noteEditor.productId]: noteEditor.value.trim() }));
+                  if (noteEditor.target === "line" && noteEditor.productId)
+                    setLineNotes((current) => ({ ...current, [noteEditor.productId!]: noteEditor.value.trim() }));
+                  else setGeneralNote(noteEditor.value.trim());
                   setNoteEditor(null);
                 }}
                 className="rounded-xl bg-[#FE4A23] px-5 py-3 text-white"
