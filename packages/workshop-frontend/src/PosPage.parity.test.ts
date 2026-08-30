@@ -49,4 +49,18 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("window.setInterval(synchronize, 2_000)");
     expect(source).toContain('document.addEventListener("visibilitychange", synchronize)');
   });
+
+  it("expone ajustes persistentes por sección en vez de controles decorativos",()=>{
+    for(const text of ["Ajustes del punto de venta","Interfaz del PdV","Facturas y recibos","Terminales de pago","NUEVAUNO Desktop y dispositivos","Inventario"])expect(source).toContain(text);
+    expect(source).toContain("posUpdateSettings");
+    expect(source).toContain("settingsDirty");
+  });
+
+  it("mantiene el registro limpio y mueve las acciones secundarias al menú contextual",()=>{
+    for(const text of ["⋮","Nota para el cliente","Transferir / Fusionar","Comensales","Tarifa","Cancelar orden"])expect(source).toContain(text);
+    expect(source).toContain('grid-cols-[1fr_1fr_44px_1fr_44px]');
+    expect(source).toContain('["1","2","3","Ctdad"');
+    expect(source).toContain('setActionsOpen(true)');
+    expect(source).not.toContain('setCategory(categories[0])');
+  });
 });

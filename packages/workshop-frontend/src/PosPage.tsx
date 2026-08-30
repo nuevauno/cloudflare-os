@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuthenticatedApi } from "./AuthContext";
 import { resolveSalesScope } from "./SalesPage";
 import type {
+  PosConfigSettingsView,
   PosLoadDataView,
   PosOrderView,
 } from "@gadgets/workshop-shared/api";
@@ -13,6 +14,14 @@ const money = (n: number) =>
     currency: "CLP",
     maximumFractionDigits: 0,
   }).format(n);
+const elapsedLabel = (startedAt: string | undefined, now: number) => {
+  if (!startedAt) return "0m";
+  const minutes = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+};
+const preparationBadge = (state: PosOrderView["metadata"]["preparationState"]) =>
+  ({ draft: "", sent: "P", preparing: "EP", ready: "EC", served: "EC" })[state];
 type Tab = "floor" | "register" | "orders" | "preparation";
 type PosDialogRequest =
   | { kind: "text"; title: string; label?: string; value?: string }
@@ -30,6 +39,84 @@ type DeviceBridge = {
     source: string;
   }): Promise<{ ok?: boolean; status?: string }>;
 };
+type PosSettingDefinition = { key:string; label:string; help:string; kind?:"text"|"number"|"select"; options?:Array<{value:string;label:string}> };
+type PosSettingSection = { title:string; items:PosSettingDefinition[] };
+const POS_SETTING_SECTIONS:PosSettingSection[]=[
+  {title:"Punto de venta",items:[
+    {key:"pos_module_pos_restaurant",label:"Es un restaurante",help:"Activa mesas, salones y comandas."},
+    {key:"pos_use_presets",label:"Para llevar / Entrega / Miembros",help:"Define modalidades con precios y reglas preestablecidas."},
+    {key:"pos_cash_control",label:"Control de efectivo",help:"Registra apertura, movimientos y cierre de caja."},
+  ]},
+  {title:"Pago",items:[
+    {key:"pos_auto_validate_terminal_payment",label:"Validar automáticamente",help:"Valida pagos confirmados por un terminal."},
+    {key:"pos_cash_rounding",label:"Redondeo de efectivo",help:"Aplica la denominación mínima al pagar en efectivo."},
+    {key:"pos_only_round_cash_method",label:"Solo medios en efectivo",help:"No redondea otros medios de pago."},
+    {key:"pos_use_fast_payment",label:"Pago en un clic",help:"Omite la pantalla de pago con medios compatibles."},
+    {key:"pos_set_maximum_difference",label:"Diferencia máxima",help:"Limita la diferencia autorizada al cerrar caja."},
+    {key:"pos_amount_authorized_diff",label:"Diferencia autorizada",help:"Monto máximo permitido en CLP.",kind:"number"},
+    {key:"pos_iface_tipproduct",label:"Propinas",help:"Acepta propinas del cliente o convierte el vuelto."},
+    {key:"pos_set_tip_after_payment",label:"Propina después del pago",help:"Permite agregar propina una vez pagados los productos."},
+  ]},
+  {title:"Interfaz del PdV",items:[
+    {key:"pos_module_pos_hr",label:"Iniciar sesión con empleados",help:"Permite identificar y cambiar garzones o cajeros."},
+    {key:"pos_iface_big_scrollbars",label:"Barras de desplazamiento grandes",help:"Mejora el uso en pantallas táctiles imprecisas."},
+    {key:"pos_show_product_images",label:"Mostrar imágenes de productos",help:"Muestra imágenes en las tarjetas del catálogo."},
+    {key:"pos_show_category_images",label:"Mostrar imágenes de categorías",help:"Muestra imágenes en categorías."},
+    {key:"pos_iface_group_by_categ",label:"Agrupar productos por categoría",help:"Ordena el catálogo por categorías."},
+    {key:"pos_default_screen",label:"Pantalla predeterminada",help:"Selecciona mesa antes o después de registrar.",kind:"select",options:[{value:"tables",label:"Mesas"},{value:"register",label:"Caja"}]},
+  ]},
+  {title:"Categorías de producto y PdV",items:[
+    {key:"pos_limit_categories",label:"Restringir categorías",help:"Selecciona las categorías disponibles en este PdV."},
+    {key:"pos_is_margins_costs_accessible_to_every_user",label:"Mostrar márgenes y costos",help:"Expone margen y costo en la información del producto."},
+  ]},
+  {title:"Contabilidad",items:[
+    {key:"sale_tax_id",label:"Impuesto de venta predeterminado",help:"Código del impuesto aplicado a productos nuevos.",kind:"text"},
+    {key:"account_default_pos_receivable_account_id",label:"Cuenta por cobrar predeterminada",help:"Cuenta intermediaria para clientes sin identificar.",kind:"text"},
+    {key:"pos_order_edit_tracking",label:"Seguimiento de edición",help:"Conserva las modificaciones hechas a pedidos."},
+    {key:"pos_tax_regime_selection",label:"Impuestos flexibles",help:"Permite elegir una posición fiscal por pedido."},
+    {key:"pos_is_closing_entry_by_product",label:"Asiento de cierre por producto",help:"Desglosa ventas por producto en el cierre."},
+  ]},
+  {title:"Precios",items:[
+    {key:"pos_use_pricelist",label:"Listas de precios flexibles",help:"Permite seleccionar listas de precios."},
+    {key:"pos_restrict_price_control",label:"Control de precios",help:"Restringe cambios de precio según permisos."},
+    {key:"pos_iface_tax_included",label:"Precios con impuestos incluidos",help:"Muestra precios finales en productos y recibos."},
+    {key:"pos_manual_discount",label:"Descuentos por línea",help:"Permite aplicar descuentos manuales."},
+  ]},
+  {title:"Facturas y recibos",items:[
+    {key:"pos_is_header_or_footer",label:"Encabezado y pie personalizados",help:"Agrega mensajes propios al recibo."},
+    {key:"pos_receipt_header",label:"Encabezado",help:"Texto superior del recibo.",kind:"text"},
+    {key:"pos_receipt_footer",label:"Pie",help:"Texto inferior del recibo.",kind:"text"},
+    {key:"pos_iface_print_auto",label:"Impresión automática",help:"Imprime el recibo al validar el pago."},
+    {key:"pos_iface_print_skip_screen",label:"Omitir pantalla de recibo",help:"Vuelve directamente a una venta nueva."},
+    {key:"point_of_sale_use_ticket_qr_code",label:"Código QR en el recibo",help:"Permite consultar el ticket desde un QR."},
+    {key:"pos_basic_receipt",label:"Recibo básico",help:"Usa un formato compacto sin precios para regalos."},
+    {key:"pos_iface_printbill",label:"Cuenta provisoria",help:"Permite imprimir antes del pago."},
+    {key:"pos_iface_splitbill",label:"Dividir cuenta",help:"Divide el total o líneas del pedido."},
+  ]},
+  {title:"Terminales de pago",items:[
+    {key:"module_pos_adyen",label:"Adyen",help:"Activa el conector de terminal Adyen."},
+    {key:"module_pos_stripe",label:"Stripe",help:"Activa el conector de terminal Stripe."},
+    {key:"module_pos_mercado_pago",label:"Mercado Pago",help:"Activa el conector de Mercado Pago."},
+    {key:"module_pos_qfpay",label:"QFPay",help:"Activa el conector QFPay."},
+  ]},
+  {title:"NUEVAUNO Desktop y dispositivos",items:[
+    {key:"pos_other_devices",label:"Impresora de recibos",help:"Usa una impresora conectada mediante Desktop."},
+    {key:"pos_epson_printer_ip",label:"Dirección de impresora",help:"IP o identificador de la impresora.",kind:"text"},
+    {key:"pos_iface_cashdrawer",label:"Cajón de efectivo",help:"Abre el cajón al validar pagos en efectivo."},
+    {key:"pos_iface_electronic_scale",label:"Balanza electrónica",help:"Lee peso desde NUEVAUNO Desktop."},
+    {key:"pos_customer_display_bg_img",label:"Pantalla del cliente",help:"Configura la pantalla secundaria del cliente.",kind:"text"},
+  ]},
+  {title:"Preparación",items:[
+    {key:"pos_is_order_printer",label:"Impresoras de preparación",help:"Envía comandas a cocina o bar."},
+    {key:"pos_note_ids",label:"Notas internas",help:"Activa notas rápidas para la preparación."},
+  ]},
+  {title:"Inventario",items:[
+    {key:"pos_ship_later",label:"Permitir envío posterior",help:"Vende ahora y despacha después."},
+    {key:"pos_picking_policy",label:"Política de despacho",help:"Define entrega parcial o completa.",kind:"select",options:[{value:"direct",label:"Lo disponible"},{value:"one",label:"Todo junto"}]},
+    {key:"barcode_nomenclature_id",label:"Nomenclatura de códigos",help:"Reglas para escanear productos y clientes.",kind:"text"},
+    {key:"update_stock_quantities",label:"Gestión de inventario",help:"Actualiza existencias según pedidos pagados."},
+  ]},
+];
 declare global {
   interface Window {
     NUEVAUNOBridge?: DeviceBridge;
@@ -40,7 +127,7 @@ export default function PosPage() {
   const { authenticatedApi, businessSession } = useAuthenticatedApi(),
     scope = resolveSalesScope(businessSession);
   const [data, setData] = useState<PosLoadDataView | null>(null),
-    [screen, setScreen] = useState<"dashboard" | "terminal" | "payment">("dashboard"),
+    [screen, setScreen] = useState<"dashboard" | "settings" | "terminal" | "payment">("dashboard"),
     [tab, setTab] = useState<Tab>("floor"),
     [table, setTable] = useState<{
       id: string;
@@ -48,6 +135,7 @@ export default function PosPage() {
       seats: number;
     } | null>(null);
   const [cart, setCart] = useState<Record<string, number>>({}),
+    [selectedLineId,setSelectedLineId]=useState(""),
     [order, setOrder] = useState<PosOrderView | null>(null),
     [category, setCategory] = useState(""),
     [tender, setTender] = useState(""),
@@ -74,10 +162,12 @@ export default function PosPage() {
     [partnerDialog, setPartnerDialog] = useState(false),
     [partnerSearch, setPartnerSearch] = useState(""),
     [partnerCreate, setPartnerCreate] = useState(false),
+    [actionsOpen,setActionsOpen]=useState(false),
     [partnerDraft, setPartnerDraft] = useState({displayName:"",email:"",phone:"",taxIdentifier:""}),
     [dialog, setDialog] = useState<PosDialogState | null>(null),
     [dialogText, setDialogText] = useState(""),
     [dialogSelections, setDialogSelections] = useState<string[]>([]);
+  const [settingsDraft,setSettingsDraft]=useState<PosConfigSettingsView>({}),[settingsDirty,setSettingsDirty]=useState(false),[clock,setClock]=useState(Date.now());
   const [generalNote, setGeneralNote] = useState(""),
     [guestCount, setGuestCount] = useState(1),
     [tipMinor, setTipMinor] = useState(0),
@@ -106,6 +196,10 @@ export default function PosPage() {
   const scannerBuffer = useRef(""),
     scannerAt = useRef(0),
     syncChannel = useRef<BroadcastChannel | null>(null);
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const requestDialog = (request: PosDialogRequest) =>
     new Promise<string | string[] | number | boolean | null>((resolve) => {
       setDialogText("value" in request ? String(request.value ?? "") : "");
@@ -142,6 +236,7 @@ export default function PosPage() {
       document.removeEventListener("visibilitychange", synchronize);
     };
   }, [scope?.organizationId, scope?.companyId]);
+  useEffect(()=>{if(data?.config&&!settingsDirty)setSettingsDraft(data.config.settings)},[data?.config,settingsDirty]);
   useEffect(() => {
     if (!scope) return;
     const channel = new BroadcastChannel(
@@ -207,9 +302,6 @@ export default function PosPage() {
     () => [...new Set(data?.products.map((p) => p.category) ?? [])],
     [data],
   );
-  useEffect(() => {
-    if (!category && categories.length) setCategory(categories[0]);
-  }, [categories, category]);
   const lines = useMemo(
     () =>
       Object.entries(cart).flatMap(([id, quantity]) => {
@@ -923,6 +1015,31 @@ export default function PosPage() {
     orderUuid.current = crypto.randomUUID();
     setTab("floor");
   };
+  const saveSettings=async()=>{if(!scope)return;setBusy(true);try{await authenticatedApi.posUpdateSettings(scope.organizationId,scope.companyId,settingsDraft);setSettingsDirty(false);await refresh()}finally{setBusy(false)}};
+  if(screen==="settings"&&data.config)return <main className="min-h-full bg-[#f6f7f8] text-[#202124]">
+    <header className="sticky top-0 z-20 flex min-h-14 items-center gap-3 border-b border-kumo-line bg-kumo-base px-5">
+      <button onClick={()=>setScreen("dashboard")} className="rounded-xl border border-kumo-line px-4 py-2">Volver</button>
+      <button disabled={!settingsDirty||busy} onClick={()=>void saveSettings()} className="rounded-xl bg-[#FE4A23] px-5 py-2 text-white disabled:opacity-40">Guardar</button>
+      <button disabled={!settingsDirty||busy} onClick={()=>{setSettingsDraft(data.config?.settings??{});setSettingsDirty(false)}} className="rounded-xl border border-kumo-line px-4 py-2 disabled:opacity-40">Descartar</button>
+      <h1 className="ml-4 text-xl font-normal">Ajustes del punto de venta</h1>
+    </header>
+    <div className="mx-auto max-w-6xl p-5">
+      <section className="mb-4 rounded-xl border border-[#f0c68d] bg-[#fff2dc] p-4 text-sm">Los cambios se aplican a {data.config.name}. Las opciones dependientes de hardware requieren NUEVAUNO Desktop conectado.</section>
+      {POS_SETTING_SECTIONS.map(section=><section key={section.title} className="mb-4 overflow-hidden rounded-xl border border-kumo-line bg-kumo-base">
+        <h2 className="border-b border-kumo-line bg-[#eef0f2] px-5 py-3 text-base font-normal">{section.title}</h2>
+        <div className="grid md:grid-cols-2">
+          {section.items.map(item=>{const value=settingsDraft[item.key];return <label key={item.key} className="grid min-h-28 grid-cols-[24px_1fr] gap-3 border-b border-r border-kumo-line p-5">
+            {item.kind ? <span/>:<input type="checkbox" checked={Boolean(value)} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:event.target.checked}));setSettingsDirty(true)}} className="mt-1 h-4 w-4 accent-[#FE4A23]"/>}
+            <span><span className="block text-[15px]">{item.label}</span><span className="mt-1 block text-sm text-kumo-subtle">{item.help}</span>
+              {item.kind==="text"&&<input value={typeof value==="string"?value:""} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:event.target.value}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"/>}
+              {item.kind==="number"&&<input type="number" value={typeof value==="number"?value:0} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:Number(event.target.value)}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"/>}
+              {item.kind==="select"&&<select value={typeof value==="string"?value:""} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:event.target.value}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"><option value="">Seleccionar</option>{item.options?.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select>}
+            </span>
+          </label>})}
+        </div>
+      </section>)}
+    </div>
+  </main>;
   if (screen === "dashboard" || !data.session)
     return (
       <main className="min-h-full bg-kumo-base p-6">
@@ -931,7 +1048,7 @@ export default function PosPage() {
             <p className="text-sm text-[#FE4A23]">Punto de venta</p>
             <h1 className="mt-1 text-2xl font-normal">Cajas</h1>
           </div>
-          <button onClick={() => void refresh()} className="rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-2">Actualizar</button>
+          <div className="flex gap-2"><button onClick={()=>setScreen("settings")} className="rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-2">Ajustes</button><button onClick={() => void refresh()} className="rounded-xl border border-kumo-line bg-kumo-elevated px-4 py-2">Actualizar</button></div>
         </header>
         <section className="max-w-4xl rounded-xl border border-kumo-line bg-kumo-elevated p-6">
           <h2 className="text-2xl font-normal">{data.config?.name ?? "Restaurant"}</h2>
@@ -1087,7 +1204,6 @@ export default function PosPage() {
   return (
     <main className="flex min-h-full flex-col bg-kumo-base">
       <nav className="flex h-14 items-stretch border-b border-kumo-line bg-kumo-elevated">
-        <button className="px-5 text-[#FE4A23]" onClick={() => setScreen("dashboard")}>Caja</button>
         <button
           className={`px-7 ${tab === "floor" ? "bg-kumo-line" : ""}`}
           onClick={() => setTab("floor")}
@@ -1111,28 +1227,18 @@ export default function PosPage() {
             </span>
           )}
         </button>
-        <button
-          className={`px-7 ${tab === "preparation" ? "bg-kumo-line" : ""}`}
-          onClick={() => setTab("preparation")}
-        >
-          Cocina
-          {data.orders.some((item) => item.metadata.preparationState !== "draft" && item.metadata.preparationState !== "served") && (
-            <span className="ml-2 rounded-full bg-[#FE4A23] px-2 py-1 text-xs text-white">
-              {data.orders.filter((item) => item.metadata.preparationState !== "draft" && item.metadata.preparationState !== "served").length}
-            </span>
-          )}
-        </button>
-        <span className="m-auto text-sm text-kumo-subtle">
-          {data.config?.name}
-        </span>
+        <span className="m-auto" />
+        {tab==="register"&&<label className="my-2 mr-4 flex w-[min(30vw,380px)] items-center gap-3 rounded-xl border border-kumo-line px-4"><span className="text-2xl">⌕</span><input aria-label="Buscar productos" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar productos…" className="min-w-0 flex-1 bg-transparent outline-none"/></label>}
+        <button aria-label="Usuario" className="my-auto mr-4 h-7 w-7 rounded-lg bg-purple-700 text-sm text-white">A</button>
+        <button aria-label="Menú principal" onClick={()=>setScreen("dashboard")} className="my-auto mr-5 text-2xl">☰</button>
         {offlinePending > 0 && (
           <span className="my-auto mr-4 rounded-xl bg-amber-100 px-3 py-1 text-sm text-amber-800">
             {offlinePending} pendiente{offlinePending === 1 ? "" : "s"} de sincronizar
           </span>
         )}
       </nav>
-      {tab === "register" && (
-        <section className="flex flex-wrap items-center gap-2 border-b border-kumo-line bg-kumo-elevated p-3">
+      {data && tab === "register" && screen === "settings" && (
+        <section aria-hidden="true" className="hidden">
           <label className="flex items-center gap-2">
             Comensales
             <input
@@ -1193,7 +1299,7 @@ export default function PosPage() {
             className="max-w-52 rounded-xl border border-kumo-line bg-kumo-base p-2"
           >
             <option value="">Cliente ocasional</option>
-            {data.partners.map((partner) => (
+            {data?.partners.map((partner) => (
               <option key={partner.id} value={partner.id}>
                 {partner.displayName}
               </option>
@@ -1206,7 +1312,7 @@ export default function PosPage() {
             className="max-w-52 rounded-xl border border-kumo-line bg-kumo-base p-2"
           >
             <option value="">Precio general</option>
-            {data.pricelists.map((list) => (
+            {data?.pricelists.map((list) => (
               <option key={list.id} value={list.id}>
                 {list.name}
               </option>
@@ -1219,7 +1325,7 @@ export default function PosPage() {
             className="max-w-52 rounded-xl border border-kumo-line bg-kumo-base p-2"
           >
             <option value="">Impuestos generales</option>
-            {data.fiscalPositions.map((position) => (
+            {data?.fiscalPositions.map((position) => (
               <option key={position.id} value={position.id}>
                 {position.name}
               </option>
@@ -1257,7 +1363,7 @@ export default function PosPage() {
             className="rounded-xl border border-kumo-line bg-kumo-base p-2"
           >
             <option value="">Efectivo</option>
-            {data.paymentMethods.map((method) => (
+            {data?.paymentMethods.map((method) => (
               <option key={method.id} value={method.id}>
                 {method.name}
               </option>
@@ -1285,7 +1391,7 @@ export default function PosPage() {
               </button>
               <button
                 onClick={merge}
-                disabled={data.orders.length < 2}
+                disabled={(data?.orders.length??0) < 2}
                 className="rounded-xl border border-kumo-line px-4 py-2 disabled:opacity-40"
               >
                 Unir mesas
@@ -1367,16 +1473,13 @@ export default function PosPage() {
             >
               {layoutEditing ? "Terminar edición" : "Editar salón"}
             </button>
-            <div className="text-sm">
-              <span className="mr-4">
-                ●{" "}
-                {data.floors.flatMap((f) => f.tables).length -
-                  data.orders.length}{" "}
-                Libres
-              </span>
-              <span className="text-[#FE4A23]">
-                ● {data.orders.length} Ocupadas
-              </span>
+            <div className="flex flex-wrap items-center gap-4 text-sm text-kumo-subtle">
+              <span><i className="mr-1 inline-block h-3 w-3 rounded bg-kumo-line" />Libre</span>
+              <span><i className="mr-1 inline-block h-3 w-3 rounded bg-[#FE4A23]" />Ocupada</span>
+              <span><i className="mr-1 inline-block h-3 w-3 rounded bg-red-500" />Demorada</span>
+              <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] text-white">P</i>Pendiente</span>
+              <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-[9px] text-white">EP</i>Envío parcial</span>
+              <span><i className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[9px] text-white">EC</i>Enviado</span>
             </div>
           </div>
           {data.floors.map((floor) => (
@@ -1397,6 +1500,12 @@ export default function PosPage() {
                   const current = data.orders.find(
                     (value) => value.tableId === item.id,
                   );
+                  const startedAt = current?.createdAt ?? data.session?.openedAt;
+                  const elapsedMinutes = startedAt
+                    ? Math.max(0, Math.floor((clock - new Date(startedAt).getTime()) / 60_000))
+                    : 0;
+                  const isLate = Boolean(current && elapsedMinutes >= 15 && current.metadata.preparationState !== "served");
+                  const badge = current ? preparationBadge(current.metadata.preparationState) : "";
                   return (
                     <button
                       key={item.id}
@@ -1404,17 +1513,18 @@ export default function PosPage() {
                         layoutEditing ? editTable(item) : selectTable(item)
                       }
                       onDoubleClick={() => layoutEditing && deleteTable(item)}
-                      className={`h-32 w-36 rounded-xl border p-3 text-center ${current ? "border-[#FE4A23] bg-[#FE4A23] text-white" : "border-kumo-line bg-kumo-elevated"}`}
+                      className={`relative h-32 w-36 rounded-xl border p-3 text-center ${current ? isLate ? "border-red-500 bg-red-500 text-white" : "border-[#FE4A23] bg-[#FE4A23] text-white" : "border-kumo-line bg-kumo-elevated"}`}
                     >
+                      {current && <span className="absolute left-3 top-3 text-xs">♟ {current.metadata.guestCount}</span>}
+                      {current && <span className="absolute right-3 top-3 text-xs">{elapsedLabel(startedAt, clock)}</span>}
                       <span className="block text-3xl">{item.name}</span>
-                      <span className="mt-3 block text-xs">
-                        ♟ {item.seats}
-                      </span>
+                      {!current && <span className="mt-3 block text-xs">♟ {item.seats}</span>}
                       {current && (
                         <span className="mt-2 block">
                           {money(current.totalMinor)}
                         </span>
                       )}
+                      {badge && <span className={`absolute bottom-3 right-3 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[9px] text-white ${badge === "P" ? "bg-rose-600" : badge === "EP" ? "bg-purple-600" : "bg-slate-700"}`}>{badge}</span>}
                     </button>
                   );
                 })}
@@ -1541,35 +1651,18 @@ export default function PosPage() {
       {tab === "register" && (
         <section className="grid flex-1 lg:grid-cols-[1fr_450px]">
           <div className="border-r border-kumo-line p-4">
-            <input
-              aria-label="Buscar productos o escanear código"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                const product = data.products.find(
-                  (item) => item.sku?.toLowerCase() === search.trim().toLowerCase(),
-                );
-                if (product) {
-                  change(product.id, 1);
-                  setSearch("");
-                }
-              }}
-              placeholder="Buscar productos o escanear código"
-              className="mb-3 w-full rounded-xl border border-kumo-line bg-kumo-elevated p-3"
-            />
             <div className="mb-4 flex gap-2">
               {categories.map((name) => (
                 <button
                   key={name}
-                  onClick={() => setCategory(name)}
-                  className={`min-w-32 rounded-xl border px-5 py-4 ${category === name ? "border-[#FE4A23] bg-orange-100" : "border-kumo-line bg-kumo-elevated"}`}
+                  onClick={() => setCategory(current=>current===name?"":name)}
+                  className={`h-16 min-w-32 rounded-lg border px-5 ${category === name ? "border-[#FE4A23]" : "border-transparent"} ${name==="Bar"?"bg-[#fee28a]":name==="Cocina"?"bg-[#f7a3a8]":"bg-[#f8d1a8]"}`}
                 >
                   {name}
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="flex flex-wrap gap-2">
               {data.products
                 .filter(
                   (product) =>
@@ -1583,128 +1676,21 @@ export default function PosPage() {
                   <button
                     key={product.id}
                     onClick={() => addProduct(product)}
-                    className="min-h-20 rounded-xl border border-kumo-line bg-kumo-elevated p-4 text-left"
+                    className="relative h-20 w-32 rounded-lg border border-kumo-line bg-kumo-elevated p-3 text-center shadow-[0_4px_0_#e4e6e9]"
                   >
                     <span className="block">{product.name}</span>
-                    <span className="mt-2 block text-[#FE4A23]">
-                      {money(
-                        Math.round(
-                          product.priceMinor *
-                            (1 + product.taxBasisPoints / 10000),
-                        ),
-                      )}
-                    </span>
+                    {(cart[product.id]??0)>0&&<span className="absolute bottom-1 right-1 rounded bg-black px-2 py-0.5 text-xs text-white">{cart[product.id]}</span>}
                   </button>
                 ))}
             </div>
           </div>
-          <aside className="flex flex-col bg-kumo-elevated p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl">
-                {table ? `Mesa ${table.name}` : "Pedido"}
-              </h2>
-              {order && (
-                <button onClick={cancel} className="text-sm text-red-500">
-                  Cancelar
-                </button>
-              )}
+          <aside className="flex min-h-0 flex-col bg-kumo-elevated">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {lines.map(line=><button key={line.id} onClick={()=>setSelectedLineId(line.id)} className={`grid w-full grid-cols-[36px_1fr_auto] gap-3 border-b px-3 py-3 text-left ${selectedLineId===line.id?"border-[#FE4A23] bg-[#fff1ed]":"border-kumo-line"}`}>
+                <span>{line.quantity}</span><span>{line.name}{lineNotes[line.id]&&<small className="block text-kumo-subtle">{lineNotes[line.id]}</small>}</span><span>{money(line.total)}</span>
+              </button>)}
             </div>
-            <div className="flex-1">
-              {lines.map((line) => (
-                <div
-                  key={line.id}
-                  className="flex items-center gap-3 border-b border-kumo-line py-3"
-                >
-                  <button
-                    onClick={() => removeProduct(line.id)}
-                    className="h-8 w-8 rounded border"
-                  >
-                    −
-                  </button>
-                  <input
-                    aria-label={`Cantidad de ${line.name}`}
-                    type="number"
-                    min="0.001"
-                    step="0.001"
-                    value={line.quantity}
-                    disabled={line.lots.some((lot) => lot.tracking === "serial")}
-                    onChange={(event) =>
-                      setQuantity(line.id, Number(event.target.value))
-                    }
-                    className="w-20 rounded border border-kumo-line bg-kumo-base p-1 text-center"
-                  />
-                  <button
-                    onClick={() =>
-                      line.lots.length ? addProduct(line) : change(line.id, 1)
-                    }
-                    className="h-8 w-8 rounded border"
-                  >
-                    ＋
-                  </button>
-                  <div className="flex-1">
-                    <span className="block">{line.name}</span>
-                    {lineNotes[line.id] && (
-                      <span className="block text-xs text-kumo-subtle">
-                        {lineNotes[line.id]}
-                      </span>
-                    )}
-                    <span className="block text-xs text-kumo-subtle">
-                      Curso {lineCourses[line.id] ?? 1}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setNoteEditor({
-                      productId: line.id,
-                      productName: line.name,
-                      value: lineNotes[line.id] ?? "",
-                    })}
-                    className="rounded border border-kumo-line px-2 py-1 text-xs"
-                  >
-                    Nota
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const price = Number(await requestDialog({ kind: "number", title: "Cambiar precio", label: line.name, value: line.unitPriceMinor, min: 0 }));
-                      if (Number.isSafeInteger(price) && price >= 0)
-                        setManualPrices((current) => ({
-                          ...current,
-                          [line.id]: price,
-                        }));
-                    }}
-                    className="rounded border border-kumo-line px-2 py-1 text-xs"
-                  >
-                    Precio
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const course = Number(await requestDialog({ kind: "number", title: "Curso", label: line.name, value: lineCourses[line.id] ?? 1, min: 1 }));
-                      if (Number.isSafeInteger(course) && course > 0)
-                        setLineCourses((current) => ({
-                          ...current,
-                          [line.id]: course,
-                        }));
-                    }}
-                    className="rounded border border-kumo-line px-2 py-1 text-xs"
-                  >
-                    Curso
-                  </button>
-                  {window.NUEVAUNOBridge && (
-                    <button
-                      onClick={async () => {
-                        const reading = await window.NUEVAUNOBridge?.readScale();
-                        if (reading?.ok !== false && reading?.weight)
-                          setQuantity(line.id, reading.weight);
-                      }}
-                      className="rounded border border-kumo-line px-2 py-1 text-xs"
-                    >
-                      Báscula
-                    </button>
-                  )}
-                  <span>{money(line.total)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="border-t border-kumo-line pt-4">
+            <div className="border-t border-kumo-line p-3">
               <div className="flex justify-between text-sm text-kumo-subtle">
                 <span>Impuestos</span>
                 <span>{money(tax)}</span>
@@ -1719,106 +1705,33 @@ export default function PosPage() {
                 <span>Total</span>
                 <span>{money(total)}</span>
               </div>
-              {!order ? (
-                <button
-                  disabled={!lines.length || busy}
-                  onClick={save}
-                  className="mt-4 w-full rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40"
-                >
-                  Guardar pedido
-                </button>
-              ) : (
-                <>
-                  <label className="mt-4 flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={splitPayment}
-                      onChange={(event) => setSplitPayment(event.target.checked)}
-                    />
-                    Dividir pago
-                  </label>
-                  {splitPayment && (
-                    <div className="mt-2 space-y-2 rounded-xl border border-kumo-line p-3">
-                      {data.paymentMethods.map((method) => (
-                        <div key={method.id} className="flex items-center gap-2">
-                          <label className="contents">
-                            <span className="flex-1">{method.name}</span>
-                            <input
-                              aria-label={`Monto ${method.name}`}
-                              type="number"
-                              min="0"
-                              value={paymentAmounts[method.id] ?? ""}
-                              onChange={(event) =>
-                                setPaymentAmounts((current) => ({
-                                  ...current,
-                                  [method.id]: Math.max(
-                                    0,
-                                    Number(event.target.value),
-                                  ),
-                                }))
-                              }
-                              className="w-32 rounded-xl border border-kumo-line bg-kumo-base p-2"
-                            />
-                          </label>
-                          {method.requiresTerminal && (
-                            <input
-                              aria-label={`Referencia ${method.name}`}
-                              value={terminalReferences[method.id] ?? ""}
-                              onChange={(event) =>
-                                setTerminalReferences((current) => ({
-                                  ...current,
-                                  [method.id]: event.target.value,
-                                }))
-                              }
-                              placeholder="Referencia terminal"
-                              className="w-40 rounded-xl border border-kumo-line bg-kumo-base p-2"
-                            />
-                          )}
-                        </div>
-                      ))}
-                      <div className="flex justify-between text-sm text-kumo-subtle">
-                        <span>Asignado</span>
-                        <span>{money(allocatedTotal)} / {money(total)}</span>
-                      </div>
-                    </div>
-                  )}
-                  {!splitPayment && isCash && (
-                    <input
-                      aria-label="Efectivo recibido"
-                      type="number"
-                      value={tender}
-                      onChange={(event) => setTender(event.target.value)}
-                      placeholder="Efectivo recibido"
-                      className="mt-4 w-full rounded-xl border border-kumo-line bg-kumo-base p-3"
-                    />
-                  )}
-                  {!splitPayment && selectedPaymentMethod?.requiresTerminal && (
-                    <input
-                      aria-label="Referencia terminal"
-                      value={terminalReferences[selectedPaymentMethod.id] ?? ""}
-                      onChange={(event) =>
-                        setTerminalReferences((current) => ({
-                          ...current,
-                          [selectedPaymentMethod.id]: event.target.value,
-                        }))
-                      }
-                      placeholder="Referencia de autorización"
-                      className="mt-4 w-full rounded-xl border border-kumo-line bg-kumo-base p-3"
-                    />
-                  )}
-                  <button
-                    disabled={busy || !lines.length}
-                    onClick={() => setScreen("payment")}
-                    className="mt-2 w-full rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40"
-                  >
-                    Pago
-                  </button>
-                </>
-              )}
+              <div className="mt-3 grid grid-cols-[1fr_1fr_44px_1fr_44px] gap-2"><button onClick={()=>setPartnerDialog(true)} className="rounded-lg border border-kumo-line py-3">Cliente</button><button onClick={()=>{const line=lines.find(item=>item.id===selectedLineId);if(line)setNoteEditor({productId:line.id,productName:line.name,value:lineNotes[line.id]??""});else void requestDialog({kind:"text",title:"Nota para el cliente",value:generalNote}).then(value=>typeof value==="string"&&setGeneralNote(value))}} className="rounded-lg border border-kumo-line py-3">Nota</button><button onClick={()=>order&&void sendToPreparation()} aria-label="Enviar comanda" className="rounded-lg border border-kumo-line">↥</button><button onClick={async()=>{const line=lines.find(item=>item.id===selectedLineId);if(!line)return;const course=Number(await requestDialog({kind:"number",title:"Tiempo",label:"Curso",value:lineCourses[line.id]??1,min:1}));if(course>0)setLineCourses(current=>({...current,[line.id]:course}))}} className="rounded-lg border border-kumo-line">Tiempo</button><button onClick={()=>setActionsOpen(true)} aria-label="Acciones" className="rounded-lg border border-kumo-line text-xl">⋮</button></div>
+              <div className="mt-2 grid grid-cols-4">{["1","2","3","Ctdad","4","5","6","%","7","8","9","Precio","+/−","0",",","⌫"].map(key=><button key={key} onClick={async()=>{
+                const line=lines.find(item=>item.id===selectedLineId);if(!line)return;
+                if(/^\d$/.test(key))setQuantity(line.id,Number(key));
+                else if(key==="⌫")removeProduct(line.id);
+                else if(key==="%") {const discount=Number(await requestDialog({kind:"number",title:"Descuento",value:discountBasisPoints/100,min:0,max:100}));if(Number.isFinite(discount))setDiscountBasisPoints(Math.round(discount*100));}
+                else if(key==="Precio"){const price=Number(await requestDialog({kind:"number",title:"Cambiar precio",label:line.name,value:line.unitPriceMinor,min:0}));if(price>=0)setManualPrices(current=>({...current,[line.id]:price}));}
+              }} className={`h-13 border border-kumo-line ${(key==="Ctdad"||key==="Precio")?"bg-[#fff1ed]":key==="+/−"?"bg-[#fee28a]":""}`}>{key}</button>)}</div>
+              <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={reset} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length} onClick={async()=>{if(!order)await save();setScreen("payment")}} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">Pago</button></div>
             </div>
           </aside>
         </section>
       )}
+      {actionsOpen&&<div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"><section role="dialog" aria-modal="true" aria-label="Acciones" className="w-full max-w-5xl rounded-lg bg-kumo-elevated shadow-xl"><header className="flex items-center justify-between border-b border-kumo-line p-4"><h2 className="text-lg font-normal">Acciones</h2><button onClick={()=>setActionsOpen(false)} aria-label="Cerrar" className="text-2xl text-kumo-subtle">×</button></header><div className="grid grid-cols-3 gap-2 p-4">
+        <button onClick={async()=>{const value=await requestDialog({kind:"text",title:"Nota para el cliente",value:generalNote});if(typeof value==="string")setGeneralNote(value);setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▣ Nota para el cliente</button>
+        <button disabled={!order} onClick={()=>{if(order)void printTicket(order,"receipt");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">▣ Cuenta</button>
+        <button onClick={async()=>{const value=Number(await requestDialog({kind:"number",title:"Comensales",value:guestCount,min:1}));if(value>0)setGuestCount(value);setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">● Comensales</button>
+        <button disabled={!order} onClick={()=>{void split();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">▱ Dividir</button>
+        <button disabled={!order} onClick={()=>{void transfer();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">→ Transferir / Fusionar</button>
+        <button disabled={!order} onClick={()=>{void sendToPreparation();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">↓ Transferir comida</button>
+        <button onClick={async()=>{const id=await requestDialog({kind:"selection",title:"Tarifa",options:data.pricelists.map(item=>({id:item.id,label:item.name})),selected:pricelistId?[pricelistId]:[],max:1});if(Array.isArray(id))setPricelistId(id[0]??"");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▦ Tarifa</button>
+        <button onClick={()=>{setTab("orders");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">↶ Reembolso</button>
+        <button onClick={()=>{void requestDialog({kind:"message",title:"Información",body:`${table?`Mesa ${table.name}`:"Pedido"} · ${lines.length} líneas · ${money(total)}`});setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">● Información</button>
+        <button disabled={!order} onClick={()=>{void cancel();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">♜ Cancelar orden</button>
+        <button onClick={()=>{window.open(`${window.location.pathname}?display=customer`,"nuevauno-customer-display","popup,width=900,height=700");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▣ Pantalla cliente</button>
+        <button disabled={data.orders.length<2} onClick={()=>{void merge();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">⇄ Unir órdenes</button>
+      </div></section></div>}
       {dialog && (
         <div className="fixed inset-0 z-[60] grid place-items-center bg-black/45 p-4">
           <section role="dialog" aria-modal="true" aria-label={dialog.title} className="w-full max-w-xl rounded-xl bg-kumo-elevated shadow-xl">
