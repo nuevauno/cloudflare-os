@@ -68,6 +68,9 @@ describe("recorridos POS portados desde la fuente 19", () => {
   it("expone ajustes persistentes por sección en vez de controles decorativos",()=>{
     for(const text of ["Ajustes del punto de venta","Interfaz del PdV","Facturas y recibos","Terminales de pago","NUEVAUNO Desktop y dispositivos","Inventario"])expect(source).toContain(text);
     expect(source).toContain("posUpdateSettings");
+    expect(source).toContain("posSavePaymentMethod");
+    expect(source).toContain("Referencia del terminal");
+    expect(source).toContain("Métodos de pago");
     expect(source).toContain("settingsDirty");
   });
 
