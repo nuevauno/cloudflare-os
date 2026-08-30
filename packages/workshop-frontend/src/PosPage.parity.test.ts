@@ -108,4 +108,13 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain('inputMode="numeric"');
     expect(source).toContain('data.activeOperator?.role');
   });
+
+  it("porta control de apertura, conciliación de cierre y venta diaria",()=>{
+    for(const text of ["Nota de apertura","Nota de cierre","Medios de pago","Entradas y salidas","Efectivo contado","Diferencia:","Venta diaria","pedidos abiertos"])expect(source).toContain(text);
+    expect(source).toContain("downloadSalesReport");
+    expect(source).toContain("data.session.paymentsByMethod.map");
+    expect(source).toContain("data.session.cashMoves.map");
+    expect(source).toContain("openingNote.trim() || undefined");
+    expect(source).toContain("closingNote.trim() || undefined");
+  });
 });

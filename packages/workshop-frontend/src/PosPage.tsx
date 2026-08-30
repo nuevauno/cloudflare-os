@@ -169,8 +169,10 @@ export default function PosPage() {
     [layoutEditing, setLayoutEditing] = useState(false),
     [openingDialog, setOpeningDialog] = useState(false),
     [openingCashMinor, setOpeningCashMinor] = useState(0),
+    [openingNote, setOpeningNote] = useState(""),
     [closingDialog, setClosingDialog] = useState(false),
     [countedCashMinor, setCountedCashMinor] = useState(0),
+    [closingNote, setClosingNote] = useState(""),
     [noteEditor, setNoteEditor] = useState<{
       productId: string;
       productName: string;
@@ -410,6 +412,7 @@ export default function PosPage() {
         scope.organizationId,
         scope.companyId,
         openingCashMinor,
+        openingNote.trim() || undefined,
       );
       await refresh();
       setOpeningDialog(false);
@@ -940,11 +943,35 @@ export default function PosPage() {
       scope.companyId,
       data.session.id,
       countedCashMinor,
+      closingNote.trim() || undefined,
     );
     setClosingDialog(false);
     setScreen("dashboard");
     await refresh();
     await requestDialog({ kind: "message", title: "Caja cerrada", body: `Diferencia: ${money(result.differenceMinor)}` });
+  };
+  const downloadSalesReport = () => {
+    if (!data.session) return;
+    const lines = [
+      data.config?.name ?? "Punto de venta",
+      `Sesión: ${data.session.id}`,
+      `Apertura: ${money(data.session.openingCashMinor)}`,
+      `Ventas: ${money(data.session.grossSalesMinor)} · ${data.session.paidOrderCount} pedidos`,
+      `Devoluciones: ${money(data.session.refundMinor)}`,
+      `Caja esperada: ${money(data.session.expectedCashMinor)}`,
+      "",
+      "Medios de pago",
+      ...data.session.paymentsByMethod.map((method) => `${method.name}: ${money(method.amountMinor)}`),
+      "",
+      "Entradas y salidas",
+      ...data.session.cashMoves.map((move) => `${move.direction === "in" ? "Entrada" : "Salida"}: ${money(move.amountMinor)} · ${move.reason}`),
+    ];
+    const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ventas-${data.session.id}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
   const createTable = async (floorId: string) => {
     const nameValue = await requestDialog({ kind: "text", title: "Nueva mesa", label: "Nombre" }),
@@ -1130,6 +1157,8 @@ export default function PosPage() {
               <label className="mt-6 block">Efectivo inicial
                 <input autoFocus type="number" min="0" value={openingCashMinor} onChange={(event) => setOpeningCashMinor(Math.max(0, Number(event.target.value)))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" />
               </label>
+              {data.orders.length > 0 && <p role="status" className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sky-800">Hay {data.orders.length} pedidos abiertos que continuarán en esta sesión.</p>}
+              <label className="mt-4 block">Nota de apertura<textarea rows={4} value={openingNote} onChange={(event) => setOpeningNote(event.target.value)} placeholder="Agrega una nota de apertura…" className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label>
               <div className="mt-6 flex justify-end gap-2">
                 <button onClick={() => setOpeningDialog(false)} className="rounded-xl border border-kumo-line px-4 py-3">Descartar</button>
                 <button disabled={busy || !Number.isSafeInteger(openingCashMinor)} onClick={open} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white disabled:opacity-40">Abrir caja</button>
@@ -1139,12 +1168,17 @@ export default function PosPage() {
         )}
         {closingDialog && data.session && (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-            <section role="dialog" aria-modal="true" aria-label="Cerrar caja" className="w-full max-w-lg rounded-xl bg-kumo-elevated p-6 shadow-xl">
-              <h2 className="text-2xl font-normal">Cerrar caja</h2>
-              <dl className="mt-6 grid grid-cols-2 gap-3"><dt>Apertura</dt><dd className="text-right">{money(data.session.openingCashMinor)}</dd><dt>Ventas</dt><dd className="text-right">{money(data.session.grossSalesMinor)}</dd><dt>Esperado</dt><dd className="text-right">{money(data.session.expectedCashMinor)}</dd></dl>
+            <section role="dialog" aria-modal="true" aria-label="Cerrar caja" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-kumo-elevated p-6 shadow-xl">
+              <header className="flex items-center justify-between"><h2 className="text-2xl font-normal">Cerrar caja</h2><span>{data.session.paidOrderCount} pedidos · {money(data.session.grossSalesMinor)}</span></header>
+              <dl className="mt-6 grid grid-cols-2 gap-3"><dt>Apertura</dt><dd className="text-right">{money(data.session.openingCashMinor)}</dd><dt>Ventas</dt><dd className="text-right">{money(data.session.grossSalesMinor)}</dd><dt>Devoluciones</dt><dd className="text-right">{money(data.session.refundMinor)}</dd><dt>Esperado</dt><dd className="text-right">{money(data.session.expectedCashMinor)}</dd></dl>
+              <section className="mt-5 border-t border-kumo-line pt-4"><h3 className="text-lg font-normal">Medios de pago</h3>{data.session.paymentsByMethod.map((method) => <div key={method.paymentMethodId} className="mt-2 flex justify-between"><span>{method.name}</span><span>{money(method.amountMinor)}</span></div>)}{!data.session.paymentsByMethod.length && <p className="mt-2 text-kumo-subtle">Sin pagos registrados.</p>}</section>
+              <section className="mt-5 border-t border-kumo-line pt-4"><h3 className="text-lg font-normal">Entradas y salidas</h3>{data.session.cashMoves.map((move) => <div key={move.id} className="mt-2 grid grid-cols-[80px_1fr_auto] gap-3"><span>{move.direction === "in" ? "Entrada" : "Salida"}</span><span>{move.reason}</span><span>{money(move.direction === "in" ? move.amountMinor : -move.amountMinor)}</span></div>)}{!data.session.cashMoves.length && <p className="mt-2 text-kumo-subtle">Sin movimientos de caja.</p>}</section>
               <label className="mt-6 block">Efectivo contado<input autoFocus type="number" min="0" value={countedCashMinor} onChange={(event) => setCountedCashMinor(Math.max(0, Number(event.target.value)))} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label>
               <p className="mt-3 text-kumo-subtle">Diferencia: {money(countedCashMinor - data.session.expectedCashMinor)}</p>
-              <div className="mt-6 flex justify-end gap-2"><button onClick={() => setClosingDialog(false)} className="rounded-xl border border-kumo-line px-4 py-3">Descartar</button><button disabled={busy || data.orders.length > 0} onClick={closeSession} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white disabled:opacity-40">Cerrar caja</button></div>
+              {data.session.openingNote && <label className="mt-5 block">Nota de apertura<textarea readOnly rows={3} value={data.session.openingNote} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-line p-3" /></label>}
+              <label className="mt-4 block">Nota de cierre<textarea rows={3} value={closingNote} onChange={(event) => setClosingNote(event.target.value)} placeholder="Agrega una nota de cierre…" className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label>
+              {data.orders.length > 0 && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800">Debes resolver {data.orders.length} pedidos abiertos antes de cerrar.</p>}
+              <div className="mt-6 flex flex-wrap justify-between gap-2"><div className="flex gap-2"><button onClick={() => setClosingDialog(false)} className="rounded-xl border border-kumo-line px-4 py-3">Descartar</button><button disabled={busy || data.orders.length > 0} onClick={closeSession} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white disabled:opacity-40">Cerrar caja</button></div><div className="flex gap-2"><button onClick={()=>void cashMove("in")} className="rounded-xl border border-kumo-line px-4 py-3">Entrada</button><button onClick={()=>void cashMove("out")} className="rounded-xl border border-kumo-line px-4 py-3">Salida</button><button onClick={downloadSalesReport} className="rounded-xl border border-kumo-line px-4 py-3">Venta diaria</button></div></div>
             </section>
           </div>
         )}
