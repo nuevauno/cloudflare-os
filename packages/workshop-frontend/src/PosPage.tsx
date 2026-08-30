@@ -282,16 +282,23 @@ export default function PosPage() {
   };
   const split = async () => {
     if (!order || !order.lines.length) return;
-    const line = order.lines[0];
-    if (line.quantity < 2) {
-      window.alert("Aumenta una línea a dos o más unidades para separarla.");
-      return;
-    }
+    const lineQuantities = order.lines.flatMap((line) => {
+      const quantity = Number(
+        window.prompt(
+          `Cantidad de ${line.description} para la cuenta separada (máximo ${line.quantity})`,
+          "0",
+        ),
+      );
+      return quantity > 0 && quantity <= line.quantity
+        ? [{ lineId: line.id, quantity }]
+        : [];
+    });
+    if (!lineQuantities.length) return;
     const result = await authenticatedApi.posSplitOrder({
       organizationId: scope.organizationId,
       companyId: scope.companyId,
       orderId: order.id,
-      lineQuantities: [{ lineId: line.id, quantity: 1 }],
+      lineQuantities,
       requestId: crypto.randomUUID(),
     });
     setOrder(result.source);
@@ -339,19 +346,24 @@ export default function PosPage() {
     await refresh();
   };
   const refund = async (ticket: PosOrderView) => {
-    if (
-      ticket.state !== "paid" ||
-      !window.confirm(`Devolver ${money(ticket.totalMinor)} completos`)
-    )
-      return;
+    if (ticket.state !== "paid") return;
+    const refundLines = ticket.lines.flatMap((line) => {
+      const quantity = Number(
+        window.prompt(
+          `Cantidad a devolver de ${line.description} (máximo ${line.quantity})`,
+          String(line.quantity),
+        ),
+      );
+      return quantity > 0 && quantity <= line.quantity
+        ? [{ lineId: line.id, quantity }]
+        : [];
+    });
+    if (!refundLines.length) return;
     await authenticatedApi.posRefundOrder({
       organizationId: scope.organizationId,
       companyId: scope.companyId,
       orderId: ticket.id,
-      lines: ticket.lines.map((line) => ({
-        lineId: line.id,
-        quantity: line.quantity,
-      })),
+      lines: refundLines,
       requestId: crypto.randomUUID(),
     });
     await refresh();
