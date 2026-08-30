@@ -81,4 +81,16 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("loadOrder(selectedTicket, targetTable)");
     expect(source).not.toContain('ticket.state !== "draft" &&');
   });
+
+  it("muestra tiempo y estados operativos completos directamente en cada mesa",()=>{
+    for(const text of ["elapsedLabel",'current.metadata.preparationState','Demorada','Pendiente','Envío parcial','Enviado'])expect(source).toContain(text);
+    expect(source).toContain('absolute right-3 top-3');
+    expect(source).toContain('window.setInterval(() => setClock(Date.now()), 30_000)');
+  });
+
+  it("identifica encargados, cajeros y garzones sin diálogos nativos",()=>{
+    for(const text of ["Selecciona tu usuario","Encargado","Cajero","Garzón","posLoginOperator","posLogoutOperator","Empleados del punto de venta"])expect(source).toContain(text);
+    expect(source).toContain('inputMode="numeric"');
+    expect(source).toContain('data.activeOperator?.role');
+  });
 });
