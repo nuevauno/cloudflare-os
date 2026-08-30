@@ -36,7 +36,9 @@ function RootComponent() {
 
   // The workspace editor renders fullscreen (no app chrome). /gadget/ is the legacy URL, kept
   // here so the chrome doesn't flash in during the redirect to /workspace/.
-  const isWorkspaceEditor = pathname.startsWith('/workspace/') || pathname.startsWith('/gadget/')
+  const isFullscreenApplication = pathname.startsWith('/workspace/')
+    || pathname.startsWith('/gadget/')
+    || pathname === '/pos'
 
   const handleLoginSuccess = () => {
     const token = localStorage.getItem('authToken')
@@ -113,7 +115,7 @@ function RootComponent() {
           <Toasty>
             <AuthenticatedShell
               authenticatedApi={authenticatedApi}
-              isWorkspaceEditor={isWorkspaceEditor}
+              isFullscreenApplication={isFullscreenApplication}
             />
           </Toasty>
         </TooltipProvider>
@@ -129,10 +131,10 @@ function RootComponent() {
  */
 function AuthenticatedShell({
   authenticatedApi,
-  isWorkspaceEditor,
+  isFullscreenApplication,
 }: {
   authenticatedApi: RpcStub<AuthenticatedApi>
-  isWorkspaceEditor: boolean
+  isFullscreenApplication: boolean
 }) {
   // null = still checking, true = needs onboarding, false = onboarding done
   const [onboardingNeeded, setOnboardingNeeded] = useState<boolean | null>(null)
@@ -166,7 +168,7 @@ function AuthenticatedShell({
   // Normal app shell. The workspace editor is rendered fullscreen (no chrome); everything else
   // gets the persistent left-rail AppShell. Connection loss is surfaced by a chip in whichever of
   // those two top bars is showing, never by a banner that reflows the page (see ReconnectingChip).
-  const fullscreen = isWorkspaceEditor
+  const fullscreen = isFullscreenApplication
   return (
     <>
       <AccountSelectionModal />

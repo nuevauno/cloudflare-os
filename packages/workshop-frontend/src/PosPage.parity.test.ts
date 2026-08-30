@@ -4,8 +4,13 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./PosPage.tsx", import.meta.url), "utf8");
+const rootRoute = readFileSync(new URL("./routes/__root.tsx", import.meta.url), "utf8");
 
 describe("recorridos POS portados desde la fuente 19", () => {
+  it("renderiza el POS como aplicación de pantalla completa, sin el shell lateral", () => {
+    expect(rootRoute).toContain("pathname === '/pos'");
+    expect(rootRoute).toContain("isFullscreenApplication");
+  });
   it("usa un diálogo de nota de línea con accesos rápidos y no un prompt", () => {
     expect(source).toContain('aria-label={`Nota de ${noteEditor.productName}`}');
     expect(source).toContain("Sin aderezo");
