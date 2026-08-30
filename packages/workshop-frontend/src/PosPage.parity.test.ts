@@ -1,3 +1,5 @@
+// Vitest corre en Node, pero el tsconfig de esta app declara solo tipos del navegador.
+// @ts-expect-error builtin de Node sin @types/node en el bundle del cliente
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
