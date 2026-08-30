@@ -44,7 +44,10 @@ export default function PosPage() {
     [invoiceRequested, setInvoiceRequested] = useState(false),
     [takeaway, setTakeaway] = useState(false),
     [splitPayment, setSplitPayment] = useState(false),
-    [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>({});
+    [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>({}),
+    [lineNotes, setLineNotes] = useState<Record<string, string>>({}),
+    [manualPrices, setManualPrices] = useState<Record<string, number>>({}),
+    [lineCourses, setLineCourses] = useState<Record<string, number>>({});
   const orderUuid = useRef<string>(crypto.randomUUID());
   const refresh = async () => {
     if (scope)
@@ -70,14 +73,15 @@ export default function PosPage() {
       Object.entries(cart).flatMap(([id, quantity]) => {
         const p = data?.products.find((x) => x.id === id);
         if (!p || quantity <= 0) return [];
-        const discounted = Math.round(
-            (p.priceMinor * (10000 - discountBasisPoints)) / 10000,
+        const unitPriceMinor = manualPrices[id] ?? p.priceMinor,
+          discounted = Math.round(
+            (unitPriceMinor * (10000 - discountBasisPoints)) / 10000,
           ),
           subtotal = discounted * quantity,
           tax = Math.round((subtotal * p.taxBasisPoints) / 10000);
-        return [{ ...p, quantity, subtotal, tax, total: subtotal + tax }];
+        return [{ ...p, unitPriceMinor, quantity, subtotal, tax, total: subtotal + tax }];
       }),
-    [cart, data, discountBasisPoints],
+    [cart, data, discountBasisPoints, manualPrices],
   );
   const total = lines.reduce((sum, line) => sum + line.total, 0) + tipMinor,
     tax = lines.reduce((sum, line) => sum + line.tax, 0);
@@ -114,6 +118,31 @@ export default function PosPage() {
     setPartnerId(existing?.metadata.partnerId ?? "");
     setInvoiceRequested(existing?.metadata.invoiceRequested ?? false);
     setTakeaway(existing?.metadata.takeaway ?? false);
+    setLineNotes(
+      Object.fromEntries(
+        existing?.lines.flatMap((line) =>
+          line.customerNote ? [[line.productVariantId, line.customerNote]] : [],
+        ) ?? [],
+      ),
+    );
+    setManualPrices(
+      Object.fromEntries(
+        existing?.lines.flatMap((line) => {
+          const product = data.products.find(
+            (item) => item.id === line.productVariantId,
+          );
+          return product && product.priceMinor !== line.unitPriceMinor
+            ? [[line.productVariantId, line.unitPriceMinor]]
+            : [];
+        }) ?? [],
+      ),
+    );
+    setLineCourses(
+      Object.fromEntries(
+        existing?.lines.map((line) => [line.productVariantId, line.courseNumber ?? 1]) ??
+          [],
+      ),
+    );
     setTab("register");
   };
   const orderPayload = () => ({
@@ -130,11 +159,16 @@ export default function PosPage() {
         takeaway,
       ...(partnerId ? { partnerId } : {}),
     },
-    lines: lines.map((line) => ({
-      productVariantId: line.id,
-      quantity: line.quantity,
-      discountBasisPoints,
-    })),
+      lines: lines.map((line) => ({
+        productVariantId: line.id,
+        quantity: line.quantity,
+        discountBasisPoints,
+        ...(lineNotes[line.id] ? { customerNote: lineNotes[line.id] } : {}),
+        ...(manualPrices[line.id] === undefined
+          ? {}
+          : { unitPriceMinor: manualPrices[line.id] }),
+        courseNumber: lineCourses[line.id] ?? 1,
+      })),
   });
   const save = async () => {
     if (!data.session || !lines.length) return;
@@ -329,6 +363,9 @@ export default function PosPage() {
     setTender("");
     setSplitPayment(false);
     setPaymentAmounts({});
+    setLineNotes({});
+    setManualPrices({});
+    setLineCourses({});
     setTable(null);
     orderUuid.current = crypto.randomUUID();
     setTab("floor");
@@ -841,7 +878,66 @@ export default function PosPage() {
                   >
                     ＋
                   </button>
-                  <span className="flex-1">{line.name}</span>
+                  <div className="flex-1">
+                    <span className="block">{line.name}</span>
+                    {lineNotes[line.id] && (
+                      <span className="block text-xs text-kumo-subtle">
+                        {lineNotes[line.id]}
+                      </span>
+                    )}
+                    <span className="block text-xs text-kumo-subtle">
+                      Curso {lineCourses[line.id] ?? 1}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const note = window.prompt(
+                        "Nota de la línea",
+                        lineNotes[line.id] ?? "",
+                      );
+                      if (note !== null)
+                        setLineNotes((current) => ({
+                          ...current,
+                          [line.id]: note.trim(),
+                        }));
+                    }}
+                    className="rounded border border-kumo-line px-2 py-1 text-xs"
+                  >
+                    Nota
+                  </button>
+                  <button
+                    onClick={() => {
+                      const price = Number(
+                        window.prompt("Precio unitario", String(line.unitPriceMinor)),
+                      );
+                      if (Number.isSafeInteger(price) && price >= 0)
+                        setManualPrices((current) => ({
+                          ...current,
+                          [line.id]: price,
+                        }));
+                    }}
+                    className="rounded border border-kumo-line px-2 py-1 text-xs"
+                  >
+                    Precio
+                  </button>
+                  <button
+                    onClick={() => {
+                      const course = Number(
+                        window.prompt(
+                          "Número de curso",
+                          String(lineCourses[line.id] ?? 1),
+                        ),
+                      );
+                      if (Number.isSafeInteger(course) && course > 0)
+                        setLineCourses((current) => ({
+                          ...current,
+                          [line.id]: course,
+                        }));
+                    }}
+                    className="rounded border border-kumo-line px-2 py-1 text-xs"
+                  >
+                    Curso
+                  </button>
                   <span>{money(line.total)}</span>
                 </div>
               ))}
