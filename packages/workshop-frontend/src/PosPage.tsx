@@ -164,6 +164,7 @@ export default function PosPage() {
     [receipt, setReceipt] = useState<{
       order: PosOrderView;
       change: number;
+      payments: Array<{ name: string; amountMinor: number }>;
     } | null>(null),
     [busy, setBusy] = useState(false),
     [offlinePending, setOfflinePending] = useState(0),
@@ -177,6 +178,7 @@ export default function PosPage() {
     [openingNote, setOpeningNote] = useState(""),
     [openingDenominations,setOpeningDenominations]=useState<Record<number,number>>({}),
     [closingDialog, setClosingDialog] = useState(false),
+    [closingBlocked, setClosingBlocked] = useState(false),
     [countedCashMinor, setCountedCashMinor] = useState(0),
     [closingNote, setClosingNote] = useState(""),
     [closingDenominations,setClosingDenominations]=useState<Record<number,number>>({}),
@@ -781,18 +783,24 @@ export default function PosPage() {
     isCash =
       !selectedPaymentMethod || selectedPaymentMethod.methodType === "cash";
   const paymentAmount = (bucket:"products"|"tip",methodId:string) => paymentAmounts[`${bucket}:${methodId}`] ?? 0;
-  const allocatedPayments = data.paymentMethods
-    .filter((method) => paymentAmount("products",method.id) + paymentAmount("tip",method.id) > 0)
-    .map((method) => ({
-      paymentMethodId: method.id,
-      amountMinor: paymentAmount("products",method.id) + paymentAmount("tip",method.id),
-      ...(method.methodType === "cash"
-        ? { tenderedMinor: Math.max(paymentAmount("products",method.id) + paymentAmount("tip",method.id), Number(tender) || 0) }
-        : {}),
-      ...(method.requiresTerminal && terminalReferences[method.id]
-        ? { terminalReference: terminalReferences[method.id] }
-        : {}),
-    })),
+  const cashAllocated = data.paymentMethods
+      .filter((method) => method.methodType === "cash")
+      .reduce((sum, method) => sum + paymentAmount("products", method.id) + paymentAmount("tip", method.id), 0),
+    cashOverpayment = Math.max(0, (Number(tender) || 0) - cashAllocated),
+    allocatedPayments = (["products", "tip"] as const).flatMap((bucket) =>
+      data.paymentMethods
+        .filter((method) => paymentAmount(bucket, method.id) > 0)
+        .map((method) => ({
+          paymentMethodId: method.id,
+          amountMinor: paymentAmount(bucket, method.id),
+          ...(method.methodType === "cash"
+            ? { tenderedMinor: paymentAmount(bucket, method.id) + (method.id === paymentMethodId && bucket === paymentBucket ? cashOverpayment : 0) }
+            : {}),
+          ...(method.requiresTerminal && terminalReferences[method.id]
+            ? { terminalReference: terminalReferences[method.id] }
+            : {}),
+        })),
+    ),
     allocatedTotal = allocatedPayments.reduce(
       (sum, payment) => sum + payment.amountMinor,
       0,
@@ -827,7 +835,14 @@ export default function PosPage() {
             }),
         requestId: crypto.randomUUID(),
       });
-      setReceipt({ order: result.order, change: result.payment.changeMinor });
+      setReceipt({
+        order: result.order,
+        change: result.payments.reduce((sum, payment) => sum + payment.changeMinor, 0),
+        payments: result.payments.map((payment) => ({
+          name: data.paymentMethods.find((method) => method.id === payment.paymentMethodId)?.name ?? "Pago",
+          amountMinor: payment.amountMinor,
+        })),
+      });
       await refresh();
     } finally {
       setBusy(false);
@@ -966,7 +981,11 @@ export default function PosPage() {
     await refresh();
   };
   const closeSession = async () => {
-    if (!data.session || data.orders.length) return;
+    if (!data.session) return;
+    if (data.orders.length) {
+      setClosingBlocked(true);
+      return;
+    }
     if (!Number.isSafeInteger(countedCashMinor) || countedCashMinor < 0) return;
     const paymentCounts=Object.entries(nonCashCounts).map(([paymentMethodId,countedMinor])=>({paymentMethodId,countedMinor}));
     const differences=data.session.paymentsByMethod.filter(method=>{const type=data.paymentMethods.find(candidate=>candidate.id===method.paymentMethodId)?.methodType;return type==="bank"||type==="terminal"}).map(method=>(nonCashCounts[method.paymentMethodId]??method.amountMinor)-method.amountMinor);
@@ -1023,6 +1042,24 @@ export default function PosPage() {
       seats,
     );
     await refresh();
+  };
+  const cancelOpenOrdersAndClose = async () => {
+    const proceed = await requestDialog({
+      kind: "confirm",
+      title: "Cancelar órdenes abiertas",
+      body: `Se cancelarán ${data.orders.length} órdenes en borrador antes de cerrar la caja. Esta acción no se puede deshacer.`,
+      confirmLabel: "Cancelar órdenes",
+    });
+    if (!proceed) return;
+    setBusy(true);
+    try {
+      for (const openOrder of data.orders)
+        await authenticatedApi.posCancelOrder(scope.organizationId, scope.companyId, openOrder.id);
+      setClosingBlocked(false);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
   };
   const editTable = async (
     current: PosLoadDataView["floors"][number]["tables"][number],
@@ -1173,7 +1210,7 @@ export default function PosPage() {
               >
                 {data.session ? "Continuar vendiendo" : "Abrir caja"}
               </button>
-              {isManager && data.session && data.orders.length === 0 && (
+              {isManager && data.session && (
                 <button onClick={() => { const counts=Object.fromEntries(data.session?.paymentsByMethod.filter(method=>{const type=data.paymentMethods.find(candidate=>candidate.id===method.paymentMethodId)?.methodType;return type==="bank"||type==="terminal"}).map(method=>[method.paymentMethodId,method.amountMinor])??[]);setCountedCashMinor(data.session?.expectedCashMinor ?? 0);setClosingDenominations({});setNonCashCounts(counts);setClosingDialog(true); }} className="mt-3 w-full rounded-xl border border-kumo-line p-3">Cerrar caja</button>
               )}
             </div>
@@ -1217,7 +1254,20 @@ export default function PosPage() {
               {data.session.openingNote && <label className="mt-5 block">Nota de apertura<textarea readOnly rows={3} value={data.session.openingNote} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-line p-3" /></label>}
               <label className="mt-4 block">Nota de cierre<textarea rows={3} value={closingNote} onChange={(event) => setClosingNote(event.target.value)} placeholder="Agrega una nota de cierre…" className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label>
               {data.orders.length > 0 && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800">Debes resolver {data.orders.length} pedidos abiertos antes de cerrar.</p>}
-              <div className="mt-6 flex flex-wrap justify-between gap-2"><div className="flex gap-2"><button onClick={() => setClosingDialog(false)} className="rounded-xl border border-kumo-line px-4 py-3">Descartar</button><button disabled={busy || data.orders.length > 0} onClick={closeSession} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white disabled:opacity-40">Cerrar caja</button></div><div className="flex gap-2"><button onClick={()=>void cashMove("in")} className="rounded-xl border border-kumo-line px-4 py-3">Entrada</button><button onClick={()=>void cashMove("out")} className="rounded-xl border border-kumo-line px-4 py-3">Salida</button><button onClick={downloadSalesReport} className="rounded-xl border border-kumo-line px-4 py-3">Venta diaria</button></div></div>
+              <div className="mt-6 flex flex-wrap justify-between gap-2"><div className="flex gap-2"><button onClick={() => setClosingDialog(false)} className="rounded-xl border border-kumo-line px-4 py-3">Descartar</button><button disabled={busy} onClick={closeSession} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white disabled:opacity-40">Cerrar caja</button></div><div className="flex gap-2"><button onClick={()=>void cashMove("in")} className="rounded-xl border border-kumo-line px-4 py-3">Entrada</button><button onClick={()=>void cashMove("out")} className="rounded-xl border border-kumo-line px-4 py-3">Salida</button><button onClick={downloadSalesReport} className="rounded-xl border border-kumo-line px-4 py-3">Venta diaria</button></div></div>
+            </section>
+          </div>
+        )}
+        {closingBlocked && (
+          <div className="fixed inset-0 z-[60] grid place-items-center bg-black/45 p-4">
+            <section role="alertdialog" aria-modal="true" aria-label="Órdenes abiertas" className="w-full max-w-lg rounded-xl bg-kumo-elevated p-6 shadow-xl">
+              <h2 className="text-2xl font-normal">No se puede cerrar la caja</h2>
+              <p className="mt-3 text-kumo-subtle">Hay {data.orders.length} órdenes del día en estado de borrador.</p>
+              <div className="mt-6 grid gap-2 sm:grid-cols-2">
+                <button onClick={() => { setClosingBlocked(false); setClosingDialog(false); setScreen("dashboard"); setTab("orders"); }} className="rounded-xl border border-kumo-line p-4">Revisar órdenes</button>
+                <button disabled={busy} onClick={() => void cancelOpenOrdersAndClose()} className="rounded-xl border border-red-300 p-4 text-red-700 disabled:opacity-40">Cancelar órdenes</button>
+              </div>
+              <button onClick={() => setClosingBlocked(false)} className="mt-2 w-full rounded-xl border border-kumo-line p-3">Volver al cierre</button>
             </section>
           </div>
         )}
@@ -1270,6 +1320,12 @@ export default function PosPage() {
               <span>Total</span>
               <span>{money(receipt.order.totalMinor)}</span>
             </div>
+            {receipt.payments.map((payment, index) => (
+              <div key={`${payment.name}:${index}`} className="flex justify-between">
+                <span>{payment.name}</span>
+                <span>{money(payment.amountMinor)}</span>
+              </div>
+            ))}
             <div className="flex justify-between">
               <span>Vuelto</span>
               <span>{money(receipt.change)}</span>
@@ -1787,7 +1843,7 @@ export default function PosPage() {
               </div>
               <div className="space-y-2 border-t border-kumo-line pt-4"><div className="flex justify-between text-kumo-subtle"><span>Impuestos</span><span>{money(selectedTicket.taxMinor)}</span></div><div className="flex justify-between text-xl"><span>Total</span><span>{money(selectedTicket.totalMinor)}</span></div></div>
               {selectedTicket.state === "draft" && <button onClick={() => { const targetTable = data.floors.flatMap((floor) => floor.tables).find((candidate) => candidate.id === selectedTicket.tableId) ?? null; loadOrder(selectedTicket, targetTable); }} className="mt-4 rounded-xl bg-[#FE4A23] p-4 text-white">Cargar orden</button>}
-              {selectedTicket.state !== "draft" && <button onClick={() => setReceipt({ order: selectedTicket, change: 0 })} className="mt-4 rounded-xl border border-kumo-line p-4">Reimprimir</button>}
+              {selectedTicket.state !== "draft" && <button onClick={() => setReceipt({ order: selectedTicket, change: 0, payments: [] })} className="mt-4 rounded-xl border border-kumo-line p-4">Reimprimir</button>}
               {selectedTicket.state === "paid" && <button onClick={() => refund(selectedTicket)} className="mt-2 rounded-xl border border-[#FE4A23] p-4 text-[#FE4A23]">Devolver</button>}
             </> : <p className="m-auto text-kumo-subtle">Selecciona una orden.</p>}
           </aside>
