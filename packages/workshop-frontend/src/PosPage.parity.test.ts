@@ -8,6 +8,11 @@ const rootRoute = readFileSync(new URL("./routes/__root.tsx", import.meta.url), 
 const productsPage = readFileSync(new URL("./PosProductsPage.tsx", import.meta.url), "utf8");
 
 describe("recorridos POS portados desde la fuente 19", () => {
+  it("mantiene productos dentro de la aplicación POS sin recargar el documento", () => {
+    expect(source).toContain('import { Link } from "@tanstack/react-router"');
+    expect(source).toContain('<Link to="/pos/products"');
+    expect(source).not.toContain('<a href="/pos/products"');
+  });
   it("mantiene el POS dentro del shell de NUEVAUNO y conserva el acceso a la plataforma", () => {
     expect(rootRoute).not.toContain("pathname === '/pos'");
     expect(rootRoute).toContain("isFullscreenApplication");
