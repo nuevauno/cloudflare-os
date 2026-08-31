@@ -75,6 +75,7 @@ const POS_SETTING_SECTIONS:PosSettingSection[]=[
     {key:"pos_set_maximum_difference",label:"Diferencia máxima",help:"Limita la diferencia autorizada al cerrar caja."},
     {key:"pos_amount_authorized_diff",label:"Diferencia autorizada",help:"Monto máximo permitido en CLP.",kind:"number"},
     {key:"pos_iface_tipproduct",label:"Propinas",help:"Acepta propinas del cliente o convierte el vuelto."},
+    {key:"pos_nuevauno_suggested_tip_pct",label:"Propina sugerida (%)",help:"Porcentaje que se propone al comenzar el cobro.",kind:"number"},
     {key:"pos_set_tip_after_payment",label:"Propina después del pago",help:"Permite agregar propina una vez pagados los productos."},
   ]},
   {title:"Interfaz del PdV",items:[
@@ -211,8 +212,8 @@ export default function PosPage() {
     [selectedTicketId, setSelectedTicketId] = useState(""),
     [invoiceRequested, setInvoiceRequested] = useState(false),
     [takeaway, setTakeaway] = useState(false),
-    [splitPayment, setSplitPayment] = useState(false),
     [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>({}),
+    [paymentBucket, setPaymentBucket] = useState<"products" | "tip">("products"),
     [lineNotes, setLineNotes] = useState<Record<string, string>>({}),
     [manualPrices, setManualPrices] = useState<Record<string, number>>({}),
     [lineCourses, setLineCourses] = useState<Record<string, number>>({}),
@@ -778,13 +779,14 @@ export default function PosPage() {
     ),
     isCash =
       !selectedPaymentMethod || selectedPaymentMethod.methodType === "cash";
+  const paymentAmount = (bucket:"products"|"tip",methodId:string) => paymentAmounts[`${bucket}:${methodId}`] ?? 0;
   const allocatedPayments = data.paymentMethods
-    .filter((method) => (paymentAmounts[method.id] ?? 0) > 0)
+    .filter((method) => paymentAmount("products",method.id) + paymentAmount("tip",method.id) > 0)
     .map((method) => ({
       paymentMethodId: method.id,
-      amountMinor: paymentAmounts[method.id]!,
+      amountMinor: paymentAmount("products",method.id) + paymentAmount("tip",method.id),
       ...(method.methodType === "cash"
-        ? { tenderedMinor: paymentAmounts[method.id]! }
+        ? { tenderedMinor: Math.max(paymentAmount("products",method.id) + paymentAmount("tip",method.id), Number(tender) || 0) }
         : {}),
       ...(method.requiresTerminal && terminalReferences[method.id]
         ? { terminalReference: terminalReferences[method.id] }
@@ -803,7 +805,7 @@ export default function PosPage() {
         organizationId: scope.organizationId,
         companyId: scope.companyId,
         orderId: updated.id,
-        ...(splitPayment
+        ...(allocatedPayments.length
           ? { payments: allocatedPayments }
           : {
               tenderedMinor: isCash ? Number(tender) : updated.totalMinor,
@@ -1093,8 +1095,8 @@ export default function PosPage() {
     setInvoiceRequested(false);
     setTakeaway(false);
     setTender("");
-    setSplitPayment(false);
     setPaymentAmounts({});
+    setPaymentBucket("products");
     setLineNotes({});
     setManualPrices({});
     setLineCourses({});
@@ -1335,11 +1337,16 @@ export default function PosPage() {
     );
   }
   if (screen === "payment") {
-    const remaining = Math.max(0, total - allocatedTotal),
+    const tipEnabled = Boolean(data.config?.settings.pos_iface_tipproduct),
+      productTarget = total - tipMinor,
+      productPaid = data.paymentMethods.reduce((sum,method)=>sum+paymentAmount("products",method.id),0),
+      tipPaid = data.paymentMethods.reduce((sum,method)=>sum+paymentAmount("tip",method.id),0),
+      productDue = Math.max(0,productTarget-productPaid),
+      tipDue = Math.max(0,tipMinor-tipPaid),
+      activeDue = paymentBucket === "tip" ? tipDue : productDue,
+      remaining = productDue + tipDue,
       selectedPartner = data.partners.find((partner) => partner.id === partnerId),
-      canValidate = splitPayment
-        ? allocatedPayments.length > 0 && allocatedTotal === total && allocatedPayments.every(payment=>!data.paymentMethods.find(method=>method.id===payment.paymentMethodId)?.requiresTerminal||Boolean(payment.terminalReference))
-        : Boolean(selectedPaymentMethod) && (!isCash || Number(tender) >= total) && (!selectedPaymentMethod?.requiresTerminal||Boolean(terminalReferences[selectedPaymentMethod.id]));
+      canValidate = allocatedPayments.length > 0 && allocatedTotal === total && allocatedPayments.every(payment=>!data.paymentMethods.find(method=>method.id===payment.paymentMethodId)?.requiresTerminal||Boolean(payment.terminalReference));
     return (
       <main className="grid min-h-full grid-cols-[minmax(260px,340px)_1fr_minmax(300px,440px)] bg-kumo-base">
         <aside className="flex min-h-full flex-col border-r border-kumo-line bg-kumo-elevated p-5">
@@ -1353,22 +1360,23 @@ export default function PosPage() {
         <section className="flex min-h-full flex-col p-8">
           <div className="text-center"><p className="text-[clamp(64px,8vw,125px)] leading-none">{money(remaining)}</p><p className="mt-4 text-2xl text-kumo-subtle">Restante</p></div>
           <div className="mx-auto mt-10 w-full max-w-3xl flex-1 space-y-3">
-            {allocatedPayments.map((payment) => {
-              const method = data.paymentMethods.find((item) => item.id === payment.paymentMethodId);
-              return <div key={payment.paymentMethodId} className="flex items-center justify-between rounded-xl border border-[#FE4A23] bg-orange-50 p-5"><span>{method?.name}</span><span>{money(payment.amountMinor)}</span><button onClick={() => setPaymentAmounts((current) => ({...current,[payment.paymentMethodId]:0}))} className="text-[#FE4A23]">×</button></div>;
-            })}
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={()=>setPaymentBucket("products")} className={`rounded-xl border p-4 ${paymentBucket==="products"?"border-[#FE4A23] bg-orange-50":"border-kumo-line"}`}><span className="block">Productos</span><span className={productDue?"text-kumo-subtle":"text-green-600"}>{productDue?`falta ${money(productDue)}`:"✓ pagado"}</span></button>
+              {tipMinor>0&&<button onClick={()=>setPaymentBucket("tip")} className={`rounded-xl border p-4 ${paymentBucket==="tip"?"border-[#FE4A23] bg-orange-50":"border-kumo-line"}`}><span className="block">Propina</span><span className={tipDue?"text-kumo-subtle":"text-green-600"}>{tipDue?`falta ${money(tipDue)}`:"✓ pagado"}</span></button>}
+            </div>
+            {(["products","tip"] as const).filter(bucket=>bucket==="products"||tipMinor>0).map(bucket=><section key={bucket} className="rounded-xl border border-kumo-line bg-kumo-elevated p-3"><p className="mb-2 text-sm uppercase text-kumo-subtle">{bucket==="products"?`Productos · ${money(productTarget)}`:`Propina · ${money(tipMinor)}`}</p>{data.paymentMethods.filter(method=>paymentAmount(bucket,method.id)>0).map(method=><div key={`${bucket}:${method.id}`} className="flex items-center justify-between border-t border-kumo-line py-3"><span>{method.name}</span><span>{money(paymentAmount(bucket,method.id))}</span><button aria-label={`Quitar pago ${method.name}`} onClick={()=>setPaymentAmounts(current=>({...current,[`${bucket}:${method.id}`]:0}))} className="text-[#FE4A23]">×</button></div>)}{!data.paymentMethods.some(method=>paymentAmount(bucket,method.id)>0)&&<p className="text-kumo-subtle">— sin pagos —</p>}</section>)}
           </div>
         </section>
         <aside className="flex min-h-full flex-col border-l border-kumo-line bg-kumo-elevated p-4">
           <div className="space-y-2">
-            {data.paymentMethods.filter(method=>!isMinimal||method.methodType!=="customer_account").map((method) => <button key={method.id} onClick={() => { const rest=Math.max(0,total-allocatedTotal); setPaymentMethodId(method.id); if(method.methodType!=="cash") { setPaymentAmounts((current)=>({...current,[method.id]:(current[method.id]??0)+rest})); setSplitPayment(true); } }} className="flex w-full justify-between rounded-xl border border-kumo-line p-5 text-left"><span>{method.name}</span><span>{money(paymentAmounts[method.id] ?? 0)}</span></button>)}
+            {data.paymentMethods.filter(method=>!isMinimal||method.methodType!=="customer_account").map((method) => <button key={method.id} onClick={() => { if(activeDue<=0)return; setPaymentMethodId(method.id);setPaymentAmounts(current=>({...current,[`${paymentBucket}:${method.id}`]:(current[`${paymentBucket}:${method.id}`]??0)+activeDue}));if(method.methodType==="cash")setTender(String(activeDue)); }} className={`flex w-full justify-between rounded-xl border p-5 text-left ${paymentMethodId===method.id?"border-[#FE4A23] bg-orange-50":"border-kumo-line"}`}><span>{method.name}</span><span>{money(paymentAmount("products",method.id)+paymentAmount("tip",method.id))}</span></button>)}
           </div>
           <div className="mt-auto space-y-2">
             <div className="grid grid-cols-2 gap-2"><button onClick={() => setPartnerDialog(true)} className="rounded-xl border border-kumo-line p-4">{selectedPartner?.displayName ?? "Cliente"}</button><button onClick={() => setInvoiceRequested((value) => !value)} className={`rounded-xl border p-4 ${invoiceRequested ? "border-[#FE4A23] bg-orange-50" : "border-kumo-line"}`}>Factura</button></div>
-            <button onClick={() => setTipMinor(Math.round((rawTotal-tipMinor)*0.1))} className={`flex w-full justify-between rounded-xl border p-4 ${tipMinor ? "border-[#FE4A23] bg-orange-50" : "border-kumo-line"}`}><span>Propina</span><span>{tipMinor ? money(tipMinor) : "Agregar"}</span></button>
-            {selectedPaymentMethod?.methodType === "cash" && <div className="space-y-2"><input autoFocus aria-label="Efectivo recibido" type="number" value={tender} onChange={(event)=>setTender(event.target.value)} placeholder="Efectivo recibido" className="w-full rounded-xl border border-kumo-line bg-kumo-base p-4" /><div className="grid grid-cols-4 gap-2">{[total,Math.ceil(total/1000)*1000,Math.ceil(total/5000)*5000,Math.ceil(total/10000)*10000].filter((amount,index,all)=>all.indexOf(amount)===index).map(amount=><button key={amount} onClick={()=>setTender(String(amount))} className="rounded-xl border border-kumo-line p-3">{money(amount)}</button>)}</div>{Number(tender)>=total&&<p className="flex justify-between rounded-xl bg-orange-50 p-3"><span>Vuelto</span><span>{money(Number(tender)-total)}</span></p>}</div>}
+            {tipEnabled&&<button onClick={() => {const pct=Number(data.config?.settings.pos_nuevauno_suggested_tip_pct??10)||10;setTipMinor(Math.round((rawTotal-tipMinor)*pct/100));setPaymentBucket("tip")}} className={`flex w-full justify-between rounded-xl border p-4 ${tipMinor ? "border-[#FE4A23] bg-orange-50" : "border-kumo-line"}`}><span>Propina</span><span>{tipMinor ? money(tipMinor) : "Agregar"}</span></button>}
+            {selectedPaymentMethod?.methodType === "cash" && <div className="space-y-2"><input autoFocus aria-label="Efectivo recibido" inputMode="numeric" value={tender} onChange={(event)=>setTender(event.target.value.replace(/\D/g,""))} placeholder="Efectivo recibido" className="w-full rounded-xl border border-kumo-line bg-kumo-base p-4" /><div className="grid grid-cols-4">{["1","2","3","+10","4","5","6","+20","7","8","9","+50","+/-","0",",","⌫"].map(key=><button key={key} onClick={()=>{if(key==="⌫")setTender(value=>value.slice(0,-1));else if(key==="+/-"||key===",")return;else if(key.startsWith("+"))setTender(value=>String((Number(value)||0)+Number(key.slice(1))));else setTender(value=>(value==="0"?"":value)+key)}} className={`min-h-12 border border-kumo-line p-3 ${key.startsWith("+")?"bg-green-100":""}`}>{key}</button>)}</div>{Number(tender)>=allocatedTotal&&<p className="flex justify-between rounded-xl bg-orange-50 p-3"><span>Vuelto</span><span>{money(Number(tender)-allocatedTotal)}</span></p>}</div>}
             {selectedPaymentMethod?.requiresTerminal&&<input aria-label="Referencia del terminal" value={terminalReferences[selectedPaymentMethod.id]??""} onChange={event=>setTerminalReferences(current=>({...current,[selectedPaymentMethod.id]:event.target.value}))} placeholder="Referencia o autorización del terminal" className="w-full rounded-xl border border-kumo-line bg-kumo-base p-4" />}
-            <label className="flex items-center gap-2 p-2"><input type="checkbox" checked={splitPayment} onChange={(event)=>setSplitPayment(event.target.checked)} /> Pago múltiple</label>
+            <p className="p-2 text-sm text-kumo-subtle">Puedes combinar medios de pago en Productos y Propina.</p>
             <div className="grid grid-cols-2 gap-2"><button onClick={()=>setScreen("terminal")} className="rounded-xl border border-kumo-line p-4">Regresar</button><button disabled={!canValidate||busy} onClick={pay} className="rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40">Validar</button></div>
           </div>
         </aside>

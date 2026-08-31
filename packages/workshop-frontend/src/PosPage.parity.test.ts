@@ -31,8 +31,12 @@ describe("recorridos POS portados desde la fuente 19", () => {
   });
 
   it("separa pago y conserva cliente, factura, propina y múltiples medios", () => {
-    for (const text of ["Restante", "Pago múltiple", "Propina", "Factura", "Validar", "Regresar"]) expect(source).toContain(text);
+    for (const text of ["Restante", "Productos", "Propina", "sin pagos", "Factura", "Validar", "Regresar"]) expect(source).toContain(text);
     expect(source).toContain('screen === "payment"');
+    expect(source).toContain('paymentBucket === "tip"');
+    expect(source).toContain('paymentAmount("products",method.id) + paymentAmount("tip",method.id)');
+    expect(source).toContain("Puedes combinar medios de pago en Productos y Propina.");
+    expect(source).toContain("pos_nuevauno_suggested_tip_pct");
   });
 
   it("elige, busca y crea clientes mediante persistencia real", () => {
