@@ -18,6 +18,11 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(productsPage).toContain("posSaveProduct");
     expect(productsPage).toContain("posSaveCategory");
   });
+  it("porta el formulario de producto por pestañas y configura opcionales y combos",()=>{
+    for(const text of ["Información general","Ventas","Punto de venta","Precios","Inventario","Bien","Servicio","Combo","Productos opcionales","Opciones del combo","Mínimo","Máximo","Precio extra"])expect(productsPage).toContain(text);
+    expect(productsPage).toContain("optionalProductIds");
+    expect(productsPage).toContain("comboComponents");
+  });
   it("usa un diálogo de nota de línea con accesos rápidos y no un prompt", () => {
     expect(source).toContain('`Nota de ${noteEditor.title}`');
     expect(source).toContain("Sin aderezo");
