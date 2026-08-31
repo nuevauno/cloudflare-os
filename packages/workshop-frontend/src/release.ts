@@ -1,1 +1,1 @@
-export const RELEASE_VERSION = '26.08.30.23' as const
+export const RELEASE_VERSION = '26.08.30.24' as const
