@@ -47,9 +47,11 @@ describe("recorridos POS portados desde la fuente 19", () => {
     for (const text of ["Restante", "Productos", "Propina", "sin pagos", "Factura", "Validar", "Regresar"]) expect(source).toContain(text);
     expect(source).toContain('screen === "payment"');
     expect(source).toContain('paymentBucket === "tip"');
-    expect(source).toContain('paymentAmount("products",method.id) + paymentAmount("tip",method.id)');
+    expect(source).toContain('(["products", "tip"] as const).flatMap');
+    expect(source).toContain('amountMinor: paymentAmount(bucket, method.id)');
     expect(source).toContain("Puedes combinar medios de pago en Productos y Propina.");
     expect(source).toContain("pos_nuevauno_suggested_tip_pct");
+    expect(source).toContain("receipt.payments.map");
   });
 
   it("elige, busca y crea clientes mediante persistencia real", () => {
@@ -165,6 +167,8 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("data.session.cashMoves.map");
     expect(source).toContain("openingNote.trim() || undefined");
     expect(source).toContain("closingNote.trim() || undefined");
+    for(const text of ["No se puede cerrar la caja","Revisar órdenes","Cancelar órdenes","Cancelar órdenes abiertas"])expect(source).toContain(text);
+    expect(source).toContain("cancelOpenOrdersAndClose");
   });
 
   it("cuenta efectivo por denominaciones y concilia cada medio bancario",()=>{
