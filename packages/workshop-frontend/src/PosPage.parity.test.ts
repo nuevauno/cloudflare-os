@@ -31,6 +31,11 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(productsPage).toContain("optionalProductIds");
     expect(productsPage).toContain("comboComponents");
   });
+  it("administra atributos y variantes sobre el mismo producto",()=>{
+    for(const text of ["Atributos y variante","Agregar atributo","Nueva variante","Precio extra"])expect(productsPage).toContain(text);
+    expect(productsPage).toContain("attributeValues");
+    expect(productsPage).toContain("templateId");
+  });
   it("usa un diálogo de nota de línea con accesos rápidos y no un prompt", () => {
     expect(source).toContain('`Nota de ${noteEditor.title}`');
     expect(source).toContain("Sin aderezo");
