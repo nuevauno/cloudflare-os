@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./PosPage.tsx", import.meta.url), "utf8");
 const rootRoute = readFileSync(new URL("./routes/__root.tsx", import.meta.url), "utf8");
+const posRoute = readFileSync(new URL("./routes/pos.tsx", import.meta.url), "utf8");
 const productsPage = readFileSync(new URL("./PosProductsPage.tsx", import.meta.url), "utf8");
 
 describe("recorridos POS portados desde la fuente 19", () => {
@@ -12,6 +13,8 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain('import { Link } from "@tanstack/react-router"');
     expect(source).toContain('<Link to="/pos/products"');
     expect(source).not.toContain('<a href="/pos/products"');
+    expect(posRoute).toContain("<Outlet />");
+    expect(posRoute).toContain("pathname === '/pos'");
   });
   it("mantiene el POS dentro del shell de NUEVAUNO y conserva el acceso a la plataforma", () => {
     expect(rootRoute).not.toContain("pathname === '/pos'");
