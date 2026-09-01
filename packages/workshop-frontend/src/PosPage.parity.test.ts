@@ -216,4 +216,12 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("setNonCashCounts");
     expect(source).toContain("paymentDifferences");
   });
+
+  it("muestra, imprime y descarga la venta diaria con detalle real",()=>{
+    for(const text of ["Impuestos","Descuentos","Por categoría","Por producto","Descargar","Imprimir"])expect(source).toContain(text);
+    expect(source).toContain("data.session.salesByCategory.map");
+    expect(source).toContain("data.session.salesByProduct.map");
+    expect(source).toContain("printSalesReport");
+    expect(source).toContain('document.getElementById("pos-sales-report")');
+  });
 });
