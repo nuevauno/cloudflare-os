@@ -38,6 +38,10 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(productsPage).toContain("generateVariants");
     expect(productsPage).toContain("templateId");
   });
+  it("configura atributos en caja sin duplicar tarjetas por variante",()=>{
+    for(const text of ["posResolveProductVariant","customAttributes","customPriceExtraMinor","visibleProducts","cartProducts"])expect(source).toContain(text);
+    expect(source).toContain('attributeLines.length');
+  });
   it("usa un diálogo de nota de línea con accesos rápidos y no un prompt", () => {
     expect(source).toContain('`Nota de ${noteEditor.title}`');
     expect(source).toContain("Sin aderezo");
@@ -111,7 +115,7 @@ describe("recorridos POS portados desde la fuente 19", () => {
   it("mantiene el carrito a la derecha y muestra el teclado solo al seleccionar una línea",()=>{
     expect(source).toContain('lg:grid-cols-[1fr_450px]');
     expect(source).toContain('{selectedLineId&&<div className="mt-2 grid grid-cols-4">');
-    expect(source).toContain('setSelectedLineId(product.id)');
+    expect(source).toContain('setSelectedLineId(lineKey)');
     expect(source).toContain('current===line.id?"":line.id');
   });
 
