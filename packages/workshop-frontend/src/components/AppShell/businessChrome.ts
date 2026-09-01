@@ -4,11 +4,20 @@ export function statusPlanLabel(planLabel: string, planName: string, language: '
   return `${planLabel} ${planName}`.toLocaleUpperCase(language === 'es' ? 'es-CL' : 'en-US')
 }
 
+export function companyDisplayLabel(name: string, language: 'es' | 'en' = 'es'): string {
+  return name.toLocaleUpperCase(language === 'es' ? 'es-CL' : 'en-US')
+}
+
 export function enabledAppsForSession(session: {
   activeOrganizationId?: string
-  organizations: Array<{ id: string; enabledApps?: string[] }>
+  activeCompanyId?: string
+  organizations: Array<{ id: string; enabledApps?: string[]; companies?: Array<{ id: string }> }>
 } | null): Set<string> {
-  const organization = session?.organizations.find((item) => item.id === session.activeOrganizationId)
+  const companyOrganization = session?.activeCompanyId
+    ? session.organizations.find((item) => item.companies?.some((company) => company.id === session.activeCompanyId))
+    : undefined
+  const organization = companyOrganization
+    ?? session?.organizations.find((item) => item.id === session.activeOrganizationId)
     ?? session?.organizations[0]
   return new Set(organization?.enabledApps ?? [])
 }

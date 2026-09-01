@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuthenticatedApi } from '../../AuthContext'
 import { useI18n } from '../../i18n'
 import { RELEASE_VERSION } from '../../release'
-import { statusPlanLabel } from './businessChrome'
+import { companyDisplayLabel, statusPlanLabel } from './businessChrome'
 
 function StatusDivider() {
   return <span aria-hidden="true" className="h-4 w-px shrink-0 bg-kumo-line" />
@@ -49,7 +49,7 @@ export default function BottomStatusBar() {
           >
             {!companies.length && <option value="">{t('status.noCompany')}</option>}
             {companies.map(({ company }) => (
-              <option key={company.id} value={company.id}>{company.displayName}</option>
+              <option key={company.id} value={company.id}>{companyDisplayLabel(company.displayName, language)}</option>
             ))}
         </select>
         {switchError && <span role="alert" className="shrink-0 text-[#FE4A23]">No pudimos cambiar de empresa.</span>}

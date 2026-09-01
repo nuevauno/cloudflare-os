@@ -1,5 +1,6 @@
 import { useAuthenticatedApi } from '../../AuthContext'
 import NuevaunoIcon from '../NuevaunoIcon'
+import { companyDisplayLabel } from './businessChrome'
 
 export default function BusinessContextSwitcher({ collapsed }: { collapsed: boolean }) {
   const { businessSession, selectBusinessContext } = useAuthenticatedApi()
@@ -30,7 +31,7 @@ export default function BusinessContextSwitcher({ collapsed }: { collapsed: bool
       >
         <option value="" disabled>Selecciona una empresa</option>
         {companies.map(({ company }) => (
-          <option key={company.id} value={company.id}>{company.displayName}</option>
+          <option key={company.id} value={company.id}>{companyDisplayLabel(company.displayName)}</option>
         ))}
       </select>
     </div>
