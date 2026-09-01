@@ -54,6 +54,8 @@ describe("recorridos POS portados desde la fuente 19", () => {
   it("usa un diálogo de nota de línea con accesos rápidos y no un prompt", () => {
     expect(source).toContain('`Nota de ${noteEditor.title}`');
     expect(source).toContain("Sin aderezo");
+    expect(source).toContain("pos_quick_notes");
+    expect(source).toContain('configured.split(",")');
     expect(source).not.toMatch(/window\.prompt\(\s*"Nota de la línea"/);
   });
 
@@ -61,6 +63,8 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain('{target:"order",title:"Nota para el cliente",value:generalNote}');
     expect(source).toContain('target:"line",productId:line.id,title:line.name');
     expect(source).toContain("else setGeneralNote(noteEditor.value.trim())");
+    expect(source).toContain("Nota del pedido ·");
+    expect(source).toContain('onClick={async()=>{await save();setScreen("payment")}}');
   });
 
   it("separa pago y conserva cliente, factura, propina y múltiples medios", () => {
