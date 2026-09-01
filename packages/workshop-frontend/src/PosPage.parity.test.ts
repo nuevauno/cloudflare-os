@@ -80,6 +80,10 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain('amountMinor: paymentAmount(bucket, method.id)');
     expect(source).toContain("Puedes combinar medios de pago en Productos y Propina.");
     expect(source).toContain("pos_nuevauno_suggested_tip_pct");
+    expect(source).toContain("pos_nuevauno_suggested_tip_scope");
+    expect(source).toContain('title:"Propina"');
+    expect(source).toContain('tipScope==="all"');
+    expect(source).toContain('value:tipMinor||suggested');
     expect(source).toContain("receipt.payments.map");
   });
 
