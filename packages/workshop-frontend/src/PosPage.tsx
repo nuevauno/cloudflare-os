@@ -64,10 +64,19 @@ type DeviceBridge = {
 };
 type PosSettingDefinition = { key:string; label:string; help:string; kind?:"text"|"number"|"select"|"multiselect"; options?:Array<{value:string;label:string}> };
 type PosSettingSection = { title:string; items:PosSettingDefinition[] };
+const POS_PRESETS=[
+  {key:"dine_in",label:"En mesa",help:"Atención en salón con mesa asignada."},
+  {key:"takeaway",label:"Para llevar",help:"Retiro del pedido en el local."},
+  {key:"delivery",label:"Despacho",help:"Entrega programada a un cliente."},
+  {key:"member",label:"Miembro",help:"Venta vinculada a un cliente registrado."},
+] as const;
+type PosPresetKey=(typeof POS_PRESETS)[number]["key"];
 const POS_SETTING_SECTIONS:PosSettingSection[]=[
   {title:"Punto de venta",items:[
     {key:"pos_module_pos_restaurant",label:"Es un restaurante",help:"Activa mesas, salones y comandas."},
-    {key:"pos_use_presets",label:"Para llevar / Entrega / Miembros",help:"Define modalidades con precios y reglas preestablecidas."},
+    {key:"pos_use_presets",label:"Tipos de pedido",help:"Activa modalidades con reglas propias para salón, retiro, despacho y miembros."},
+    {key:"pos_available_preset_ids",label:"Tipos disponibles",help:"Elige las modalidades que puede usar la caja.",kind:"multiselect",options:POS_PRESETS.map(item=>({value:item.key,label:item.label}))},
+    {key:"pos_default_preset_id",label:"Tipo predeterminado",help:"Modalidad aplicada al crear un pedido.",kind:"select",options:POS_PRESETS.map(item=>({value:item.key,label:item.label}))},
     {key:"pos_cash_control",label:"Control de efectivo",help:"Registra apertura, movimientos y cierre de caja."},
   ]},
   {title:"Pago",items:[
@@ -228,6 +237,7 @@ export default function PosPage() {
     [selectedTicketId, setSelectedTicketId] = useState(""),
     [invoiceRequested, setInvoiceRequested] = useState(false),
     [takeaway, setTakeaway] = useState(false),
+    [presetKey,setPresetKey]=useState<PosPresetKey>("takeaway"),
     [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>({}),
     [paymentTenders, setPaymentTenders] = useState<Record<string, number>>({}),
     [paymentEntryAmount, setPaymentEntryAmount] = useState(""),
@@ -555,6 +565,7 @@ export default function PosPage() {
     setPartnerId(existing?.metadata.partnerId ?? "");
     setInvoiceRequested(existing?.metadata.invoiceRequested ?? false);
     setTakeaway(existing?.metadata.takeaway ?? false);
+    setPresetKey(existing?.metadata.presetKey??(existing?.metadata.takeaway?"takeaway":next?"dine_in":String(data.config?.settings.pos_default_preset_id??"takeaway") as PosPresetKey));
     setPricelistId(existing?.metadata.pricelistId ?? "");
     setShippingDate(existing?.metadata.shippingDate ?? "");
     setFiscalPositionId(existing?.metadata.fiscalPositionId ?? "");
@@ -595,6 +606,8 @@ export default function PosPage() {
     setTab("register");
   };
   const selectTable = (next: { id: string; name: string; seats: number }) => {
+    setPresetKey("dine_in");
+    setTakeaway(false);
     loadOrder(data.orders.find((value) => value.tableId === next.id) ?? null, next);
   };
   const orderPayload = () => ({
@@ -609,6 +622,7 @@ export default function PosPage() {
         tipMinor,
         invoiceRequested,
         takeaway,
+        presetKey,
         ...(pricelistId ? { pricelistId } : {}),
         ...(shippingDate ? { shippingDate } : {}),
         ...(fiscalPositionId ? { fiscalPositionId } : {}),
@@ -1201,6 +1215,7 @@ export default function PosPage() {
     setPartnerId("");
     setInvoiceRequested(false);
     setTakeaway(false);
+    setPresetKey(String(data.config?.settings.pos_default_preset_id??(defaultTab==="floor"?"dine_in":"takeaway")) as PosPresetKey);
     setTender("");
     setPaymentAmounts({});
     setPaymentTenders({});
@@ -1255,7 +1270,7 @@ export default function PosPage() {
               {item.kind==="text"&&<input value={typeof value==="string"?value:""} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:event.target.value}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"/>}
               {item.kind==="number"&&<input type="number" value={typeof value==="number"?value:0} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:Number(event.target.value)}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"/>}
               {item.kind==="select"&&<select value={typeof value==="string"?value:""} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:event.target.value}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"><option value="">Seleccionar</option>{item.options?.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select>}
-              {item.kind==="multiselect"&&<div className="mt-3 space-y-2">{data.paymentMethods.filter(method=>!method.requiresTerminal).map(method=>{const selected=Array.isArray(value)&&value.includes(method.id);return <label key={method.id} className="flex items-center gap-2"><input type="checkbox" checked={selected} onChange={event=>{const current=Array.isArray(value)?value:[],next=event.target.checked?[...new Set([...current,method.id])]:current.filter(id=>id!==method.id);setSettingsDraft(draft=>({...draft,[item.key]:next}));setSettingsDirty(true)}}/>{method.name}</label>})}</div>}
+              {item.kind==="multiselect"&&<div className="mt-3 space-y-2">{(item.options??data.paymentMethods.filter(method=>!method.requiresTerminal).map(method=>({value:method.id,label:method.name}))).map(option=>{const selected=Array.isArray(value)&&value.includes(option.value);return <label key={option.value} className="flex items-center gap-2"><input type="checkbox" checked={selected} onChange={event=>{const current=Array.isArray(value)?value:[],next=event.target.checked?[...new Set([...current,option.value])]:current.filter(id=>id!==option.value);setSettingsDraft(draft=>({...draft,[item.key]:next}));setSettingsDirty(true)}}/>{option.label}</label>})}</div>}
             </span>
           </label>})}
         </div>
@@ -1977,6 +1992,10 @@ export default function PosPage() {
       {tab === "register" && (
         <section className="grid flex-1 lg:grid-cols-[1fr_450px]">
           <div className="border-r border-kumo-line p-4">
+            {Boolean(data.config?.settings.pos_use_presets)&&<div className="mb-4 flex flex-wrap gap-2" aria-label="Tipo de pedido">{POS_PRESETS.filter(preset=>{const enabled=data.config?.settings.pos_available_preset_ids;return !Array.isArray(enabled)||enabled.length===0||enabled.includes(preset.key)}).map(preset=><button key={preset.key} title={preset.help} onClick={()=>{setPresetKey(preset.key);setTakeaway(preset.key!=="dine_in");if(preset.key!=="dine_in")setTable(null);if((preset.key==="delivery"||preset.key==="member")&&!partnerId){setPartnerCreate(false);setPartnerDialog(true)}}} className={`rounded-xl border px-4 py-3 ${presetKey===preset.key?"border-[#FE4A23] bg-orange-50":"border-kumo-line"}`}>{preset.label}</button>)}</div>}
+            {presetKey==="delivery"&&<label className="mb-4 grid max-w-sm gap-2">Fecha de despacho<input aria-label="Fecha de despacho" type="datetime-local" value={shippingDate} onChange={event=>setShippingDate(event.target.value)} className="rounded-xl border border-kumo-line bg-kumo-base p-3"/></label>}
+            {Boolean(data.config?.settings.pos_use_presets)&&presetKey==="dine_in"&&!table&&<p className="mb-4 rounded-xl border border-[#f0c68d] bg-[#fff2dc] p-3 text-sm">Selecciona una mesa para continuar con un pedido en salón.</p>}
+            {Boolean(data.config?.settings.pos_use_presets)&&(presetKey==="delivery"||presetKey==="member")&&!partnerId&&<p className="mb-4 rounded-xl border border-[#f0c68d] bg-[#fff2dc] p-3 text-sm">Selecciona un cliente para este tipo de pedido.</p>}
             {groupByCategory&&<div className="mb-4 flex gap-2 overflow-x-auto">
               {visibleCategories.map((name) => {
                 const categoryProduct=data.products.find(product=>product.category===name&&productMediaUrls[product.id]);
@@ -2042,7 +2061,7 @@ export default function PosPage() {
                 else if(key==="%") {const discount=Number(await requestDialog({kind:"number",title:"Descuento",label:line.name,value:(lineDiscounts[line.id]??0)/100,min:0,max:100}));if(Number.isFinite(discount))setLineDiscounts(current=>({...current,[line.id]:Math.round(discount*100)}));}
                 else if(key==="Precio"){const price=Number(await requestDialog({kind:"number",title:"Cambiar precio",label:line.name,value:line.unitPriceMinor,min:0}));if(price>=0)setManualPrices(current=>({...current,[line.id]:price}));}
               }} className={`h-13 border border-kumo-line disabled:bg-kumo-line/30 ${(key==="Ctdad"||key==="Precio")?"bg-[#fff1ed]":key==="+/−"?"bg-[#fee28a]":""}`}>{key}</button>)}</div>}
-              <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={startNewOrder} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length} onClick={()=>void startPayment()} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">{data.config?.settings.pos_use_fast_payment?"Pago rápido":"Pago"}</button></div>
+              <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={startNewOrder} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length||(Boolean(data.config?.settings.pos_use_presets)&&((presetKey==="dine_in"&&!table)||((presetKey==="delivery"||presetKey==="member")&&!partnerId)||(presetKey==="delivery"&&!shippingDate)))} onClick={()=>void startPayment()} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">{data.config?.settings.pos_use_fast_payment?"Pago rápido":"Pago"}</button></div>
             </div>
           </aside>
         </section>

@@ -260,4 +260,11 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain('if(data.config?.settings.pos_is_order_printer)await printPreparationChanges');
     expect(source).toContain('data.config?.restaurant&&<button');
   });
+
+  it("aplica tipos de pedido con requisitos operativos y persistencia",()=>{
+    for(const text of ["En mesa","Para llevar","Despacho","Miembro","pos_available_preset_ids","pos_default_preset_id","Fecha de despacho","presetKey"])expect(source).toContain(text);
+    expect(source).toContain('presetKey==="dine_in"&&!table');
+    expect(source).toContain('presetKey==="delivery"&&!shippingDate');
+    expect(source).toContain('(presetKey==="delivery"||presetKey==="member")&&!partnerId');
+  });
 });
