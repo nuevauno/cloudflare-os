@@ -40,6 +40,7 @@ export default function Sidebar({
   const supportMode = Boolean(businessSession?.support)
   const enabledApps=enabledAppsForSession(businessSession)
   const appEnabled=(...keys:string[])=>keys.some((key)=>enabledApps.has(key))
+  const hasOperations = appEnabled('sales', 'collections', 'accounting', 'dispatch', 'fiscal')
   // Gatekeeper-served management apps the user can reach now (one per gatekeeper that provides a UI
   // and is connected / enabled for everyone). Disabled or not-yet-connected ones aren't returned, so
   // they simply don't appear. The set is fully dynamic — no gatekeeper is hardcoded.
@@ -154,41 +155,46 @@ export default function Sidebar({
               collapsed={collapsed}
             />}
             <div className={collapsed?'mx-2 my-2 border-t border-kumo-line':'mx-2 mb-1 mt-3 border-t border-kumo-line pt-3 text-[11px] uppercase tracking-wide text-kumo-inactive'}>{!collapsed&&'Aplicaciones instaladas'}</div>
-            {appEnabled('sales') && <SidebarItem
-              to="/sales"
-              label={t('nav.sales')}
-              icon={<NuevaunoIcon name="sale" />}
-              collapsed={collapsed}
-            />}
             {appEnabled('pos','pos-restaurant','restaurant') && <SidebarItem to="/pos" label="Punto de venta" icon={<NuevaunoIcon name="point_of_sale" />} collapsed={collapsed} />}
-            {appEnabled('collections') && <SidebarItem
-              to="/collections"
-              label={t('nav.collections')}
-              icon={<NuevaunoIcon name="nuevauno_billing" />}
-              collapsed={collapsed}
-            />}
-            {appEnabled('accounting') && <SidebarItem
-              to="/accounting"
-              label={t('nav.accounting')}
-              icon={<NuevaunoIcon name="chart" />}
-              collapsed={collapsed}
-            />}
+            {hasOperations && (
+              <div role="group" aria-label={t('nav.operations')} className={collapsed ? '' : 'ml-2 border-l border-kumo-line pl-2'}>
+                {!collapsed && <div className="px-2 pb-1 pt-2 text-[11px] uppercase tracking-wide text-kumo-inactive">{t('nav.operations')}</div>}
+                {appEnabled('sales') && <SidebarItem
+                  to="/sales"
+                  label={t('nav.sales')}
+                  icon={<NuevaunoIcon name="sale" />}
+                  collapsed={collapsed}
+                />}
+                {appEnabled('collections') && <SidebarItem
+                  to="/collections"
+                  label={t('nav.collections')}
+                  icon={<NuevaunoIcon name="nuevauno_billing" />}
+                  collapsed={collapsed}
+                />}
+                {appEnabled('accounting') && <SidebarItem
+                  to="/accounting"
+                  label={t('nav.accounting')}
+                  icon={<NuevaunoIcon name="chart" />}
+                  collapsed={collapsed}
+                />}
+                {appEnabled('dispatch') && <SidebarItem
+                  to="/dispatch"
+                  label={t('nav.dispatch')}
+                  icon={<NuevaunoIcon name="nuevauno_dte" />}
+                  collapsed={collapsed}
+                />}
+                {appEnabled('fiscal') && <SidebarItem
+                  to="/fiscal"
+                  label={t('nav.fiscal')}
+                  icon={<NuevaunoIcon name="nuevauno_dte" />}
+                  collapsed={collapsed}
+                />}
+              </div>
+            )}
             {appEnabled('certificates') && <SidebarItem
               to="/certificates"
               label={t('nav.certificates')}
               icon={<NuevaunoIcon name="nuevauno_certificates" />}
-              collapsed={collapsed}
-            />}
-            {appEnabled('dispatch') && <SidebarItem
-              to="/dispatch"
-              label={t('nav.dispatch')}
-              icon={<NuevaunoIcon name="nuevauno_dte" />}
-              collapsed={collapsed}
-            />}
-            {appEnabled('fiscal') && <SidebarItem
-              to="/fiscal"
-              label={t('nav.fiscal')}
-              icon={<NuevaunoIcon name="nuevauno_dte" />}
               collapsed={collapsed}
             />}
             {appEnabled('vault') && <SidebarItem
