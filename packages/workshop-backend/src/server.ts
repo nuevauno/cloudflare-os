@@ -80,6 +80,7 @@ type Env = Cloudflare.Env & {
 type CoreOrganizationContext = {
   organization: { id: string; slug: string; name: string };
   membership: { role: "owner" | "admin" | "member" | "viewer" };
+  enabledApps?: string[];
   companies: Array<{
     company: { id: string; organizationId: string; slug: string; legalName: string; displayName: string; countryCode: string; currencyCode: string; timezone: string; status: "active" | "migration" | "suspended" };
     access: { access: "manage" | "operate" | "read" };
@@ -179,6 +180,7 @@ function businessSessionView(session: CoreBusinessSession): BusinessSessionView 
     organizations: session.organizations.map((entry) => ({
       id: entry.organization.id, slug: entry.organization.slug, name: entry.organization.name,
       role: entry.membership.role,
+      enabledApps: entry.enabledApps ?? [],
       companies: entry.companies.map(({ company, access }) => ({ ...company, access: access.access })),
     })),
     ...(session.activeOrganizationId ? { activeOrganizationId: session.activeOrganizationId } : {}),
