@@ -64,7 +64,7 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain('target:"line",productId:line.id,title:line.name');
     expect(source).toContain("else setGeneralNote(noteEditor.value.trim())");
     expect(source).toContain("Nota del pedido ·");
-    expect(source).toContain('onClick={async()=>{await save();setScreen("payment")}}');
+    expect(source).toContain('onClick={()=>void startPayment()}');
   });
 
   it("completa selección, creación y edición de clientes en caja",()=>{
@@ -85,6 +85,13 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain('tipScope==="all"');
     expect(source).toContain('value:tipMinor||suggested');
     expect(source).toContain("receipt.payments.map");
+  });
+
+  it("hace pago en un clic sólo con medios configurados y sin terminal",()=>{
+    for(const text of ["pos_use_fast_payment","pos_fast_payment_method_ids","Medios para pago en un clic","Pago rápido"])expect(source).toContain(text);
+    expect(source).toContain("configured.includes(candidate.id)&&!candidate.requiresTerminal");
+    expect(source).toContain("paymentMethodId:method.id");
+    expect(source).toContain("await finishPayment(result)");
   });
 
   it("elige, busca y crea clientes mediante persistencia real", () => {

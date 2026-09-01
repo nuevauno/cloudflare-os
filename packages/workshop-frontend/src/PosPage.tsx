@@ -62,7 +62,7 @@ type DeviceBridge = {
     source: string;
   }): Promise<{ ok?: boolean; status?: string }>;
 };
-type PosSettingDefinition = { key:string; label:string; help:string; kind?:"text"|"number"|"select"; options?:Array<{value:string;label:string}> };
+type PosSettingDefinition = { key:string; label:string; help:string; kind?:"text"|"number"|"select"|"multiselect"; options?:Array<{value:string;label:string}> };
 type PosSettingSection = { title:string; items:PosSettingDefinition[] };
 const POS_SETTING_SECTIONS:PosSettingSection[]=[
   {title:"Punto de venta",items:[
@@ -77,6 +77,7 @@ const POS_SETTING_SECTIONS:PosSettingSection[]=[
     {key:"pos_cash_rounding_method",label:"Método de redondeo",help:"Redondea al valor más cercano, hacia arriba o hacia abajo.",kind:"select",options:[{value:"nearest",label:"Más cercano"},{value:"up",label:"Hacia arriba"},{value:"down",label:"Hacia abajo"}]},
     {key:"pos_only_round_cash_method",label:"Solo medios en efectivo",help:"No redondea otros medios de pago."},
     {key:"pos_use_fast_payment",label:"Pago en un clic",help:"Omite la pantalla de pago con medios compatibles."},
+    {key:"pos_fast_payment_method_ids",label:"Medios para pago en un clic",help:"Elige qué medios pueden cerrar una venta directamente.",kind:"multiselect"},
     {key:"pos_set_maximum_difference",label:"Diferencia máxima",help:"Limita la diferencia autorizada al cerrar caja."},
     {key:"pos_amount_authorized_diff",label:"Diferencia autorizada",help:"Monto máximo permitido en CLP.",kind:"number"},
     {key:"pos_iface_tipproduct",label:"Propinas",help:"Acepta propinas del cliente o convierte el vuelto."},
@@ -840,6 +841,19 @@ export default function PosPage() {
       (sum, payment) => sum + payment.amountMinor,
       0,
     );
+  const finishPayment = async (result: Awaited<ReturnType<typeof authenticatedApi.posPayOrder>>) => {
+    const completedReceipt={
+      order: result.order,
+      change: result.payments.reduce((sum, payment) => sum + payment.changeMinor, 0),
+      payments: result.payments.map((payment) => ({
+        name: data.paymentMethods.find((method) => method.id === payment.paymentMethodId)?.name ?? "Pago",
+        amountMinor: payment.amountMinor,
+      })),
+    };
+    if(data.config?.settings.pos_iface_print_auto)await printTicket(result.order,"receipt");
+    if(data.config?.settings.pos_iface_print_skip_screen)reset();else setReceipt(completedReceipt);
+    await refresh();
+  };
   const pay = async () => {
     if (!order || !data.session || !lines.length) return;
     setBusy(true);
@@ -870,20 +884,21 @@ export default function PosPage() {
             }),
         requestId: crypto.randomUUID(),
       });
-      const completedReceipt={
-        order: result.order,
-        change: result.payments.reduce((sum, payment) => sum + payment.changeMinor, 0),
-        payments: result.payments.map((payment) => ({
-          name: data.paymentMethods.find((method) => method.id === payment.paymentMethodId)?.name ?? "Pago",
-          amountMinor: payment.amountMinor,
-        })),
-      };
-      if(data.config?.settings.pos_iface_print_auto)await printTicket(result.order,"receipt");
-      if(data.config?.settings.pos_iface_print_skip_screen)reset();else setReceipt(completedReceipt);
-      await refresh();
+      await finishPayment(result);
     } finally {
       setBusy(false);
     }
+  };
+  const startPayment = async () => {
+    if(!data.config?.settings.pos_use_fast_payment){await save();setScreen("payment");return;}
+    const configured=Array.isArray(data.config.settings.pos_fast_payment_method_ids)?data.config.settings.pos_fast_payment_method_ids:[],method=data.paymentMethods.find(candidate=>configured.includes(candidate.id)&&!candidate.requiresTerminal);
+    if(!method){await save();setScreen("payment");return;}
+    setBusy(true);
+    try{
+      const updated=await authenticatedApi.posSyncOrder(orderPayload());
+      const result=await authenticatedApi.posPayOrder({organizationId:scope.organizationId,companyId:scope.companyId,orderId:updated.id,paymentMethodId:method.id,tenderedMinor:updated.totalMinor,requestId:crypto.randomUUID()});
+      await finishPayment(result);
+    }finally{setBusy(false)}
   };
   const sendToPreparation = async () => {
     if (!order) return;
@@ -1240,6 +1255,7 @@ export default function PosPage() {
               {item.kind==="text"&&<input value={typeof value==="string"?value:""} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:event.target.value}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"/>}
               {item.kind==="number"&&<input type="number" value={typeof value==="number"?value:0} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:Number(event.target.value)}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"/>}
               {item.kind==="select"&&<select value={typeof value==="string"?value:""} onChange={event=>{setSettingsDraft(current=>({...current,[item.key]:event.target.value}));setSettingsDirty(true)}} className="mt-3 w-full rounded-xl border border-kumo-line bg-kumo-base px-3 py-2"><option value="">Seleccionar</option>{item.options?.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select>}
+              {item.kind==="multiselect"&&<div className="mt-3 space-y-2">{data.paymentMethods.filter(method=>!method.requiresTerminal).map(method=>{const selected=Array.isArray(value)&&value.includes(method.id);return <label key={method.id} className="flex items-center gap-2"><input type="checkbox" checked={selected} onChange={event=>{const current=Array.isArray(value)?value:[],next=event.target.checked?[...new Set([...current,method.id])]:current.filter(id=>id!==method.id);setSettingsDraft(draft=>({...draft,[item.key]:next}));setSettingsDirty(true)}}/>{method.name}</label>})}</div>}
             </span>
           </label>})}
         </div>
@@ -2026,7 +2042,7 @@ export default function PosPage() {
                 else if(key==="%") {const discount=Number(await requestDialog({kind:"number",title:"Descuento",label:line.name,value:(lineDiscounts[line.id]??0)/100,min:0,max:100}));if(Number.isFinite(discount))setLineDiscounts(current=>({...current,[line.id]:Math.round(discount*100)}));}
                 else if(key==="Precio"){const price=Number(await requestDialog({kind:"number",title:"Cambiar precio",label:line.name,value:line.unitPriceMinor,min:0}));if(price>=0)setManualPrices(current=>({...current,[line.id]:price}));}
               }} className={`h-13 border border-kumo-line disabled:bg-kumo-line/30 ${(key==="Ctdad"||key==="Precio")?"bg-[#fff1ed]":key==="+/−"?"bg-[#fee28a]":""}`}>{key}</button>)}</div>}
-              <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={startNewOrder} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length} onClick={async()=>{await save();setScreen("payment")}} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">Pago</button></div>
+              <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={startNewOrder} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length} onClick={()=>void startPayment()} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">{data.config?.settings.pos_use_fast_payment?"Pago rápido":"Pago"}</button></div>
             </div>
           </aside>
         </section>
