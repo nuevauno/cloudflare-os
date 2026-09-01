@@ -221,6 +221,8 @@ export default function PosPage() {
     [invoiceRequested, setInvoiceRequested] = useState(false),
     [takeaway, setTakeaway] = useState(false),
     [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>({}),
+    [paymentTenders, setPaymentTenders] = useState<Record<string, number>>({}),
+    [paymentEntryAmount, setPaymentEntryAmount] = useState(""),
     [paymentBucket, setPaymentBucket] = useState<"products" | "tip">("products"),
     [lineNotes, setLineNotes] = useState<Record<string, string>>({}),
     [manualPrices, setManualPrices] = useState<Record<string, number>>({}),
@@ -802,21 +804,17 @@ export default function PosPage() {
     isCash =
       !selectedPaymentMethod || selectedPaymentMethod.methodType === "cash";
   const paymentAmount = (bucket:"products"|"tip",methodId:string) => paymentAmounts[`${bucket}:${methodId}`] ?? 0;
-  const cashAllocated = data.paymentMethods
-      .filter((method) => method.methodType === "cash")
-      .reduce((sum, method) => sum + paymentAmount("products", method.id) + paymentAmount("tip", method.id), 0),
-    cashOverpayment = Math.max(0, (Number(tender) || 0) - cashAllocated),
-    allocatedPayments = (["products", "tip"] as const).flatMap((bucket) =>
+  const allocatedPayments = (["products", "tip"] as const).flatMap((bucket) =>
       data.paymentMethods
         .filter((method) => paymentAmount(bucket, method.id) > 0)
         .map((method) => ({
           paymentMethodId: method.id,
           amountMinor: paymentAmount(bucket, method.id),
           ...(method.methodType === "cash"
-            ? { tenderedMinor: paymentAmount(bucket, method.id) + (method.id === paymentMethodId && bucket === paymentBucket ? cashOverpayment : 0) }
+            ? { tenderedMinor: paymentTenders[`${bucket}:${method.id}`] ?? paymentAmount(bucket, method.id) }
             : {}),
-          ...(method.requiresTerminal && terminalReferences[method.id]
-            ? { terminalReference: terminalReferences[method.id] }
+          ...(method.requiresTerminal && terminalReferences[`${bucket}:${method.id}`]
+            ? { terminalReference: terminalReferences[`${bucket}:${method.id}`] }
             : {}),
         })),
     ),
@@ -839,14 +837,14 @@ export default function PosPage() {
               tenderedMinor: isCash ? Number(tender) : updated.totalMinor,
               ...(paymentMethodId ? { paymentMethodId } : {}),
               ...(selectedPaymentMethod?.requiresTerminal &&
-              terminalReferences[selectedPaymentMethod.id]
+              terminalReferences[`${paymentBucket}:${selectedPaymentMethod.id}`]
                 ? {
                     payments: [
                       {
                         paymentMethodId: selectedPaymentMethod.id,
                         amountMinor: updated.totalMinor,
                         terminalReference:
-                          terminalReferences[selectedPaymentMethod.id],
+                          terminalReferences[`${paymentBucket}:${selectedPaymentMethod.id}`],
                       },
                     ],
                   }
@@ -1170,6 +1168,8 @@ export default function PosPage() {
     setTakeaway(false);
     setTender("");
     setPaymentAmounts({});
+    setPaymentTenders({});
+    setPaymentEntryAmount("");
     setPaymentBucket("products");
     setLineNotes({});
     setManualPrices({});
@@ -1456,7 +1456,20 @@ export default function PosPage() {
       activeDue = paymentBucket === "tip" ? tipDue : productDue,
       remaining = productDue + tipDue,
       selectedPartner = data.partners.find((partner) => partner.id === partnerId),
-      canValidate = allocatedPayments.length > 0 && allocatedTotal === total && allocatedPayments.every(payment=>!data.paymentMethods.find(method=>method.id===payment.paymentMethodId)?.requiresTerminal||Boolean(payment.terminalReference));
+      selectedPaymentKey = paymentMethodId ? `${paymentBucket}:${paymentMethodId}` : "",
+      canValidate = allocatedPayments.length > 0 && allocatedTotal === total && allocatedPayments.every(payment=>{
+        const method=data.paymentMethods.find(candidate=>candidate.id===payment.paymentMethodId);
+        return (!method?.requiresTerminal||Boolean(payment.terminalReference))&&(method?.methodType!=="cash"||(payment.tenderedMinor??0)>=payment.amountMinor);
+      }),
+      assignPayment = () => {
+        if(!selectedPaymentMethod||activeDue<=0)return;
+        const amount=Math.min(activeDue,Math.max(0,Number(paymentEntryAmount)||0));
+        if(!Number.isSafeInteger(amount)||amount<=0)return;
+        const key=`${paymentBucket}:${selectedPaymentMethod.id}`;
+        setPaymentAmounts(current=>({...current,[key]:(current[key]??0)+amount}));
+        if(selectedPaymentMethod.methodType==="cash")setPaymentTenders(current=>({...current,[key]:(current[key]??0)+amount}));
+        setPaymentEntryAmount("");
+      };
     return (
       <main className="grid min-h-full grid-cols-[minmax(260px,340px)_1fr_minmax(300px,440px)] bg-kumo-base">
         <aside className="flex min-h-full flex-col border-r border-kumo-line bg-kumo-elevated p-5">
@@ -1474,18 +1487,19 @@ export default function PosPage() {
               <button onClick={()=>setPaymentBucket("products")} className={`rounded-xl border p-4 ${paymentBucket==="products"?"border-[#FE4A23] bg-orange-50":"border-kumo-line"}`}><span className="block">Productos</span><span className={productDue?"text-kumo-subtle":"text-green-600"}>{productDue?`falta ${money(productDue)}`:"✓ pagado"}</span></button>
               {tipMinor>0&&<button onClick={()=>setPaymentBucket("tip")} className={`rounded-xl border p-4 ${paymentBucket==="tip"?"border-[#FE4A23] bg-orange-50":"border-kumo-line"}`}><span className="block">Propina</span><span className={tipDue?"text-kumo-subtle":"text-green-600"}>{tipDue?`falta ${money(tipDue)}`:"✓ pagado"}</span></button>}
             </div>
-            {(["products","tip"] as const).filter(bucket=>bucket==="products"||tipMinor>0).map(bucket=><section key={bucket} className="rounded-xl border border-kumo-line bg-kumo-elevated p-3"><p className="mb-2 text-sm uppercase text-kumo-subtle">{bucket==="products"?`Productos · ${money(productTarget)}`:`Propina · ${money(tipMinor)}`}</p>{data.paymentMethods.filter(method=>paymentAmount(bucket,method.id)>0).map(method=><div key={`${bucket}:${method.id}`} className="flex items-center justify-between border-t border-kumo-line py-3"><span>{method.name}</span><span>{money(paymentAmount(bucket,method.id))}</span><button aria-label={`Quitar pago ${method.name}`} onClick={()=>setPaymentAmounts(current=>({...current,[`${bucket}:${method.id}`]:0}))} className="text-[#FE4A23]">×</button></div>)}{!data.paymentMethods.some(method=>paymentAmount(bucket,method.id)>0)&&<p className="text-kumo-subtle">— sin pagos —</p>}</section>)}
+            {(["products","tip"] as const).filter(bucket=>bucket==="products"||tipMinor>0).map(bucket=><section key={bucket} className="rounded-xl border border-kumo-line bg-kumo-elevated p-3"><p className="mb-2 text-sm uppercase text-kumo-subtle">{bucket==="products"?`Productos · ${money(productTarget)}`:`Propina · ${money(tipMinor)}`}</p>{data.paymentMethods.filter(method=>paymentAmount(bucket,method.id)>0).map(method=>{const key=`${bucket}:${method.id}`,amount=paymentAmount(bucket,method.id);return <div key={key} className={`grid grid-cols-[1fr_auto_auto] items-center gap-3 border-t border-kumo-line py-3 ${selectedPaymentKey===key?"text-[#FE4A23]":""}`}><button onClick={()=>{setPaymentBucket(bucket);setPaymentMethodId(method.id);setPaymentEntryAmount(String(amount));if(method.methodType==="cash")setTender(String(paymentTenders[key]??amount))}} className="text-left"><span className="block">{method.name}</span>{method.methodType==="cash"&&<small className="text-kumo-subtle">Recibido {money(paymentTenders[key]??amount)}</small>}</button><span>{money(amount)}</span><button aria-label={`Quitar pago ${method.name}`} onClick={()=>{setPaymentAmounts(current=>({...current,[key]:0}));setPaymentTenders(current=>({...current,[key]:0}));setTerminalReferences(current=>({...current,[key]:""}))}} className="text-[#FE4A23]">×</button></div>})}{!data.paymentMethods.some(method=>paymentAmount(bucket,method.id)>0)&&<p className="text-kumo-subtle">— sin pagos —</p>}</section>)}
           </div>
         </section>
         <aside className="flex min-h-full flex-col border-l border-kumo-line bg-kumo-elevated p-4">
           <div className="space-y-2">
-            {data.paymentMethods.filter(method=>!isMinimal||method.methodType!=="customer_account").map((method) => <button key={method.id} onClick={() => { if(activeDue<=0)return; setPaymentMethodId(method.id);setPaymentAmounts(current=>({...current,[`${paymentBucket}:${method.id}`]:(current[`${paymentBucket}:${method.id}`]??0)+activeDue}));if(method.methodType==="cash")setTender(String(activeDue)); }} className={`flex w-full justify-between rounded-xl border p-5 text-left ${paymentMethodId===method.id?"border-[#FE4A23] bg-orange-50":"border-kumo-line"}`}><span>{method.name}</span><span>{money(paymentAmount("products",method.id)+paymentAmount("tip",method.id))}</span></button>)}
+            {data.paymentMethods.filter(method=>!isMinimal||method.methodType!=="customer_account").map((method) => <button key={method.id} onClick={() => { if(activeDue<=0)return;setPaymentMethodId(method.id);setPaymentEntryAmount(String(activeDue));if(method.methodType==="cash")setTender(String(activeDue)); }} className={`flex w-full justify-between rounded-xl border p-5 text-left ${paymentMethodId===method.id?"border-[#FE4A23] bg-orange-50":"border-kumo-line"}`}><span>{method.name}</span><span>{money(paymentAmount("products",method.id)+paymentAmount("tip",method.id))}</span></button>)}
           </div>
           <div className="mt-auto space-y-2">
             <div className="grid grid-cols-2 gap-2"><button onClick={() => setPartnerDialog(true)} className="rounded-xl border border-kumo-line p-4">{selectedPartner?.displayName ?? "Cliente"}</button><button onClick={() => setInvoiceRequested((value) => !value)} className={`rounded-xl border p-4 ${invoiceRequested ? "border-[#FE4A23] bg-orange-50" : "border-kumo-line"}`}>Factura</button></div>
             {tipEnabled&&<button onClick={() => {const pct=Number(data.config?.settings.pos_nuevauno_suggested_tip_pct??10)||10;setTipMinor(Math.round((rawTotal-tipMinor)*pct/100));setPaymentBucket("tip")}} className={`flex w-full justify-between rounded-xl border p-4 ${tipMinor ? "border-[#FE4A23] bg-orange-50" : "border-kumo-line"}`}><span>Propina</span><span>{tipMinor ? money(tipMinor) : "Agregar"}</span></button>}
-            {selectedPaymentMethod?.methodType === "cash" && <div className="space-y-2"><input autoFocus aria-label="Efectivo recibido" inputMode="numeric" value={tender} onChange={(event)=>setTender(event.target.value.replace(/\D/g,""))} placeholder="Efectivo recibido" className="w-full rounded-xl border border-kumo-line bg-kumo-base p-4" /><div className="grid grid-cols-4">{["1","2","3","+10","4","5","6","+20","7","8","9","+50","+/-","0",",","⌫"].map(key=><button key={key} onClick={()=>{if(key==="⌫")setTender(value=>value.slice(0,-1));else if(key==="+/-"||key===",")return;else if(key.startsWith("+"))setTender(value=>String((Number(value)||0)+Number(key.slice(1))));else setTender(value=>(value==="0"?"":value)+key)}} className={`min-h-12 border border-kumo-line p-3 ${key.startsWith("+")?"bg-green-100":""}`}>{key}</button>)}</div>{Number(tender)>=allocatedTotal&&<p className="flex justify-between rounded-xl bg-orange-50 p-3"><span>Vuelto</span><span>{money(Number(tender)-allocatedTotal)}</span></p>}</div>}
-            {selectedPaymentMethod?.requiresTerminal&&<input aria-label="Referencia del terminal" value={terminalReferences[selectedPaymentMethod.id]??""} onChange={event=>setTerminalReferences(current=>({...current,[selectedPaymentMethod.id]:event.target.value}))} placeholder="Referencia o autorización del terminal" className="w-full rounded-xl border border-kumo-line bg-kumo-base p-4" />}
+            {selectedPaymentMethod&&<div className="grid grid-cols-[1fr_auto] gap-2"><input autoFocus aria-label="Importe a asignar" inputMode="numeric" value={paymentEntryAmount} onChange={event=>setPaymentEntryAmount(event.target.value.replace(/\D/g,""))} placeholder={`Máximo ${money(activeDue)}`} className="rounded-xl border border-kumo-line bg-kumo-base p-4"/><button disabled={!paymentEntryAmount||Number(paymentEntryAmount)<=0||Number(paymentEntryAmount)>activeDue} onClick={assignPayment} className="rounded-xl bg-[#FE4A23] px-5 text-white disabled:opacity-40">Agregar pago</button></div>}
+            {selectedPaymentMethod?.methodType === "cash" && paymentAmount(paymentBucket,selectedPaymentMethod.id)>0 && <div className="space-y-2"><input aria-label="Efectivo recibido" inputMode="numeric" value={tender} onChange={(event)=>{const value=event.target.value.replace(/\D/g,"");setTender(value);setPaymentTenders(current=>({...current,[selectedPaymentKey]:Number(value)||0}))}} placeholder="Efectivo recibido" className="w-full rounded-xl border border-kumo-line bg-kumo-base p-4" /><div className="grid grid-cols-4">{["1","2","3","+10","4","5","6","+20","7","8","9","+50","+/-","0",",","⌫"].map(key=><button key={key} onClick={()=>setTender(value=>{let next=value;if(key==="⌫")next=value.slice(0,-1);else if(key==="+/-"||key===",")return value;else if(key.startsWith("+"))next=String((Number(value)||0)+Number(key.slice(1)));else next=(value==="0"?"":value)+key;setPaymentTenders(current=>({...current,[selectedPaymentKey]:Number(next)||0}));return next})} className={`min-h-12 border border-kumo-line p-3 ${key.startsWith("+")?"bg-green-100":""}`}>{key}</button>)}</div>{Number(tender)>=paymentAmount(paymentBucket,selectedPaymentMethod.id)&&<p className="flex justify-between rounded-xl bg-orange-50 p-3"><span>Vuelto</span><span>{money(Number(tender)-paymentAmount(paymentBucket,selectedPaymentMethod.id))}</span></p>}</div>}
+            {selectedPaymentMethod?.requiresTerminal&&paymentAmount(paymentBucket,selectedPaymentMethod.id)>0&&<input aria-label="Referencia del terminal" value={terminalReferences[selectedPaymentKey]??""} onChange={event=>setTerminalReferences(current=>({...current,[selectedPaymentKey]:event.target.value}))} placeholder="Referencia o autorización del terminal" className="w-full rounded-xl border border-kumo-line bg-kumo-base p-4" />}
             <p className="p-2 text-sm text-kumo-subtle">Puedes combinar medios de pago en Productos y Propina.</p>
             <div className="grid grid-cols-2 gap-2"><button onClick={()=>setScreen("terminal")} className="rounded-xl border border-kumo-line p-4">Regresar</button><button disabled={!canValidate||busy} onClick={pay} className="rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40">Validar</button></div>
           </div>

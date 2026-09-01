@@ -224,4 +224,12 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("printSalesReport");
     expect(source).toContain('document.getElementById("pos-sales-report")');
   });
+
+  it("construye pagos parciales, mixtos y vuelto por cada asignación",()=>{
+    for(const text of ["Importe a asignar","Agregar pago","Efectivo recibido","Vuelto","Puedes combinar medios de pago"])expect(source).toContain(text);
+    expect(source).toContain("setPaymentTenders");
+    expect(source).toContain("paymentEntryAmount");
+    expect(source).toContain("(payment.tenderedMinor??0)>=payment.amountMinor");
+    expect(source).toContain('terminalReferences[`${bucket}:${method.id}`]');
+  });
 });
