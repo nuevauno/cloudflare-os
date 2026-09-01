@@ -113,6 +113,14 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("settingsDirty");
   });
 
+  it("hace operativos los ajustes de interfaz, imágenes y categorías",()=>{
+    for(const behavior of ["showProductImages","showCategoryImages","groupByCategory","bigScrollbars","defaultTab","allowedCategoryNames","pos_iface_available_categ_ids"])expect(source).toContain(behavior);
+    expect(source).toContain('data.config?.settings.pos_show_product_images!==false');
+    expect(source).toContain('data.config?.settings.pos_iface_group_by_categ!==false');
+    expect(source).toContain('setTab(defaultTab)');
+    expect(source).toContain('visibleProducts=useMemo');
+  });
+
   it("mantiene el registro limpio y mueve las acciones secundarias al menú contextual",()=>{
     for(const text of ["⋮","Nota para el cliente","Transferir / Fusionar","Comensales","Tarifa","Cancelar orden"])expect(source).toContain(text);
     expect(source).toContain('grid-cols-[1fr_1fr_44px_1fr_44px]');
