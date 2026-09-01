@@ -157,6 +157,7 @@ export default function PosPage() {
       seats: number;
     } | null>(null);
   const [cart, setCart] = useState<Record<string, number>>({}),
+    [cartProducts,setCartProducts]=useState<Record<string,PosLoadDataView["products"][number]>>({}),
     [selectedLineId,setSelectedLineId]=useState(""),
     [order, setOrder] = useState<PosOrderView | null>(null),
     [category, setCategory] = useState(""),
@@ -338,11 +339,11 @@ export default function PosPage() {
   const categories = useMemo(
     () => [...new Set(data?.products.map((p) => p.category) ?? [])],
     [data],
-  );
+  ),visibleProducts=useMemo(()=>data?.products.filter((product,index,products)=>products.findIndex(candidate=>candidate.templateId===product.templateId)===index)??[],[data]);
   const lines = useMemo(
     () =>
       Object.entries(cart).flatMap(([id, quantity]) => {
-        const p = data?.products.find((x) => x.id === id);
+        const p = cartProducts[id]??data?.products.find((x) => x.id === id);
         if (!p || quantity <= 0) return [];
         const unitPriceMinor = manualPrices[id] ?? p.priceMinor,
           discounted = Math.round(
@@ -357,9 +358,9 @@ export default function PosPage() {
                   mapping.sourceRateBasisPoints === p.taxBasisPoints,
               )?.destinationRateBasisPoints ?? p.taxBasisPoints,
           tax = Math.round((subtotal * fiscalRate) / 10000);
-        return [{ ...p, unitPriceMinor, quantity, subtotal, tax, total: subtotal + tax }];
+        return [{ ...p, id, productVariantId:p.id, unitPriceMinor, quantity, subtotal, tax, total: subtotal + tax }];
       }),
-    [cart, data, discountBasisPoints, manualPrices, fiscalPositionId],
+    [cart, cartProducts, data, discountBasisPoints, manualPrices, fiscalPositionId],
   );
   const rawTotal = lines.reduce((sum, line) => sum + line.total, 0) + tipMinor,
     roundingIncrement = data?.config?.cashRoundingIncrementMinor ?? 1,
@@ -511,6 +512,7 @@ export default function PosPage() {
           [],
       ),
     );
+    setCartProducts({});
     setGeneralNote(existing?.metadata.generalNote ?? "");
     setGuestCount(existing?.metadata.guestCount ?? 1);
     setTipMinor(existing?.metadata.tipMinor ?? 0);
@@ -578,7 +580,7 @@ export default function PosPage() {
       ...(partnerId ? { partnerId } : {}),
     },
       lines: lines.map((line) => ({
-        productVariantId: line.id,
+        productVariantId: line.productVariantId,
         quantity: line.quantity,
         discountBasisPoints,
         ...(lineNotes[line.id] ? { customerNote: lineNotes[line.id] } : {}),
@@ -621,7 +623,7 @@ export default function PosPage() {
     }));
   const setQuantity = (id: string, quantity: number) => {
     const normalized = Math.max(0, Math.round(quantity * 1000) / 1000),
-      product = data?.products.find((item) => item.id === id);
+      product = cartProducts[id]??data?.products.find((item) => item.id === id);
     if (lineLots[id]?.length && !product?.lots.some((lot) => lot.tracking === "serial"))
       setLineLots((current) => ({
         ...current,
@@ -637,27 +639,26 @@ export default function PosPage() {
   const addProduct = async (
     initial: PosLoadDataView["products"][number],
   ) => {
-    const variants = data.products.filter(
-        (product) => product.templateId === initial.templateId,
-      ),
-      variantId =
-        variants.length > 1
-          ? await requestDialog({
-              kind: "selection",
-              title: "Configurar producto",
-              options: variants.map((product) => ({
-                id: product.id,
-                label: `${product.name}${product.attributes.length ? ` · ${product.attributes.map((attribute) => attribute.valueName).join(", ")}` : ""}`,
-              })),
-              selected: [initial.id],
-              min: 1,
-              max: 1,
-            })
-          : [initial.id];
-    if (variantId === null) return;
-    const product =
-        variants.find((candidate) => candidate.id === (variantId as string[] | null)?.[0]) ?? initial,
-      comboSelections: Array<{
+    const variants=data.products.filter(product=>product.templateId===initial.templateId);
+    let product=initial,lineKey=initial.id,customLabel="";
+    if(initial.attributeLines.length){
+      const valueIds:string[]=[];
+      for(const line of initial.attributeLines){
+        const selected=await requestDialog({kind:"selection",title:line.attributeName,options:line.values.flatMap(value=>value.valueId?[{id:value.valueId,label:`${value.valueName}${value.priceExtraMinor?` · ${money(value.priceExtraMinor)}`:""}`}]:[]),min:1,max:1});
+        if(selected===null)return;
+        const valueId=(selected as string[])[0];if(!valueId)return;valueIds.push(valueId);
+      }
+      const resolved=await authenticatedApi.posResolveProductVariant(scope.organizationId,scope.companyId,initial.templateId,valueIds);
+      product=resolved.product;
+      customLabel=resolved.customAttributes.map(attribute=>`${attribute.attributeName}: ${attribute.valueName}`).join(" · ");
+      lineKey=customLabel?`${product.id}::${resolved.customAttributes.map(attribute=>attribute.valueId).toSorted().join("|")}`:product.id;
+      setCartProducts(current=>({...current,[lineKey]:{...product,name:customLabel?`${product.name} · ${customLabel}`:product.name,priceMinor:product.priceMinor+resolved.customPriceExtraMinor}}));
+    }else if(variants.length>1){
+      const variantId=await requestDialog({kind:"selection",title:"Configurar producto",options:variants.map(candidate=>({id:candidate.id,label:`${candidate.name}${candidate.attributes.length?` · ${candidate.attributes.map(attribute=>attribute.valueName).join(", ")}`:""}`})),selected:[initial.id],min:1,max:1});
+      if(variantId===null)return;
+      product=variants.find(candidate=>candidate.id===(variantId as string[])[0])??initial;lineKey=product.id;
+    }
+    const comboSelections: Array<{
         componentName: string;
         product: PosLoadDataView["products"][number];
         quantity: number;
@@ -702,7 +703,7 @@ export default function PosPage() {
         }),
         lot = product.lots.find((candidate) => candidate.id === (lotSelection as string[] | null)?.[0]);
       if (!lot) return;
-      const alreadySelected = lineLots[product.id]?.some(
+      const alreadySelected = lineLots[lineKey]?.some(
         (selection) => selection.lotId === lot.id,
       );
       if (lot.tracking === "serial" && alreadySelected) {
@@ -710,11 +711,11 @@ export default function PosPage() {
         return;
       }
       setLineLots((current) => {
-        const selections = current[product.id] ?? [],
+        const selections = current[lineKey] ?? [],
           existing = selections.find((selection) => selection.lotId === lot.id);
         return {
           ...current,
-          [product.id]: existing
+          [lineKey]: existing
             ? selections.map((selection) =>
                 selection.lotId === lot.id
                   ? {
@@ -727,8 +728,9 @@ export default function PosPage() {
         };
       });
     }
-    change(product.id, 1);
-    setSelectedLineId(product.id);
+    change(lineKey, 1);
+    setSelectedLineId(lineKey);
+    if(customLabel)setLineNotes(current=>({...current,[lineKey]:customLabel}));
     for (const optionalId of product.optionalProductIds) {
       const optional = data.products.find((candidate) => candidate.id === optionalId);
       if (optional && await requestDialog({ kind: "confirm", title: "Producto opcional", body: `¿Agregar ${optional.name}?`, confirmLabel: "Agregar" })) change(optional.id, 1);
@@ -772,6 +774,7 @@ export default function PosPage() {
       );
     setOrder(null);
     setCart({});
+    setCartProducts({});
     setTable(null);
     orderUuid.current = crypto.randomUUID();
     await refresh();
@@ -1125,6 +1128,7 @@ export default function PosPage() {
     setReceipt(null);
     setOrder(null);
     setCart({});
+    setCartProducts({});
     setGeneralNote("");
     setGuestCount(1);
     setTipMinor(0);
@@ -1864,7 +1868,7 @@ export default function PosPage() {
               ))}
             </div>
             <div className="flex flex-wrap gap-2">
-              {data.products
+              {visibleProducts
                 .filter(
                   (product) =>
                     (!search ||
@@ -1880,7 +1884,7 @@ export default function PosPage() {
                     className="relative h-20 w-32 rounded-lg border border-kumo-line bg-kumo-elevated p-3 text-center shadow-[0_4px_0_#e4e6e9]"
                   >
                     <span className="block">{product.name}</span>
-                    {(cart[product.id]??0)>0&&<span className="absolute bottom-1 right-1 rounded bg-black px-2 py-0.5 text-xs text-white">{cart[product.id]}</span>}
+                    {lines.some(line=>line.templateId===product.templateId)&&<span className="absolute bottom-1 right-1 rounded bg-black px-2 py-0.5 text-xs text-white">{lines.filter(line=>line.templateId===product.templateId).reduce((sum,line)=>sum+line.quantity,0)}</span>}
                   </button>
                 ))}
             </div>
