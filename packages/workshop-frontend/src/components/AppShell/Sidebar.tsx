@@ -13,8 +13,7 @@ import SidebarUtilityStrip from './SidebarUtilityStrip'
 import { useI18n } from '../../i18n'
 import NuevaunoIcon from '../NuevaunoIcon'
 import { useAuthenticatedApi } from '../../AuthContext'
-import { useEffect, useState } from 'react'
-import { resolveSalesScope } from '../../SalesPage'
+import { enabledAppsForSession } from './businessChrome'
 
 /**
  * The persistent left rail. Three pinned regions sandwich a single scrolling region of lists, so
@@ -37,10 +36,10 @@ export default function Sidebar({
 }) {
   const siteName = useSiteName()
   const { t } = useI18n()
-  const { authenticatedApi, isAdmin, businessSession } = useAuthenticatedApi()
+  const { isAdmin, businessSession } = useAuthenticatedApi()
   const supportMode = Boolean(businessSession?.support)
-  const [posEnabled,setPosEnabled]=useState(false)
-  useEffect(()=>{const scope=resolveSalesScope(businessSession);if(!scope){setPosEnabled(false);return}authenticatedApi.posLoadData(scope.organizationId,scope.companyId).then(d=>setPosEnabled(d.entitled)).catch(()=>setPosEnabled(false))},[authenticatedApi,businessSession])
+  const enabledApps=enabledAppsForSession(businessSession)
+  const appEnabled=(...keys:string[])=>keys.some((key)=>enabledApps.has(key))
   // Gatekeeper-served management apps the user can reach now (one per gatekeeper that provides a UI
   // and is connected / enabled for everyone). Disabled or not-yet-connected ones aren't returned, so
   // they simply don't appear. The set is fully dynamic — no gatekeeper is hardcoded.
@@ -109,6 +108,7 @@ export default function Sidebar({
         <div className="flex shrink-0 flex-col gap-3 pt-3">
           {/* Primary nav */}
           <nav className="flex flex-col gap-0.5 px-2">
+            <div className={collapsed?'mx-2 mb-1 border-t border-kumo-line':'px-2 pb-1 text-[11px] uppercase tracking-wide text-kumo-inactive'}>{!collapsed&&'Sistema'}</div>
             {!supportMode && <SidebarItem
               to="/"
               label={t('nav.home')}
@@ -141,55 +141,64 @@ export default function Sidebar({
                 collapsed={collapsed}
               />
             )}
-            <SidebarItem
-              to="/sales"
-              label={t('nav.sales')}
-              icon={<NuevaunoIcon name="sale" />}
-              collapsed={collapsed}
-            />
-            {posEnabled && <SidebarItem to="/pos" label="Punto de venta" icon={<NuevaunoIcon name="point_of_sale" />} collapsed={collapsed} />}
-            <SidebarItem
-              to="/collections"
-              label={t('nav.collections')}
-              icon={<NuevaunoIcon name="nuevauno_billing" />}
-              collapsed={collapsed}
-            />
-            <SidebarItem
-              to="/accounting"
-              label={t('nav.accounting')}
-              icon={<NuevaunoIcon name="chart" />}
-              collapsed={collapsed}
-            />
-            <SidebarItem
-              to="/certificates"
-              label={t('nav.certificates')}
-              icon={<NuevaunoIcon name="nuevauno_certificates" />}
-              collapsed={collapsed}
-            />
-            <SidebarItem
-              to="/dispatch"
-              label={t('nav.dispatch')}
-              icon={<NuevaunoIcon name="nuevauno_dte" />}
-              collapsed={collapsed}
-            />
-            <SidebarItem
-              to="/fiscal"
-              label={t('nav.fiscal')}
-              icon={<NuevaunoIcon name="nuevauno_dte" />}
-              collapsed={collapsed}
-            />
-            <SidebarItem
-              to="/vault"
-              label={t('nav.vault')}
-              icon={<NuevaunoIcon name="nuevauno_vault" />}
-              collapsed={collapsed}
-            />
-            <SidebarItem
+            {!supportMode && <SidebarItem
               to="/kodo"
               label={t('nav.kodo')}
               icon={<NuevaunoIcon name="nuevauno_kodo" />}
               collapsed={collapsed}
-            />
+            />}
+            {!supportMode && <SidebarItem
+              to="/explore"
+              label={t('nav.explore')}
+              icon={<NuevaunoIcon name="knowledge" />}
+              collapsed={collapsed}
+            />}
+            <div className={collapsed?'mx-2 my-2 border-t border-kumo-line':'mx-2 mb-1 mt-3 border-t border-kumo-line pt-3 text-[11px] uppercase tracking-wide text-kumo-inactive'}>{!collapsed&&'Aplicaciones instaladas'}</div>
+            {appEnabled('sales') && <SidebarItem
+              to="/sales"
+              label={t('nav.sales')}
+              icon={<NuevaunoIcon name="sale" />}
+              collapsed={collapsed}
+            />}
+            {appEnabled('pos','pos-restaurant','restaurant') && <SidebarItem to="/pos" label="Punto de venta" icon={<NuevaunoIcon name="point_of_sale" />} collapsed={collapsed} />}
+            {appEnabled('collections') && <SidebarItem
+              to="/collections"
+              label={t('nav.collections')}
+              icon={<NuevaunoIcon name="nuevauno_billing" />}
+              collapsed={collapsed}
+            />}
+            {appEnabled('accounting') && <SidebarItem
+              to="/accounting"
+              label={t('nav.accounting')}
+              icon={<NuevaunoIcon name="chart" />}
+              collapsed={collapsed}
+            />}
+            {appEnabled('certificates') && <SidebarItem
+              to="/certificates"
+              label={t('nav.certificates')}
+              icon={<NuevaunoIcon name="nuevauno_certificates" />}
+              collapsed={collapsed}
+            />}
+            {appEnabled('dispatch') && <SidebarItem
+              to="/dispatch"
+              label={t('nav.dispatch')}
+              icon={<NuevaunoIcon name="nuevauno_dte" />}
+              collapsed={collapsed}
+            />}
+            {appEnabled('fiscal') && <SidebarItem
+              to="/fiscal"
+              label={t('nav.fiscal')}
+              icon={<NuevaunoIcon name="nuevauno_dte" />}
+              collapsed={collapsed}
+            />}
+            {appEnabled('vault') && <SidebarItem
+              to="/vault"
+              label={t('nav.vault')}
+              icon={<NuevaunoIcon name="nuevauno_vault" />}
+              collapsed={collapsed}
+            />}
+            {!collapsed&&enabledApps.size===0&&<p className="px-2 py-2 text-xs text-kumo-inactive">Activa una app desde tu plan para verla aquí.</p>}
+            {(gatekeeperApps.length>0)&&<div className={collapsed?'mx-2 my-2 border-t border-kumo-line':'mx-2 mb-1 mt-3 border-t border-kumo-line pt-3 text-[11px] uppercase tracking-wide text-kumo-inactive'}>{!collapsed&&'Herramientas'}</div>}
             {/* Gatekeeper management apps (e.g. the Context Library), listed dynamically. */}
             {!supportMode && gatekeeperApps.map((app) => {
               // Escape the icon URL for safe interpolation into a CSS url("…") string.
@@ -229,12 +238,6 @@ export default function Sidebar({
               />
               )
             })}
-            {!supportMode && <SidebarItem
-              to="/explore"
-              label={t('nav.explore')}
-              icon={<NuevaunoIcon name="knowledge" />}
-              collapsed={collapsed}
-            />}
           </nav>
 
           {/* Workspace tools: search. Pinned so it's always reachable. */}

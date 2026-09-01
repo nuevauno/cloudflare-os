@@ -943,6 +943,8 @@ export interface BusinessOrganizationSummary {
   name: string;
   /** Effective membership role. */
   role: "owner" | "admin" | "member" | "viewer";
+  /** Apps installed for this organization by the authoritative business kernel. */
+  enabledApps?: string[];
   /** Companies the effective identity may use. */
   companies: BusinessCompanySummary[];
 }
