@@ -67,6 +67,11 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain('onClick={async()=>{await save();setScreen("payment")}}');
   });
 
+  it("completa selección, creación y edición de clientes en caja",()=>{
+    for(const text of ["Consumidor final","Nuevo cliente","Editar cliente","Guardar cambios","Dirección","Ciudad / comuna","Código postal","Sitio web","posUpdatePartner"])expect(source).toContain(text);
+    for(const field of ["partner.taxIdentifier","partner.street","partner.city"])expect(source).toContain(field);
+  });
+
   it("separa pago y conserva cliente, factura, propina y múltiples medios", () => {
     for (const text of ["Restante", "Productos", "Propina", "sin pagos", "Factura", "Validar", "Regresar"]) expect(source).toContain(text);
     expect(source).toContain('screen === "payment"');
