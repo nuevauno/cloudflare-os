@@ -181,6 +181,7 @@ export default function PosPage() {
     [openingNote, setOpeningNote] = useState(""),
     [openingDenominations,setOpeningDenominations]=useState<Record<number,number>>({}),
     [closingDialog, setClosingDialog] = useState(false),
+    [salesReportOpen,setSalesReportOpen]=useState(false),
     [closingBlocked, setClosingBlocked] = useState(false),
     [countedCashMinor, setCountedCashMinor] = useState(0),
     [closingNote, setClosingNote] = useState(""),
@@ -1031,11 +1032,19 @@ export default function PosPage() {
       `Sesión: ${data.session.id}`,
       `Apertura: ${money(data.session.openingCashMinor)}`,
       `Ventas: ${money(data.session.grossSalesMinor)} · ${data.session.paidOrderCount} pedidos`,
+      `Impuestos: ${money(data.session.taxSalesMinor)}`,
+      `Descuentos: ${money(data.session.discountSalesMinor)}`,
       `Devoluciones: ${money(data.session.refundMinor)}`,
       `Caja esperada: ${money(data.session.expectedCashMinor)}`,
       "",
       "Medios de pago",
       ...data.session.paymentsByMethod.map((method) => `${method.name}: ${money(method.amountMinor)}`),
+      "",
+      "Ventas por categoría",
+      ...data.session.salesByCategory.map((item)=>`${item.category}: ${item.quantity} · ${money(item.amountMinor)}`),
+      "",
+      "Ventas por producto",
+      ...data.session.salesByProduct.map((item)=>`${item.name}: ${item.quantity} · ${money(item.amountMinor)}`),
       "",
       "Entradas y salidas",
       ...data.session.cashMoves.map((move) => `${move.direction === "in" ? "Entrada" : "Salida"}: ${money(move.amountMinor)} · ${move.reason}`),
@@ -1046,6 +1055,13 @@ export default function PosPage() {
     link.download = `ventas-${data.session.id}.txt`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+  const printSalesReport=()=>{
+    if(!data.session)return;
+    const report=document.getElementById("pos-sales-report");if(!report)return;
+    const popup=window.open("","_blank","width=900,height=700");if(!popup)return;
+    popup.document.write(`<!doctype html><html lang="es"><head><title>Venta diaria</title><style>@font-face{font-family:Urbanist;src:url('https://branding.nuevauno.com/fonts/urbanist-latin-400-normal.woff2')}body{font-family:Urbanist,sans-serif;font-weight:400;padding:32px;color:#202124}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;font-weight:400}td:last-child,th:last-child{text-align:right}h1,h2{font-weight:400}</style></head><body>${report.innerHTML}</body></html>`);
+    popup.document.close();popup.focus();popup.print();
   };
   const createTable = async (floorId: string) => {
     const nameValue = await requestDialog({ kind: "text", title: "Nueva mesa", label: "Nombre" }),
@@ -1270,7 +1286,7 @@ export default function PosPage() {
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
             <section role="dialog" aria-modal="true" aria-label="Cerrar caja" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-kumo-elevated p-6 shadow-xl">
               <header className="flex items-center justify-between"><h2 className="text-2xl font-normal">Cerrar caja</h2><span>{data.session.paidOrderCount} pedidos · {money(data.session.grossSalesMinor)}</span></header>
-              <dl className="mt-6 grid grid-cols-2 gap-3"><dt>Apertura</dt><dd className="text-right">{money(data.session.openingCashMinor)}</dd><dt>Ventas</dt><dd className="text-right">{money(data.session.grossSalesMinor)}</dd><dt>Devoluciones</dt><dd className="text-right">{money(data.session.refundMinor)}</dd><dt>Esperado</dt><dd className="text-right">{money(data.session.expectedCashMinor)}</dd></dl>
+              <dl className="mt-6 grid grid-cols-2 gap-3"><dt>Apertura</dt><dd className="text-right">{money(data.session.openingCashMinor)}</dd><dt>Ventas</dt><dd className="text-right">{money(data.session.grossSalesMinor)}</dd><dt>Impuestos</dt><dd className="text-right">{money(data.session.taxSalesMinor)}</dd><dt>Descuentos</dt><dd className="text-right">{money(data.session.discountSalesMinor)}</dd><dt>Devoluciones</dt><dd className="text-right">{money(data.session.refundMinor)}</dd><dt>Esperado</dt><dd className="text-right">{money(data.session.expectedCashMinor)}</dd></dl>
               <section className="mt-5 border-t border-kumo-line pt-4"><h3 className="text-lg font-normal">Medios de pago</h3>{data.session.paymentsByMethod.map((method) => {const type=data.paymentMethods.find(candidate=>candidate.id===method.paymentMethodId)?.methodType,isCounted=type==="bank"||type==="terminal",counted=nonCashCounts[method.paymentMethodId]??method.amountMinor;return <div key={method.paymentMethodId} className="mt-3 grid grid-cols-[1fr_120px_120px] items-center gap-3"><span>{method.name}<span className="block text-sm text-kumo-subtle">Esperado {money(method.amountMinor)}</span></span>{isCounted?<input aria-label={`${method.name} contado`} type="number" min="0" value={counted} onChange={event=>setNonCashCounts(current=>({...current,[method.paymentMethodId]:Math.max(0,Number(event.target.value))}))} className="rounded-xl border border-kumo-line p-2 text-right"/>:<span className="text-right">{money(method.amountMinor)}</span>}<span className={`text-right ${isCounted&&counted!==method.amountMinor?"text-red-600":"text-kumo-subtle"}`}>Diferencia {money(isCounted?counted-method.amountMinor:0)}</span></div>})}{!data.session.paymentsByMethod.length && <p className="mt-2 text-kumo-subtle">Sin pagos registrados.</p>}</section>
               <section className="mt-5 border-t border-kumo-line pt-4"><h3 className="text-lg font-normal">Entradas y salidas</h3>{data.session.cashMoves.map((move) => <div key={move.id} className="mt-2 grid grid-cols-[80px_1fr_auto] gap-3"><span>{move.direction === "in" ? "Entrada" : "Salida"}</span><span>{move.reason}</span><span>{money(move.direction === "in" ? move.amountMinor : -move.amountMinor)}</span></div>)}{!data.session.cashMoves.length && <p className="mt-2 text-kumo-subtle">Sin movimientos de caja.</p>}</section>
               <label className="mt-6 block">Efectivo contado<span className="mt-2 flex gap-2"><input autoFocus type="number" min="0" value={countedCashMinor} onChange={(event) => {setCountedCashMinor(Math.max(0, Number(event.target.value)));setClosingDenominations({})}} className="min-w-0 flex-1 rounded-xl border border-kumo-line bg-kumo-base p-3" /><button type="button" onClick={()=>{setMoneyDetailsDraft(closingDenominations);setMoneyDetailsNoteDraft(closingNote);setMoneyDetailsPhase("closing")}} className="rounded-xl border border-kumo-line px-4" aria-label="Contar efectivo de cierre por denominaciones">Contar</button><button type="button" onClick={()=>{setCountedCashMinor(data.session!.expectedCashMinor);setClosingDenominations({})}} className="rounded-xl border border-kumo-line px-4" aria-label="Autocompletar efectivo esperado">Autocompletar</button></span></label>
@@ -1278,7 +1294,20 @@ export default function PosPage() {
               {data.session.openingNote && <label className="mt-5 block">Nota de apertura<textarea readOnly rows={3} value={data.session.openingNote} className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-line p-3" /></label>}
               <label className="mt-4 block">Nota de cierre<textarea rows={3} value={closingNote} onChange={(event) => setClosingNote(event.target.value)} placeholder="Agrega una nota de cierre…" className="mt-2 w-full rounded-xl border border-kumo-line bg-kumo-base p-3" /></label>
               {data.orders.length > 0 && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800">Debes resolver {data.orders.length} pedidos abiertos antes de cerrar.</p>}
-              <div className="mt-6 flex flex-wrap justify-between gap-2"><div className="flex gap-2"><button onClick={() => setClosingDialog(false)} className="rounded-xl border border-kumo-line px-4 py-3">Descartar</button><button disabled={busy} onClick={closeSession} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white disabled:opacity-40">Cerrar caja</button></div><div className="flex gap-2"><button onClick={()=>void cashMove("in")} className="rounded-xl border border-kumo-line px-4 py-3">Entrada</button><button onClick={()=>void cashMove("out")} className="rounded-xl border border-kumo-line px-4 py-3">Salida</button><button onClick={downloadSalesReport} className="rounded-xl border border-kumo-line px-4 py-3">Venta diaria</button></div></div>
+              <div className="mt-6 flex flex-wrap justify-between gap-2"><div className="flex gap-2"><button onClick={() => setClosingDialog(false)} className="rounded-xl border border-kumo-line px-4 py-3">Descartar</button><button disabled={busy} onClick={closeSession} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white disabled:opacity-40">Cerrar caja</button></div><div className="flex gap-2"><button onClick={()=>void cashMove("in")} className="rounded-xl border border-kumo-line px-4 py-3">Entrada</button><button onClick={()=>void cashMove("out")} className="rounded-xl border border-kumo-line px-4 py-3">Salida</button><button onClick={()=>setSalesReportOpen(true)} className="rounded-xl border border-kumo-line px-4 py-3">Venta diaria</button></div></div>
+            </section>
+          </div>
+        )}
+        {salesReportOpen && data.session && (
+          <div className="fixed inset-0 z-[70] grid place-items-center bg-black/45 p-4">
+            <section role="dialog" aria-modal="true" aria-label="Venta diaria" className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-kumo-elevated p-6 shadow-xl">
+              <div id="pos-sales-report">
+                <header className="flex items-start justify-between gap-4"><div><p className="text-sm text-[#FE4A23]">{data.config?.name??"Punto de venta"}</p><h2 className="text-2xl font-normal">Venta diaria</h2><p className="mt-1 text-sm text-kumo-subtle">Sesión {data.session.id}{data.session.openedAt?` · ${new Date(data.session.openedAt).toLocaleString("es-CL")}`:""}</p></div><span>{data.session.paidOrderCount} pedidos</span></header>
+                <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4"><div><dt className="text-sm text-kumo-subtle">Ventas</dt><dd className="text-xl">{money(data.session.grossSalesMinor)}</dd></div><div><dt className="text-sm text-kumo-subtle">Impuestos</dt><dd className="text-xl">{money(data.session.taxSalesMinor)}</dd></div><div><dt className="text-sm text-kumo-subtle">Descuentos</dt><dd className="text-xl">{money(data.session.discountSalesMinor)}</dd></div><div><dt className="text-sm text-kumo-subtle">Devoluciones</dt><dd className="text-xl">{money(data.session.refundMinor)}</dd></div></dl>
+                <section className="mt-6"><h3 className="text-lg font-normal">Medios de pago</h3><table className="mt-2 w-full"><tbody>{data.session.paymentsByMethod.map(item=><tr key={item.paymentMethodId} className="border-b border-kumo-line"><td className="py-2">{item.name}</td><td className="py-2 text-right">{money(item.amountMinor)}</td></tr>)}</tbody></table></section>
+                <div className="mt-6 grid gap-6 lg:grid-cols-2"><section><h3 className="text-lg font-normal">Por categoría</h3><table className="mt-2 w-full"><thead><tr className="border-b border-kumo-line text-left"><th className="py-2 font-normal">Categoría</th><th className="py-2 text-right font-normal">Cantidad</th><th className="py-2 text-right font-normal">Total</th></tr></thead><tbody>{data.session.salesByCategory.map(item=><tr key={item.category} className="border-b border-kumo-line"><td className="py-2">{item.category}</td><td className="py-2 text-right">{item.quantity}</td><td className="py-2 text-right">{money(item.amountMinor)}</td></tr>)}</tbody></table></section><section><h3 className="text-lg font-normal">Por producto</h3><table className="mt-2 w-full"><thead><tr className="border-b border-kumo-line text-left"><th className="py-2 font-normal">Producto</th><th className="py-2 text-right font-normal">Cantidad</th><th className="py-2 text-right font-normal">Total</th></tr></thead><tbody>{data.session.salesByProduct.map(item=><tr key={`${item.productVariantId}-${item.name}`} className="border-b border-kumo-line"><td className="py-2">{item.name}</td><td className="py-2 text-right">{item.quantity}</td><td className="py-2 text-right">{money(item.amountMinor)}</td></tr>)}</tbody></table></section></div>
+              </div>
+              <div className="mt-6 flex justify-end gap-2 border-t border-kumo-line pt-4"><button onClick={()=>setSalesReportOpen(false)} className="rounded-xl border border-kumo-line px-4 py-3">Cerrar</button><button onClick={downloadSalesReport} className="rounded-xl border border-kumo-line px-4 py-3">Descargar</button><button onClick={printSalesReport} className="rounded-xl bg-[#FE4A23] px-4 py-3 text-white">Imprimir</button></div>
             </section>
           </div>
         )}
