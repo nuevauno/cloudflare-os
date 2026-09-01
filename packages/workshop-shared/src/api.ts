@@ -672,7 +672,7 @@ export interface CertificateListView {
   /** Newest certificates first. */
   certificates: CertificateView[];
 }
-export interface PosOrderMetadataView {partnerId?:string;pricelistId?:string;fiscalPositionId?:string;shippingDate?:string;orderName?:string;generalNote?:string;internalNote?:string;guestCount:number;tipMinor:number;roundingMinor?:number;takeaway:boolean;invoiceRequested:boolean;preparationState:'draft'|'sent'|'preparing'|'ready'|'served'}
+export interface PosOrderMetadataView {partnerId?:string;pricelistId?:string;fiscalPositionId?:string;presetKey?:'dine_in'|'takeaway'|'delivery'|'member';shippingDate?:string;orderName?:string;generalNote?:string;internalNote?:string;guestCount:number;tipMinor:number;roundingMinor?:number;takeaway:boolean;invoiceRequested:boolean;preparationState:'draft'|'sent'|'preparing'|'ready'|'served'}
 export interface PosOrderLineAttributeView {attributeId:string;attributeName:string;valueId:string;valueName:string;priceExtraMinor:number;color?:string}
 export interface PosOrderLineInputView {clientUuid?:string;productVariantId:string;quantity:number;customerNote?:string;internalNote?:string;discountBasisPoints?:number;courseNumber?:number;unitPriceMinor?:number;refundOriginLineId?:string;comboParentLineId?:string;comboParentUuid?:string;comboItemId?:string;attributes?:PosOrderLineAttributeView[];lotLines?:Array<{lotId:string;quantityMilli:number}>}
 export type PosConfigSettingValueView = boolean | number | string | string[];
