@@ -48,7 +48,7 @@ type PosDialogRequest =
   | { kind: "text"; title: string; label?: string; value?: string }
   | { kind: "number"; title: string; label?: string; value?: number; min?: number; max?: number }
   | { kind: "selection"; title: string; options: Array<{ id: string; label: string }>; selected?: string[]; min?: number; max?: number }
-  | { kind: "confirm"; title: string; body?: string; confirmLabel?: string }
+  | { kind: "confirm"; title: string; body?: string; confirmLabel?: string; cancelLabel?:string }
   | { kind: "message"; title: string; body: string };
 type PosDialogState = PosDialogRequest & { resolve: (value: string | string[] | number | boolean | null) => void };
 type DeviceBridge = {
@@ -175,6 +175,7 @@ export default function PosPage() {
       total: number;
     }>({ lines: [], total: 0 }),
     [layoutEditing, setLayoutEditing] = useState(false),
+    [selectedLayoutTableId,setSelectedLayoutTableId]=useState(""),
     [openingDialog, setOpeningDialog] = useState(false),
     [openingCashMinor, setOpeningCashMinor] = useState(0),
     [openingNote, setOpeningNote] = useState(""),
@@ -205,6 +206,7 @@ export default function PosPage() {
     [dialogSelections, setDialogSelections] = useState<string[]>([]);
   const [settingsDraft,setSettingsDraft]=useState<PosConfigSettingsView>({}),[settingsDirty,setSettingsDirty]=useState(false),[clock,setClock]=useState(Date.now()),[selectedOperatorId,setSelectedOperatorId]=useState(""),[operatorPin,setOperatorPin]=useState(""),[operatorError,setOperatorError]=useState(""),[operatorDraft,setOperatorDraft]=useState<{id?:string;displayName:string;role:PosOperatorRoleView;pin:string}>({displayName:"",role:"cashier",pin:""});
   const [paymentMethodDraft,setPaymentMethodDraft]=useState<{id?:string;name:string;methodType:'cash'|'bank'|'customer_account'|'terminal';requiresTerminal:boolean;splitTransactions:boolean}>({name:"",methodType:"cash",requiresTerminal:false,splitTransactions:false});
+  const [preparationPrinterDraft,setPreparationPrinterDraft]=useState<{id?:string;name:string;printerType:'desktop'|'network'|'iot';categoryIds:string[]}>({name:"",printerType:"desktop",categoryIds:[]});
   const [generalNote, setGeneralNote] = useState(""),
     [guestCount, setGuestCount] = useState(1),
     [tipMinor, setTipMinor] = useState(0),
@@ -502,18 +504,16 @@ export default function PosPage() {
           line.quantity - (currentByProduct.get(line.productVariantId)?.quantity ?? 0);
         return quantity > 0 ? [`- ${quantity} × ${line.description}`] : [];
       });
-    if (!window.NUEVAUNOBridge || (!added.length && !removed.length)) return;
-    await window.NUEVAUNOBridge.createPrintJob({
-      payload: [
-        data.config?.name ?? "Restaurant",
-        table ? `Mesa ${table.name}` : "Pedido",
-        ...added,
-        ...removed,
-      ].join("\n"),
-      format: "text",
-      jobType: "kitchen_ticket",
-      source: "nuevauno-os-pos",
-    });
+    if (!added.length && !removed.length) return;
+    const stations=data.preparationPrinters.length?data.preparationPrinters:[{id:"default",name:"Preparación",printerType:"desktop" as const,categoryIds:[]}];
+    for(const station of stations){
+      const allowed=(line:string)=>{const description=line.replace(/^[+-]\s+[\d.]+\s+×\s+/,"");const product=data.products.find(item=>description.startsWith(item.name));return station.categoryIds.length===0||Boolean(product?.categoryId&&station.categoryIds.includes(product.categoryId))},stationAdded=added.filter(allowed),stationRemoved=removed.filter(allowed);
+      if(!stationAdded.length&&!stationRemoved.length)continue;
+      const job={payload:[data.config?.name??"Restaurant",station.name,table?`Mesa ${table.name}`:"Pedido",...stationAdded,...stationRemoved].join("\n"),format:"text" as const,jobType:"kitchen_ticket" as const,source:`nuevauno-os-pos:${station.id}`};
+      if(!window.NUEVAUNOBridge){await requestDialog({kind:"message",title:`${station.name}: impresora no disponible`,body:"Conecta NUEVAUNO Desktop y comprueba que la impresora esté encendida y en la misma red. La comanda quedó guardada y puedes continuar sin imprimir."});continue;}
+      let completed=false;
+      while(!completed){try{const result=await window.NUEVAUNOBridge.createPrintJob(job);if(result.ok===false||result.status==="failed")throw new Error("print_failed");completed=true}catch{const retry=await requestDialog({kind:"confirm",title:`Error de impresión · ${station.name}`,body:"Asegúrate de que la impresora esté encendida y conectada. Puedes volver a intentarlo o continuar sin imprimir.",confirmLabel:"Volver a intentar",cancelLabel:"Continuar"});if(!retry)completed=true;}}
+    }
   };
   const loadOrder = (
     existing: PosOrderView | null,
@@ -1122,6 +1122,7 @@ export default function PosPage() {
     );
     await refresh();
   };
+  const duplicateTable=async(current:PosLoadDataView["floors"][number]["tables"][number])=>{const floor=data.floors.find(item=>item.tables.some(tableItem=>tableItem.id===current.id));if(!floor)return;const created=await authenticatedApi.posCreateTable(scope.organizationId,scope.companyId,floor.id,`${current.name} copia`,current.seats);await authenticatedApi.posUpdateTable(scope.organizationId,scope.companyId,created.id,{shape:current.shape,width:current.width,height:current.height,positionX:current.positionX+24,positionY:current.positionY+24,...(current.color?{color:current.color}:{})});setSelectedLayoutTableId(created.id);await refresh()};
   const refund = async (ticket: PosOrderView) => {
     if (ticket.state !== "paid") return;
     const refundLines: Array<{ lineId: string; quantity: number }> = [];
@@ -1177,6 +1178,7 @@ export default function PosPage() {
   };
   const saveSettings=async()=>{if(!scope)return;setBusy(true);try{await authenticatedApi.posUpdateSettings(scope.organizationId,scope.companyId,settingsDraft);setSettingsDirty(false);await refresh()}finally{setBusy(false)}};
   const savePaymentMethod=async(status:'active'|'archived'='active')=>{if(!scope||!paymentMethodDraft.name.trim())return;setBusy(true);try{await authenticatedApi.posSavePaymentMethod(scope.organizationId,scope.companyId,{...paymentMethodDraft,status});setPaymentMethodDraft({name:"",methodType:"cash",requiresTerminal:false,splitTransactions:false});await refresh()}finally{setBusy(false)}};
+  const savePreparationPrinter=async(status:'active'|'archived'='active')=>{if(!scope||!preparationPrinterDraft.name.trim())return;setBusy(true);try{await authenticatedApi.posSavePreparationPrinter(scope.organizationId,scope.companyId,{...preparationPrinterDraft,status});setPreparationPrinterDraft({name:"",printerType:"desktop",categoryIds:[]});await refresh()}finally{setBusy(false)}};
   const employeeLoginEnabled=Boolean(data.config?.settings.pos_module_pos_hr),isManager=!employeeLoginEnabled||data.activeOperator?.role==="manager",isMinimal=data.activeOperator?.role==="minimal",allowManualPrice=!data.config?.settings.pos_restrict_price_control||isManager;
   const loginOperator=async(operatorId=selectedOperatorId)=>{if(!scope||!operatorId)return;setBusy(true);setOperatorError("");try{await authenticatedApi.posLoginOperator(scope.organizationId,scope.companyId,operatorId,operatorPin||undefined);setSelectedOperatorId("");setOperatorPin("");await refresh()}catch(error){setOperatorError(error instanceof Error&&error.message==="pos_operator_pin_invalid"?"PIN incorrecto":"No se pudo iniciar la sesión del empleado") }finally{setBusy(false)}};
   const logoutOperator=async()=>{if(!scope)return;await authenticatedApi.posLogoutOperator(scope.organizationId,scope.companyId);await refresh()};
@@ -1207,6 +1209,7 @@ export default function PosPage() {
         {section.title==="Categorías de producto y PdV"&&Boolean(settingsDraft.pos_limit_categories)&&<div className="border-t border-kumo-line p-5"><p className="mb-3">Categorías disponibles</p><div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">{data.catalog.categories.map(item=>{const selected=Array.isArray(settingsDraft.pos_iface_available_categ_ids)&&settingsDraft.pos_iface_available_categ_ids.includes(item.id);return <label key={item.id} className="flex items-center gap-3 rounded-xl border border-kumo-line p-3"><input type="checkbox" checked={selected} onChange={event=>{const current=Array.isArray(settingsDraft.pos_iface_available_categ_ids)?settingsDraft.pos_iface_available_categ_ids:[];setSettingsDraft(value=>({...value,pos_iface_available_categ_ids:event.target.checked?[...new Set([...current,item.id])]:current.filter(id=>id!==item.id)}));setSettingsDirty(true)}} className="h-4 w-4 accent-[#FE4A23]"/><span>{item.name}</span></label>})}</div></div>}
       </section>)}
       {isManager&&<section className="mb-4 overflow-hidden rounded-xl border border-kumo-line bg-kumo-base"><h2 className="border-b border-kumo-line bg-[#eef0f2] px-5 py-3 text-base font-normal">Métodos de pago</h2><div className="grid gap-4 p-5 md:grid-cols-[1fr_380px]"><div>{data.paymentMethods.map(method=><button key={method.id} onClick={()=>setPaymentMethodDraft({...method})} className="grid w-full grid-cols-[1fr_150px_100px] border-b border-kumo-line p-4 text-left"><span>{method.name}</span><span className="text-kumo-subtle">{{cash:"Efectivo",bank:"Banco",terminal:"Terminal",customer_account:"Cuenta cliente"}[method.methodType]}</span><span className="text-kumo-subtle">{method.requiresTerminal?"Con terminal":"Manual"}</span></button>)}</div><div className="space-y-3 rounded-xl border border-kumo-line p-4"><h3 className="text-lg font-normal">{paymentMethodDraft.id?"Editar método":"Nuevo método"}</h3><input aria-label="Nombre del método de pago" value={paymentMethodDraft.name} onChange={event=>setPaymentMethodDraft(current=>({...current,name:event.target.value}))} placeholder="Nombre" className="w-full rounded-xl border border-kumo-line p-3"/><select aria-label="Tipo de método de pago" value={paymentMethodDraft.methodType} onChange={event=>{const methodType=event.target.value as typeof paymentMethodDraft.methodType;setPaymentMethodDraft(current=>({...current,methodType,requiresTerminal:methodType==='terminal'}))}} className="w-full rounded-xl border border-kumo-line p-3"><option value="cash">Efectivo</option><option value="bank">Banco</option><option value="terminal">Terminal</option><option value="customer_account">Cuenta del cliente</option></select><label className="flex items-center gap-3"><input type="checkbox" checked={paymentMethodDraft.requiresTerminal} onChange={event=>setPaymentMethodDraft(current=>({...current,requiresTerminal:event.target.checked}))}/>Solicitar referencia del terminal</label><label className="flex items-center gap-3"><input type="checkbox" checked={paymentMethodDraft.splitTransactions} onChange={event=>setPaymentMethodDraft(current=>({...current,splitTransactions:event.target.checked}))}/>Permitir transacciones divididas</label><div className="flex gap-2"><button disabled={busy||!paymentMethodDraft.name.trim()} onClick={()=>void savePaymentMethod()} className="flex-1 rounded-xl bg-[#FE4A23] p-3 text-white disabled:opacity-40">Guardar</button>{paymentMethodDraft.id&&<button disabled={busy} onClick={()=>void savePaymentMethod('archived')} className="rounded-xl border border-red-300 px-4 text-red-700">Archivar</button>}<button onClick={()=>setPaymentMethodDraft({name:"",methodType:"cash",requiresTerminal:false,splitTransactions:false})} className="rounded-xl border border-kumo-line px-4">Limpiar</button></div></div></div></section>}
+      {isManager&&Boolean(data.config.settings.pos_module_pos_restaurant)&&<section className="mb-4 overflow-hidden rounded-xl border border-kumo-line bg-kumo-base"><h2 className="border-b border-kumo-line bg-[#eef0f2] px-5 py-3 text-base font-normal">Impresoras de preparación</h2><div className="grid gap-4 p-5 md:grid-cols-[1fr_420px]"><div>{data.preparationPrinters.length?data.preparationPrinters.map(printer=><button key={printer.id} onClick={()=>setPreparationPrinterDraft({...printer})} className="grid w-full grid-cols-[1fr_140px] border-b border-kumo-line p-4 text-left"><span>{printer.name}<small className="mt-1 block text-kumo-subtle">{printer.categoryIds.length?`${printer.categoryIds.length} categorías`:"Todas las categorías"}</small></span><span className="text-kumo-subtle">{{desktop:"Desktop",network:"Red",iot:"Caja IoT"}[printer.printerType]}</span></button>):<p className="p-4 text-kumo-subtle">No hay estaciones configuradas. Crea Cocina, Barra u otra estación y asigna sus categorías.</p>}</div><div className="space-y-3 rounded-xl border border-kumo-line p-4"><h3 className="text-lg font-normal">{preparationPrinterDraft.id?"Editar impresora":"Nueva impresora"}</h3><input aria-label="Nombre de la impresora" value={preparationPrinterDraft.name} onChange={event=>setPreparationPrinterDraft(current=>({...current,name:event.target.value}))} placeholder="Ej. Cocina o Barra" className="w-full rounded-xl border border-kumo-line p-3"/><select aria-label="Tipo de impresora" value={preparationPrinterDraft.printerType} onChange={event=>setPreparationPrinterDraft(current=>({...current,printerType:event.target.value as typeof current.printerType}))} className="w-full rounded-xl border border-kumo-line p-3"><option value="desktop">NUEVAUNO Desktop</option><option value="network">Impresora de red</option><option value="iot">Caja IoT</option></select><p className="text-sm text-kumo-subtle">Categorías que se imprimen en esta estación. Sin selección recibe todas.</p><div className="grid max-h-52 gap-2 overflow-auto sm:grid-cols-2">{data.catalog.categories.filter(category=>category.status==='active').map(category=><label key={category.id} className="flex items-center gap-2 rounded-lg border border-kumo-line p-2"><input type="checkbox" checked={preparationPrinterDraft.categoryIds.includes(category.id)} onChange={event=>setPreparationPrinterDraft(current=>({...current,categoryIds:event.target.checked?[...current.categoryIds,category.id]:current.categoryIds.filter(id=>id!==category.id)}))}/>{category.name}</label>)}</div><div className="flex gap-2"><button disabled={busy||!preparationPrinterDraft.name.trim()} onClick={()=>void savePreparationPrinter()} className="flex-1 rounded-xl bg-[#FE4A23] p-3 text-white disabled:opacity-40">Guardar</button>{preparationPrinterDraft.id&&<button disabled={busy} onClick={()=>void savePreparationPrinter('archived')} className="rounded-xl border border-red-300 px-4 text-red-700">Archivar</button>}<button onClick={()=>setPreparationPrinterDraft({name:"",printerType:"desktop",categoryIds:[]})} className="rounded-xl border border-kumo-line px-4">Limpiar</button></div></div></div></section>}
       {employeeLoginEnabled&&isManager&&<section className="mb-4 overflow-hidden rounded-xl border border-kumo-line bg-kumo-base"><h2 className="border-b border-kumo-line bg-[#eef0f2] px-5 py-3 text-base font-normal">Empleados del punto de venta</h2><div className="grid gap-4 p-5 md:grid-cols-[1fr_360px]"><div>{data.operators.map(operator=><button key={operator.id} onClick={()=>setOperatorDraft({id:operator.id,displayName:operator.displayName,role:operator.role,pin:""})} className="grid w-full grid-cols-[1fr_140px] border-b border-kumo-line p-4 text-left"><span>{operator.displayName}</span><span className="text-kumo-subtle">{{manager:"Encargado",cashier:"Cajero",minimal:"Garzón"}[operator.role]}</span></button>)}</div><div className="space-y-3 rounded-xl border border-kumo-line p-4"><h3 className="text-lg font-normal">{operatorDraft.id?"Editar empleado":"Nuevo empleado"}</h3><input aria-label="Nombre del empleado" value={operatorDraft.displayName} onChange={event=>setOperatorDraft(current=>({...current,displayName:event.target.value}))} placeholder="Nombre" className="w-full rounded-xl border border-kumo-line p-3"/><select aria-label="Rol del empleado" value={operatorDraft.role} onChange={event=>setOperatorDraft(current=>({...current,role:event.target.value as PosOperatorRoleView}))} className="w-full rounded-xl border border-kumo-line p-3"><option value="manager">Encargado</option><option value="cashier">Cajero</option><option value="minimal">Garzón</option></select><input aria-label="PIN del empleado" inputMode="numeric" type="password" value={operatorDraft.pin} onChange={event=>setOperatorDraft(current=>({...current,pin:event.target.value.replace(/\D/g,"").slice(0,12)}))} placeholder={operatorDraft.id?"Nuevo PIN (opcional)":"PIN de 4 a 12 dígitos"} className="w-full rounded-xl border border-kumo-line p-3"/><div className="flex gap-2"><button disabled={busy||!operatorDraft.displayName.trim()||Boolean(operatorDraft.pin&&operatorDraft.pin.length<4)} onClick={()=>void saveOperator()} className="flex-1 rounded-xl bg-[#FE4A23] p-3 text-white disabled:opacity-40">Guardar</button><button onClick={()=>setOperatorDraft({displayName:"",role:"cashier",pin:""})} className="rounded-xl border border-kumo-line px-4">Limpiar</button></div></div></div></section>}
     </div>
   </main>;
@@ -1689,6 +1692,7 @@ export default function PosPage() {
       {tab === "floor" && (
         <section className="relative flex min-h-[calc(100vh-5.5rem)] flex-col pb-12">
           {layoutEditing && <div className="flex items-center justify-end gap-2 border-b border-kumo-line bg-kumo-elevated px-3 py-2">
+            {selectedLayoutTableId&&(()=>{const selected=data.floors.flatMap(floor=>floor.tables).find(item=>item.id===selectedLayoutTableId);return selected?<><span className="mr-auto rounded-lg bg-[#eef0f2] px-4 py-2">Mesa {selected.name}</span><button onClick={()=>void editTable(selected)} className="rounded-lg border border-kumo-line px-4 py-2">Editar</button><button onClick={()=>void duplicateTable(selected)} className="rounded-lg border border-kumo-line px-4 py-2">Duplicar</button><button onClick={()=>void deleteTable(selected)} className="rounded-lg border border-red-300 px-4 py-2 text-red-700">Eliminar</button></>:null})()}
             {data.floors.map((floor)=><button key={floor.id} onClick={()=>void createTable(floor.id)} className="rounded-lg border border-kumo-line px-4 py-2">＋ Mesa en {floor.name}</button>)}
             <button onClick={()=>setLayoutEditing(false)} className="rounded-lg bg-[#FE4A23] px-5 py-2 text-white">Guardar plano</button>
           </div>}
@@ -1724,10 +1728,10 @@ export default function PosPage() {
                     <button
                       key={item.id}
                       onClick={() =>
-                        layoutEditing ? editTable(item) : selectTable(item)
+                        layoutEditing ? setSelectedLayoutTableId(item.id) : selectTable(item)
                       }
-                      onDoubleClick={() => layoutEditing && deleteTable(item)}
-                      className={`relative h-32 w-36 rounded-xl border p-3 text-center ${current ? isLate ? "border-red-500 bg-red-500 text-white" : "border-[#FE4A23] bg-[#FE4A23] text-white" : "border-kumo-line bg-kumo-elevated"}`}
+                      className={`relative rounded-xl border p-3 text-center ${layoutEditing&&selectedLayoutTableId===item.id?"ring-2 ring-[#FE4A23] ring-offset-2":""} ${current ? isLate ? "border-red-500 bg-red-500 text-white" : "border-[#FE4A23] bg-[#FE4A23] text-white" : "border-kumo-line bg-kumo-elevated"}`}
+                      style={{width:Math.max(112,Math.min(220,item.width)),height:Math.max(96,Math.min(180,item.height)),borderRadius:item.shape==='round'?'9999px':undefined,backgroundColor:!current&&item.color?item.color:undefined}}
                     >
                       {current && <span className="absolute left-3 top-3 text-xs">♟ {current.metadata.guestCount}</span>}
                       {current && <span className="absolute right-3 top-3 text-xs">{elapsedLabel(startedAt, clock)}</span>}
@@ -2003,7 +2007,7 @@ export default function PosPage() {
               )}
             </div>
             <footer className="flex justify-end gap-2 border-t border-kumo-line px-5 py-4">
-              {dialog.kind !== "message" && <button onClick={() => finishDialog(null)} className="rounded-xl border border-kumo-line px-5 py-3">Descartar</button>}
+              {dialog.kind !== "message" && <button onClick={() => finishDialog(null)} className="rounded-xl border border-kumo-line px-5 py-3">{dialog.kind==="confirm"?(dialog.cancelLabel??"Descartar"):"Descartar"}</button>}
               {dialog.kind === "confirm" && <button onClick={() => finishDialog(true)} className="rounded-xl bg-[#FE4A23] px-5 py-3 text-white">{dialog.confirmLabel ?? "Confirmar"}</button>}
               {dialog.kind === "message" && <button onClick={() => finishDialog(true)} className="rounded-xl bg-[#FE4A23] px-5 py-3 text-white">Aceptar</button>}
               {(dialog.kind === "text" || dialog.kind === "number") && (
