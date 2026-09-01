@@ -262,7 +262,7 @@ export default function PosPage() {
   useEffect(() => {
     void refresh();
   }, [scope?.organizationId, scope?.companyId]);
-  useEffect(()=>{if(!scope||!data)return;let cancelled=false;const urls:string[]=[];void Promise.all(data.products.filter(product=>product.media[0]).map(async product=>{const file=await authenticatedApi.posReadProductMedia(scope.organizationId,scope.companyId,product.media[0]!.id),url=URL.createObjectURL(new Blob([file.bytes.slice().buffer],{type:file.mimeType}));urls.push(url);return[product.id,url] as const})).then(entries=>{if(cancelled){urls.forEach(url=>URL.revokeObjectURL(url));return}setProductMediaUrls(previous=>{Object.values(previous).forEach(url=>URL.revokeObjectURL(url));return Object.fromEntries(entries)})});return()=>{cancelled=true}},[scope?.organizationId,scope?.companyId,data?.products.map(product=>`${product.id}:${product.media[0]?.id??''}`).join('|')]);
+  useEffect(()=>{if(!scope||!data)return;let cancelled=false;const urls:string[]=[];if(data.config?.settings.pos_show_product_images===false&&!data.config?.settings.pos_show_category_images){setProductMediaUrls(previous=>{Object.values(previous).forEach(url=>URL.revokeObjectURL(url));return{}});return}void Promise.all(data.products.filter(product=>product.media[0]).map(async product=>{const file=await authenticatedApi.posReadProductMedia(scope.organizationId,scope.companyId,product.media[0]!.id),url=URL.createObjectURL(new Blob([file.bytes.slice().buffer],{type:file.mimeType}));urls.push(url);return[product.id,url] as const})).then(entries=>{if(cancelled){urls.forEach(url=>URL.revokeObjectURL(url));return}setProductMediaUrls(previous=>{Object.values(previous).forEach(url=>URL.revokeObjectURL(url));return Object.fromEntries(entries)})});return()=>{cancelled=true}},[scope?.organizationId,scope?.companyId,data?.config?.settings.pos_show_product_images,data?.config?.settings.pos_show_category_images,data?.products.map(product=>`${product.id}:${product.media[0]?.id??''}`).join('|')]);
   useEffect(() => {
     if (!scope) return;
     const synchronize = () => {
@@ -342,7 +342,11 @@ export default function PosPage() {
   const categories = useMemo(
     () => [...new Set(data?.products.map((p) => p.category) ?? [])],
     [data],
-  ),visibleProducts=useMemo(()=>data?.products.filter((product,index,products)=>products.findIndex(candidate=>candidate.templateId===product.templateId)===index)??[],[data]);
+  ),allowedCategoryIds=data?.config?.settings.pos_iface_available_categ_ids,
+    categoryLimitEnabled=Boolean(data?.config?.settings.pos_limit_categories),
+    allowedCategoryNames=new Set(data?.catalog.categories.filter(item=>!categoryLimitEnabled||!Array.isArray(allowedCategoryIds)||allowedCategoryIds.includes(item.id)).map(item=>item.name)??[]),
+    visibleCategories=categories.filter(name=>allowedCategoryNames.has(name)),
+    visibleProducts=useMemo(()=>data?.products.filter((product,index,products)=>products.findIndex(candidate=>candidate.templateId===product.templateId)===index)??[],[data]).filter(product=>allowedCategoryNames.has(product.category));
   const lines = useMemo(
     () =>
       Object.entries(cart).flatMap(([id, quantity]) => {
@@ -407,6 +411,12 @@ export default function PosPage() {
   }, [scope?.organizationId, scope?.companyId, isCustomerDisplay, lines, total]);
   if (!scope || !data)
     return <div className="p-8 text-kumo-subtle">Cargando Punto de venta…</div>;
+  const defaultTab:Tab=data.config?.settings.pos_default_screen==="register"||!data.config?.restaurant?"register":"floor",
+    bigScrollbars=Boolean(data.config?.settings.pos_iface_big_scrollbars),
+    showProductImages=data.config?.settings.pos_show_product_images!==false,
+    showCategoryImages=Boolean(data.config?.settings.pos_show_category_images),
+    groupByCategory=data.config?.settings.pos_iface_group_by_categ!==false,
+    enterTerminal=()=>{setTab(defaultTab);setScreen("terminal")};
   if (isCustomerDisplay)
     return (
       <main className="flex min-h-screen flex-col bg-kumo-base p-10">
@@ -437,7 +447,7 @@ export default function PosPage() {
       );
       await refresh();
       setOpeningDialog(false);
-      setScreen("terminal");
+      enterTerminal();
     } finally {
       setBusy(false);
     }
@@ -1159,7 +1169,8 @@ export default function PosPage() {
   };
   const startNewOrder = () => {
     resetOrderState();
-    setTab("register");
+    setTab(defaultTab);
+    setScreen("terminal");
   };
   const saveSettings=async()=>{if(!scope)return;setBusy(true);try{await authenticatedApi.posUpdateSettings(scope.organizationId,scope.companyId,settingsDraft);setSettingsDirty(false);await refresh()}finally{setBusy(false)}};
   const savePaymentMethod=async(status:'active'|'archived'='active')=>{if(!scope||!paymentMethodDraft.name.trim())return;setBusy(true);try{await authenticatedApi.posSavePaymentMethod(scope.organizationId,scope.companyId,{...paymentMethodDraft,status});setPaymentMethodDraft({name:"",methodType:"cash",requiresTerminal:false,splitTransactions:false});await refresh()}finally{setBusy(false)}};
@@ -1190,6 +1201,7 @@ export default function PosPage() {
             </span>
           </label>})}
         </div>
+        {section.title==="Categorías de producto y PdV"&&Boolean(settingsDraft.pos_limit_categories)&&<div className="border-t border-kumo-line p-5"><p className="mb-3">Categorías disponibles</p><div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">{data.catalog.categories.map(item=>{const selected=Array.isArray(settingsDraft.pos_iface_available_categ_ids)&&settingsDraft.pos_iface_available_categ_ids.includes(item.id);return <label key={item.id} className="flex items-center gap-3 rounded-xl border border-kumo-line p-3"><input type="checkbox" checked={selected} onChange={event=>{const current=Array.isArray(settingsDraft.pos_iface_available_categ_ids)?settingsDraft.pos_iface_available_categ_ids:[];setSettingsDraft(value=>({...value,pos_iface_available_categ_ids:event.target.checked?[...new Set([...current,item.id])]:current.filter(id=>id!==item.id)}));setSettingsDirty(true)}} className="h-4 w-4 accent-[#FE4A23]"/><span>{item.name}</span></label>})}</div></div>}
       </section>)}
       {isManager&&<section className="mb-4 overflow-hidden rounded-xl border border-kumo-line bg-kumo-base"><h2 className="border-b border-kumo-line bg-[#eef0f2] px-5 py-3 text-base font-normal">Métodos de pago</h2><div className="grid gap-4 p-5 md:grid-cols-[1fr_380px]"><div>{data.paymentMethods.map(method=><button key={method.id} onClick={()=>setPaymentMethodDraft({...method})} className="grid w-full grid-cols-[1fr_150px_100px] border-b border-kumo-line p-4 text-left"><span>{method.name}</span><span className="text-kumo-subtle">{{cash:"Efectivo",bank:"Banco",terminal:"Terminal",customer_account:"Cuenta cliente"}[method.methodType]}</span><span className="text-kumo-subtle">{method.requiresTerminal?"Con terminal":"Manual"}</span></button>)}</div><div className="space-y-3 rounded-xl border border-kumo-line p-4"><h3 className="text-lg font-normal">{paymentMethodDraft.id?"Editar método":"Nuevo método"}</h3><input aria-label="Nombre del método de pago" value={paymentMethodDraft.name} onChange={event=>setPaymentMethodDraft(current=>({...current,name:event.target.value}))} placeholder="Nombre" className="w-full rounded-xl border border-kumo-line p-3"/><select aria-label="Tipo de método de pago" value={paymentMethodDraft.methodType} onChange={event=>{const methodType=event.target.value as typeof paymentMethodDraft.methodType;setPaymentMethodDraft(current=>({...current,methodType,requiresTerminal:methodType==='terminal'}))}} className="w-full rounded-xl border border-kumo-line p-3"><option value="cash">Efectivo</option><option value="bank">Banco</option><option value="terminal">Terminal</option><option value="customer_account">Cuenta del cliente</option></select><label className="flex items-center gap-3"><input type="checkbox" checked={paymentMethodDraft.requiresTerminal} onChange={event=>setPaymentMethodDraft(current=>({...current,requiresTerminal:event.target.checked}))}/>Solicitar referencia del terminal</label><label className="flex items-center gap-3"><input type="checkbox" checked={paymentMethodDraft.splitTransactions} onChange={event=>setPaymentMethodDraft(current=>({...current,splitTransactions:event.target.checked}))}/>Permitir transacciones divididas</label><div className="flex gap-2"><button disabled={busy||!paymentMethodDraft.name.trim()} onClick={()=>void savePaymentMethod()} className="flex-1 rounded-xl bg-[#FE4A23] p-3 text-white disabled:opacity-40">Guardar</button>{paymentMethodDraft.id&&<button disabled={busy} onClick={()=>void savePaymentMethod('archived')} className="rounded-xl border border-red-300 px-4 text-red-700">Archivar</button>}<button onClick={()=>setPaymentMethodDraft({name:"",methodType:"cash",requiresTerminal:false,splitTransactions:false})} className="rounded-xl border border-kumo-line px-4">Limpiar</button></div></div></div></section>}
       {employeeLoginEnabled&&isManager&&<section className="mb-4 overflow-hidden rounded-xl border border-kumo-line bg-kumo-base"><h2 className="border-b border-kumo-line bg-[#eef0f2] px-5 py-3 text-base font-normal">Empleados del punto de venta</h2><div className="grid gap-4 p-5 md:grid-cols-[1fr_360px]"><div>{data.operators.map(operator=><button key={operator.id} onClick={()=>setOperatorDraft({id:operator.id,displayName:operator.displayName,role:operator.role,pin:""})} className="grid w-full grid-cols-[1fr_140px] border-b border-kumo-line p-4 text-left"><span>{operator.displayName}</span><span className="text-kumo-subtle">{{manager:"Encargado",cashier:"Cajero",minimal:"Garzón"}[operator.role]}</span></button>)}</div><div className="space-y-3 rounded-xl border border-kumo-line p-4"><h3 className="text-lg font-normal">{operatorDraft.id?"Editar empleado":"Nuevo empleado"}</h3><input aria-label="Nombre del empleado" value={operatorDraft.displayName} onChange={event=>setOperatorDraft(current=>({...current,displayName:event.target.value}))} placeholder="Nombre" className="w-full rounded-xl border border-kumo-line p-3"/><select aria-label="Rol del empleado" value={operatorDraft.role} onChange={event=>setOperatorDraft(current=>({...current,role:event.target.value as PosOperatorRoleView}))} className="w-full rounded-xl border border-kumo-line p-3"><option value="manager">Encargado</option><option value="cashier">Cajero</option><option value="minimal">Garzón</option></select><input aria-label="PIN del empleado" inputMode="numeric" type="password" value={operatorDraft.pin} onChange={event=>setOperatorDraft(current=>({...current,pin:event.target.value.replace(/\D/g,"").slice(0,12)}))} placeholder={operatorDraft.id?"Nuevo PIN (opcional)":"PIN de 4 a 12 dígitos"} className="w-full rounded-xl border border-kumo-line p-3"/><div className="flex gap-2"><button disabled={busy||!operatorDraft.displayName.trim()||Boolean(operatorDraft.pin&&operatorDraft.pin.length<4)} onClick={()=>void saveOperator()} className="flex-1 rounded-xl bg-[#FE4A23] p-3 text-white disabled:opacity-40">Guardar</button><button onClick={()=>setOperatorDraft({displayName:"",role:"cashier",pin:""})} className="rounded-xl border border-kumo-line px-4">Limpiar</button></div></div></div></section>}
@@ -1211,7 +1223,7 @@ export default function PosPage() {
             <div>
               <button
                 disabled={busy}
-                onClick={() => data.session ? setScreen("terminal") : setOpeningDialog(true)}
+                onClick={() => data.session ? enterTerminal() : setOpeningDialog(true)}
                 className="w-full rounded-xl bg-[#FE4A23] p-4 text-white disabled:opacity-40"
               >
                 {data.session ? "Continuar vendiendo" : "Abrir caja"}
@@ -1459,7 +1471,7 @@ export default function PosPage() {
   });
   const selectedTicket = filteredTickets.find((ticket) => ticket.id === selectedTicketId) ?? filteredTickets[0];
   return (
-    <main className="flex min-h-full flex-col bg-kumo-base">
+    <main className={`flex min-h-full flex-col bg-kumo-base ${bigScrollbars?"[&_*::-webkit-scrollbar]:h-4 [&_*::-webkit-scrollbar]:w-4 [&_*::-webkit-scrollbar-thumb]:rounded-full [&_*::-webkit-scrollbar-thumb]:bg-[#9ca3af]":""}`}>
       <nav className="flex h-14 items-stretch border-b border-kumo-line bg-kumo-elevated">
         <button
           className={`px-7 ${tab === "floor" ? "bg-kumo-line" : ""}`}
@@ -1858,17 +1870,19 @@ export default function PosPage() {
       {tab === "register" && (
         <section className="grid flex-1 lg:grid-cols-[1fr_450px]">
           <div className="border-r border-kumo-line p-4">
-            <div className="mb-4 flex gap-2">
-              {categories.map((name) => (
+            {groupByCategory&&<div className="mb-4 flex gap-2 overflow-x-auto">
+              {visibleCategories.map((name) => {
+                const categoryProduct=data.products.find(product=>product.category===name&&productMediaUrls[product.id]);
+                return (
                 <button
                   key={name}
                   onClick={() => setCategory(current=>current===name?"":name)}
-                  className={`h-16 min-w-32 rounded-lg border px-5 ${category === name ? "border-[#FE4A23]" : "border-transparent"} ${name==="Bar"?"bg-[#fee28a]":name==="Cocina"?"bg-[#f7a3a8]":"bg-[#f8d1a8]"}`}
+                  className={`relative h-16 min-w-32 overflow-hidden rounded-lg border px-5 ${category === name ? "border-[#FE4A23]" : "border-transparent"} ${name==="Bar"?"bg-[#fee28a]":name==="Cocina"?"bg-[#f7a3a8]":"bg-[#f8d1a8]"}`}
                 >
-                  {name}
+                  {showCategoryImages&&categoryProduct&&<img src={productMediaUrls[categoryProduct.id]} alt="" className="absolute inset-0 h-full w-full object-cover opacity-25"/>}<span className="relative">{name}</span>
                 </button>
-              ))}
-            </div>
+              )})}
+            </div>}
             <div className="flex flex-wrap gap-2">
               {visibleProducts
                 .filter(
@@ -1877,7 +1891,7 @@ export default function PosPage() {
                       product.name.toLowerCase().includes(search.toLowerCase()) ||
                       product.sku?.toLowerCase().includes(search.toLowerCase()) ||
                       product.barcode?.toLowerCase().includes(search.toLowerCase())) &&
-                    (!category || product.category === category),
+                    (!groupByCategory || !category || !visibleCategories.includes(category) || product.category === category),
                 )
                 .map((product) => (
                   <button
@@ -1885,7 +1899,7 @@ export default function PosPage() {
                     onClick={() => addProduct(product)}
                     className="relative h-20 w-32 rounded-lg border border-kumo-line bg-kumo-elevated p-3 text-center shadow-[0_4px_0_#e4e6e9]"
                   >
-                    {productMediaUrls[product.id]&&<img src={productMediaUrls[product.id]} alt={product.media[0]?.altText??product.name} className="absolute inset-0 h-full w-full rounded-lg object-cover opacity-25"/>}<span className="relative block">{product.name}</span>
+                    {showProductImages&&productMediaUrls[product.id]&&<img src={productMediaUrls[product.id]} alt={product.media[0]?.altText??product.name} className="absolute inset-0 h-full w-full rounded-lg object-cover opacity-25"/>}<span className="relative block">{product.name}</span>
                     {lines.some(line=>line.templateId===product.templateId)&&<span className="absolute bottom-1 right-1 rounded bg-black px-2 py-0.5 text-xs text-white">{lines.filter(line=>line.templateId===product.templateId).reduce((sum,line)=>sum+line.quantity,0)}</span>}
                   </button>
                 ))}
