@@ -12,6 +12,13 @@ describe('i18n', () => {
     expect(translate('es', 'sidebar.showAllCount', { count: 12 })).toBe('Ver todos (12)')
   })
 
+  it('uses task-focused language for installed business apps', () => {
+    expect(translate('es', 'nav.operations')).toBe('Operaciones')
+    expect(translate('es', 'sales.subtitle')).toBe('Revisa tus facturas, notas de crédito y saldos.')
+    expect(translate('es', 'accounting.subtitle')).toBe('Administra tu plan de cuentas, impuestos y diarios.')
+    expect(translate('es', 'sales.subtitle')).not.toContain('empresa activa')
+  })
+
   it('centralizes locale-aware date and number formatting', () => {
     const instant = new Date('2026-08-22T15:30:00Z')
     expect(formatDateTime(instant, { language: 'es', timeZone: 'America/Santiago', hourCycle: 'h24' })).toContain('22')
