@@ -225,6 +225,7 @@ export default function PosPage() {
     [pricelistId, setPricelistId] = useState(""),
     [shippingDate, setShippingDate] = useState(""),
     [fiscalPositionId, setFiscalPositionId] = useState(""),
+    [productMediaUrls,setProductMediaUrls]=useState<Record<string,string>>({}),
     [lineLots, setLineLots] = useState<
       Record<string, Array<{ lotId: string; quantityMilli: number }>>
     >({}),
@@ -261,6 +262,7 @@ export default function PosPage() {
   useEffect(() => {
     void refresh();
   }, [scope?.organizationId, scope?.companyId]);
+  useEffect(()=>{if(!scope||!data)return;let cancelled=false;const urls:string[]=[];void Promise.all(data.products.filter(product=>product.media[0]).map(async product=>{const file=await authenticatedApi.posReadProductMedia(scope.organizationId,scope.companyId,product.media[0]!.id),url=URL.createObjectURL(new Blob([file.bytes.slice().buffer],{type:file.mimeType}));urls.push(url);return[product.id,url] as const})).then(entries=>{if(cancelled){urls.forEach(url=>URL.revokeObjectURL(url));return}setProductMediaUrls(previous=>{Object.values(previous).forEach(url=>URL.revokeObjectURL(url));return Object.fromEntries(entries)})});return()=>{cancelled=true}},[scope?.organizationId,scope?.companyId,data?.products.map(product=>`${product.id}:${product.media[0]?.id??''}`).join('|')]);
   useEffect(() => {
     if (!scope) return;
     const synchronize = () => {
@@ -1883,7 +1885,7 @@ export default function PosPage() {
                     onClick={() => addProduct(product)}
                     className="relative h-20 w-32 rounded-lg border border-kumo-line bg-kumo-elevated p-3 text-center shadow-[0_4px_0_#e4e6e9]"
                   >
-                    <span className="block">{product.name}</span>
+                    {productMediaUrls[product.id]&&<img src={productMediaUrls[product.id]} alt={product.media[0]?.altText??product.name} className="absolute inset-0 h-full w-full rounded-lg object-cover opacity-25"/>}<span className="relative block">{product.name}</span>
                     {lines.some(line=>line.templateId===product.templateId)&&<span className="absolute bottom-1 right-1 rounded bg-black px-2 py-0.5 text-xs text-white">{lines.filter(line=>line.templateId===product.templateId).reduce((sum,line)=>sum+line.quantity,0)}</span>}
                   </button>
                 ))}
