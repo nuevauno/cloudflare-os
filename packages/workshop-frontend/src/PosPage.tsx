@@ -158,6 +158,7 @@ export default function PosPage() {
     } | null>(null);
   const [cart, setCart] = useState<Record<string, number>>({}),
     [cartProducts,setCartProducts]=useState<Record<string,PosLoadDataView["products"][number]>>({}),
+    [lineAttributes,setLineAttributes]=useState<Record<string,NonNullable<PosOrderView["lines"][number]["attributes"]>>>({}),
     [selectedLineId,setSelectedLineId]=useState(""),
     [order, setOrder] = useState<PosOrderView | null>(null),
     [category, setCategory] = useState(""),
@@ -358,9 +359,9 @@ export default function PosPage() {
                   mapping.sourceRateBasisPoints === p.taxBasisPoints,
               )?.destinationRateBasisPoints ?? p.taxBasisPoints,
           tax = Math.round((subtotal * fiscalRate) / 10000);
-        return [{ ...p, id, productVariantId:p.id, unitPriceMinor, quantity, subtotal, tax, total: subtotal + tax }];
+        return [{ ...p, id, productVariantId:p.id, attributes:lineAttributes[id]??[], unitPriceMinor, quantity, subtotal, tax, total: subtotal + tax }];
       }),
-    [cart, cartProducts, data, discountBasisPoints, manualPrices, fiscalPositionId],
+    [cart, cartProducts, data, discountBasisPoints, manualPrices, fiscalPositionId,lineAttributes],
   );
   const rawTotal = lines.reduce((sum, line) => sum + line.total, 0) + tipMinor,
     roundingIncrement = data?.config?.cashRoundingIncrementMinor ?? 1,
@@ -449,7 +450,7 @@ export default function PosPage() {
       table ? `Mesa ${table.name}` : "Pedido para llevar",
       ...ticket.lines.map(
         (line) =>
-          `${line.quantity} x ${line.description}${line.customerNote ? ` · ${line.customerNote}` : ""}`,
+          `${line.quantity} x ${line.description}${line.attributes?.length?` · ${line.attributes.map(attribute=>`${attribute.attributeName}: ${attribute.valueName}`).join(" · ")}`:""}${line.customerNote ? ` · ${line.customerNote}` : ""}`,
       ),
       `Total ${money(ticket.totalMinor)}`,
     ].join("\n");
@@ -506,13 +507,10 @@ export default function PosPage() {
     setTable(next);
     setOrder(existing ?? null);
     orderUuid.current = existing?.uuid ?? crypto.randomUUID();
-    setCart(
-      Object.fromEntries(
-        existing?.lines.map((line) => [line.productVariantId, line.quantity]) ??
-          [],
-      ),
-    );
-    setCartProducts({});
+    const existingLines=(existing?.lines??[]).map(line=>{const suffix=line.attributes?.length?`::${line.attributes.map(attribute=>attribute.valueId).toSorted().join("|")}`:"",lineKey=`${line.productVariantId}${suffix}`,product=data.products.find(item=>item.id===line.productVariantId),customLabel=line.attributes?.map(attribute=>`${attribute.attributeName}: ${attribute.valueName}`).join(" · ")??"";return{line,lineKey,product:product?{...product,name:customLabel?`${product.name} · ${customLabel}`:product.name}:undefined};});
+    setCart(Object.fromEntries(existingLines.map(({line,lineKey})=>[lineKey,line.quantity])));
+    setCartProducts(Object.fromEntries(existingLines.flatMap(({lineKey,product})=>product?[[lineKey,product]]:[])));
+    setLineAttributes(Object.fromEntries(existingLines.flatMap(({line,lineKey})=>line.attributes?.length?[[lineKey,line.attributes]]:[])));
     setGeneralNote(existing?.metadata.generalNote ?? "");
     setGuestCount(existing?.metadata.guestCount ?? 1);
     setTipMinor(existing?.metadata.tipMinor ?? 0);
@@ -525,34 +523,34 @@ export default function PosPage() {
     setFiscalPositionId(existing?.metadata.fiscalPositionId ?? "");
     setLineNotes(
       Object.fromEntries(
-        existing?.lines.flatMap((line) =>
-          line.customerNote ? [[line.productVariantId, line.customerNote]] : [],
+        existingLines.flatMap(({line,lineKey}) =>
+          line.customerNote ? [[lineKey, line.customerNote]] : [],
         ) ?? [],
       ),
     );
     setManualPrices(
       Object.fromEntries(
-        existing?.lines.flatMap((line) => {
+        existingLines.flatMap(({line,lineKey}) => {
           const product = data.products.find(
             (item) => item.id === line.productVariantId,
           );
           return product && product.priceMinor !== line.unitPriceMinor
-            ? [[line.productVariantId, line.unitPriceMinor]]
+            ? [[lineKey, line.unitPriceMinor]]
             : [];
         }) ?? [],
       ),
     );
     setLineCourses(
       Object.fromEntries(
-        existing?.lines.map((line) => [line.productVariantId, line.courseNumber ?? 1]) ??
+        existingLines.map(({line,lineKey}) => [lineKey, line.courseNumber ?? 1]) ??
           [],
       ),
     );
     setLineLots(
       Object.fromEntries(
-        existing?.lines.flatMap((line) =>
+        existingLines.flatMap(({line,lineKey}) =>
           line.lotLines?.length
-            ? [[line.productVariantId, line.lotLines]]
+            ? [[lineKey, line.lotLines]]
             : [],
         ) ?? [],
       ),
@@ -582,6 +580,7 @@ export default function PosPage() {
       lines: lines.map((line) => ({
         productVariantId: line.productVariantId,
         quantity: line.quantity,
+        ...(line.attributes.length?{attributes:line.attributes}:{}),
         discountBasisPoints,
         ...(lineNotes[line.id] ? { customerNote: lineNotes[line.id] } : {}),
         ...(manualPrices[line.id] === undefined
@@ -653,6 +652,7 @@ export default function PosPage() {
       customLabel=resolved.customAttributes.map(attribute=>`${attribute.attributeName}: ${attribute.valueName}`).join(" · ");
       lineKey=customLabel?`${product.id}::${resolved.customAttributes.map(attribute=>attribute.valueId).toSorted().join("|")}`:product.id;
       setCartProducts(current=>({...current,[lineKey]:{...product,name:customLabel?`${product.name} · ${customLabel}`:product.name,priceMinor:product.priceMinor+resolved.customPriceExtraMinor}}));
+      setLineAttributes(current=>({...current,[lineKey]:resolved.customAttributes}));
     }else if(variants.length>1){
       const variantId=await requestDialog({kind:"selection",title:"Configurar producto",options:variants.map(candidate=>({id:candidate.id,label:`${candidate.name}${candidate.attributes.length?` · ${candidate.attributes.map(attribute=>attribute.valueName).join(", ")}`:""}`})),selected:[initial.id],min:1,max:1});
       if(variantId===null)return;
