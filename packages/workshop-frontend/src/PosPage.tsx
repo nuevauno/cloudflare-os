@@ -73,6 +73,8 @@ const POS_SETTING_SECTIONS:PosSettingSection[]=[
   {title:"Pago",items:[
     {key:"pos_auto_validate_terminal_payment",label:"Validar automáticamente",help:"Valida pagos confirmados por un terminal."},
     {key:"pos_cash_rounding",label:"Redondeo de efectivo",help:"Aplica la denominación mínima al pagar en efectivo."},
+    {key:"pos_cash_rounding_increment_minor",label:"Denominación mínima",help:"Unidad mínima de redondeo en la moneda de la caja.",kind:"number"},
+    {key:"pos_cash_rounding_method",label:"Método de redondeo",help:"Redondea al valor más cercano, hacia arriba o hacia abajo.",kind:"select",options:[{value:"nearest",label:"Más cercano"},{value:"up",label:"Hacia arriba"},{value:"down",label:"Hacia abajo"}]},
     {key:"pos_only_round_cash_method",label:"Solo medios en efectivo",help:"No redondea otros medios de pago."},
     {key:"pos_use_fast_payment",label:"Pago en un clic",help:"Omite la pantalla de pago con medios compatibles."},
     {key:"pos_set_maximum_difference",label:"Diferencia máxima",help:"Limita la diferencia autorizada al cerrar caja."},
@@ -129,7 +131,7 @@ const POS_SETTING_SECTIONS:PosSettingSection[]=[
     {key:"pos_epson_printer_ip",label:"Dirección de impresora",help:"IP o identificador de la impresora.",kind:"text"},
     {key:"pos_iface_cashdrawer",label:"Cajón de efectivo",help:"Abre el cajón al validar pagos en efectivo."},
     {key:"pos_iface_electronic_scale",label:"Balanza electrónica",help:"Lee peso desde NUEVAUNO Desktop."},
-    {key:"pos_customer_display_bg_img",label:"Pantalla del cliente",help:"Configura la pantalla secundaria del cliente.",kind:"text"},
+    {key:"pos_customer_display_bg_img_name",label:"Fondo de pantalla del cliente",help:"URL de la imagen mostrada en la pantalla secundaria.",kind:"text"},
   ]},
   {title:"Preparación",items:[
     {key:"pos_is_order_printer",label:"Impresoras de preparación",help:"Envía comandas a cocina o bar."},
@@ -330,6 +332,7 @@ export default function PosPage() {
     };
   }, [scope?.organizationId, scope?.companyId]);
   useEffect(() => {
+    if (data?.config?.settings.barcode_nomenclature_id === false) return;
     const scan = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
         return;
@@ -380,7 +383,7 @@ export default function PosPage() {
     [cart, cartProducts, data, lineDiscounts, manualPrices, fiscalPositionId,lineAttributes],
   );
   const rawTotal = lines.reduce((sum, line) => sum + line.total, 0) + tipMinor,
-    roundingIncrement = data?.config?.cashRoundingIncrementMinor ?? 1,
+    roundingIncrement = data?.config?.settings.pos_cash_rounding ? data?.config?.cashRoundingIncrementMinor ?? 1 : 1,
     total =
       data?.config?.cashRoundingMethod === "up"
         ? Math.ceil(rawTotal / roundingIncrement) * roundingIncrement
@@ -436,10 +439,11 @@ export default function PosPage() {
     showTaxIncluded=Boolean(data.config?.settings.pos_iface_tax_included),
     showCategoryImages=Boolean(data.config?.settings.pos_show_category_images),
     groupByCategory=data.config?.settings.pos_iface_group_by_categ!==false,
+    desktopEnabled=data.config?.settings.pos_other_devices!==false,
     enterTerminal=()=>{setTab(defaultTab);setScreen("terminal")};
   if (isCustomerDisplay)
     return (
-      <main className="flex min-h-screen flex-col bg-kumo-base p-10">
+      <main className="flex min-h-screen flex-col bg-kumo-base bg-cover bg-center p-10" style={data.config?.settings.pos_customer_display_bg_img_name?{backgroundImage:`linear-gradient(rgb(255 255 255 / .88),rgb(255 255 255 / .88)),url(${String(data.config.settings.pos_customer_display_bg_img_name)})`}:undefined}>
         <p className="text-center text-sm text-[#FE4A23]">Tu pedido</p>
         <div className="mx-auto mt-10 w-full max-w-2xl flex-1 space-y-4">
           {customerDisplay.lines.map((line, index) => (
@@ -477,6 +481,7 @@ export default function PosPage() {
     jobType: "receipt" | "kitchen_ticket",
   ) => {
     const payload = [
+      ...(data.config?.settings.pos_is_header_or_footer&&data.config.settings.pos_receipt_header?[String(data.config.settings.pos_receipt_header)]:[]),
       data.config?.name ?? "Restaurant",
       ticket.metadata.orderName ?? ticket.id,
       table ? `Mesa ${table.name}` : "Pedido para llevar",
@@ -485,8 +490,9 @@ export default function PosPage() {
           `${line.quantity} x ${line.description}${line.attributes?.length?` · ${line.attributes.map(attribute=>`${attribute.attributeName}: ${attribute.valueName}`).join(" · ")}`:""}${line.customerNote ? ` · ${line.customerNote}` : ""}`,
       ),
       `Total ${money(ticket.totalMinor)}`,
+      ...(data.config?.settings.pos_is_header_or_footer&&data.config.settings.pos_receipt_footer?[String(data.config.settings.pos_receipt_footer)]:[]),
     ].join("\n");
-    if (window.NUEVAUNOBridge) {
+    if (desktopEnabled && window.NUEVAUNOBridge) {
       await window.NUEVAUNOBridge.createPrintJob({
         payload,
         format: "text",
@@ -525,7 +531,7 @@ export default function PosPage() {
       const allowed=(line:string)=>{const description=line.replace(/^[+-]\s+[\d.]+\s+×\s+/,"");const product=data.products.find(item=>description.startsWith(item.name));return station.categoryIds.length===0||Boolean(product?.categoryId&&station.categoryIds.includes(product.categoryId))},stationAdded=added.filter(allowed),stationRemoved=removed.filter(allowed);
       if(!stationAdded.length&&!stationRemoved.length)continue;
       const job={payload:[data.config?.name??"Restaurant",station.name,table?`Mesa ${table.name}`:"Pedido",...stationAdded,...stationRemoved].join("\n"),format:"text" as const,jobType:"kitchen_ticket" as const,source:`nuevauno-os-pos:${station.id}`};
-      if(!window.NUEVAUNOBridge){await requestDialog({kind:"message",title:`${station.name}: impresora no disponible`,body:"Conecta NUEVAUNO Desktop y comprueba que la impresora esté encendida y en la misma red. La comanda quedó guardada y puedes continuar sin imprimir."});continue;}
+      if(!desktopEnabled||!window.NUEVAUNOBridge){await requestDialog({kind:"message",title:`${station.name}: impresora no disponible`,body:"Activa y conecta NUEVAUNO Desktop, y comprueba que la impresora esté encendida y en la misma red. La comanda quedó guardada y puedes continuar sin imprimir."});continue;}
       let completed=false;
       while(!completed){try{const result=await window.NUEVAUNOBridge.createPrintJob(job);if(result.ok===false||result.status==="failed")throw new Error("print_failed");completed=true}catch{const retry=await requestDialog({kind:"confirm",title:`Error de impresión · ${station.name}`,body:"Asegúrate de que la impresora esté encendida y conectada. Puedes volver a intentarlo o continuar sin imprimir.",confirmLabel:"Volver a intentar",cancelLabel:"Continuar"});if(!retry)completed=true;}}
     }
@@ -864,14 +870,16 @@ export default function PosPage() {
             }),
         requestId: crypto.randomUUID(),
       });
-      setReceipt({
+      const completedReceipt={
         order: result.order,
         change: result.payments.reduce((sum, payment) => sum + payment.changeMinor, 0),
         payments: result.payments.map((payment) => ({
           name: data.paymentMethods.find((method) => method.id === payment.paymentMethodId)?.name ?? "Pago",
           amountMinor: payment.amountMinor,
         })),
-      });
+      };
+      if(data.config?.settings.pos_iface_print_auto)await printTicket(result.order,"receipt");
+      if(data.config?.settings.pos_iface_print_skip_screen)reset();else setReceipt(completedReceipt);
       await refresh();
     } finally {
       setBusy(false);
@@ -886,7 +894,7 @@ export default function PosPage() {
         synchronized.id,
       );
     setOrder(sent);
-    await printPreparationChanges(order, sent);
+    if(data.config?.settings.pos_is_order_printer)await printPreparationChanges(order, sent);
     await refresh();
   };
   const setPreparationState = async (
@@ -1197,7 +1205,8 @@ export default function PosPage() {
   };
   const reset = () => {
     resetOrderState();
-    setTab("floor");
+    setTab(defaultTab);
+    setScreen("terminal");
   };
   const startNewOrder = () => {
     resetOrderState();
@@ -1360,6 +1369,7 @@ export default function PosPage() {
           <h1 className="mt-2 text-center text-2xl font-normal">
             {data.config?.name}
           </h1>
+          {data.config?.settings.pos_is_header_or_footer&&data.config.settings.pos_receipt_header&&<p className="mt-3 whitespace-pre-wrap text-center text-sm">{String(data.config.settings.pos_receipt_header)}</p>}
           <p className="text-center text-kumo-subtle">Mesa {table?.name}</p>
           {receipt.order.lines.map((line) => (
             <div
@@ -1369,10 +1379,10 @@ export default function PosPage() {
               <span>
                 {line.quantity} × {line.description}
               </span>
-              <span>{money(line.totalMinor)}</span>
+              {!data.config?.settings.pos_basic_receipt&&<span>{money(line.totalMinor)}</span>}
             </div>
           ))}
-          <div className="mt-6 space-y-2 border-t pt-4">
+          {!data.config?.settings.pos_basic_receipt&&<div className="mt-6 space-y-2 border-t pt-4">
             <div className="flex justify-between">
               <span>Neto</span>
               <span>{money(receipt.order.untaxedMinor)}</span>
@@ -1395,7 +1405,8 @@ export default function PosPage() {
               <span>Vuelto</span>
               <span>{money(receipt.change)}</span>
             </div>
-          </div>
+          </div>}
+          {data.config?.settings.pos_is_header_or_footer&&data.config.settings.pos_receipt_footer&&<p className="mt-6 whitespace-pre-wrap text-center text-sm">{String(data.config.settings.pos_receipt_footer)}</p>}
           <div className="mt-8 flex gap-2">
             <button
               onClick={() => printTicket(receipt.order, "receipt")}
@@ -1557,12 +1568,12 @@ export default function PosPage() {
   return (
     <main className={`flex min-h-full flex-col bg-kumo-base ${bigScrollbars?"[&_*::-webkit-scrollbar]:h-4 [&_*::-webkit-scrollbar]:w-4 [&_*::-webkit-scrollbar-thumb]:rounded-full [&_*::-webkit-scrollbar-thumb]:bg-[#9ca3af]":""}`}>
       <nav className="flex h-14 items-stretch border-b border-kumo-line bg-kumo-elevated">
-        <button
+        {data.config?.restaurant&&<button
           className={`px-7 ${tab === "floor" ? "bg-kumo-line" : ""}`}
           onClick={() => setTab("floor")}
         >
           Mesas
-        </button>
+        </button>}
         <button
           className={`px-7 ${tab === "register" ? "bg-kumo-line" : ""}`}
           onClick={() => setTab("register")}
@@ -1680,7 +1691,7 @@ export default function PosPage() {
               </option>
             ))}
           </select>
-          {takeaway && (
+          {takeaway && Boolean(data.config?.settings.pos_ship_later) && (
             <input
               aria-label="Fecha de entrega"
               type="date"
@@ -1732,12 +1743,12 @@ export default function PosPage() {
               >
                 Mover mesa
               </button>
-              <button
+              {Boolean(data.config?.settings.pos_iface_splitbill)&&<button
                 onClick={split}
                 className="rounded-xl border border-kumo-line px-4 py-2"
               >
                 Dividir
-              </button>
+              </button>}
               <button
                 onClick={merge}
                 disabled={(data?.orders.length??0) < 2}
@@ -1745,12 +1756,12 @@ export default function PosPage() {
               >
                 Unir mesas
               </button>
-              <button
+              {Boolean(data.config?.settings.pos_iface_printbill)&&<button
                 onClick={() => order && printTicket(order, "receipt")}
                 className="rounded-xl border border-kumo-line px-4 py-2"
               >
                 Cuenta provisoria
-              </button>
+              </button>}
               <button
                 onClick={() =>
                   window.open(
@@ -2022,9 +2033,9 @@ export default function PosPage() {
       )}
       {actionsOpen&&<div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"><section role="dialog" aria-modal="true" aria-label="Acciones" className="w-full max-w-5xl rounded-lg bg-kumo-elevated shadow-xl"><header className="flex items-center justify-between border-b border-kumo-line p-4"><h2 className="text-lg font-normal">Acciones</h2><button onClick={()=>setActionsOpen(false)} aria-label="Cerrar" className="text-2xl text-kumo-subtle">×</button></header><div className="grid grid-cols-3 gap-2 p-4">
         <button onClick={()=>{setNoteEditor({target:"order",title:"Nota para el cliente",value:generalNote});setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▣ Nota para el cliente</button>
-        <button disabled={!order} onClick={()=>{if(order)void printTicket(order,"receipt");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">▣ Cuenta</button>
+        {Boolean(data.config?.settings.pos_iface_printbill)&&<button disabled={!order} onClick={()=>{if(order)void printTicket(order,"receipt");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">▣ Cuenta</button>}
         <button onClick={async()=>{const value=Number(await requestDialog({kind:"number",title:"Comensales",value:guestCount,min:1}));if(value>0)setGuestCount(value);setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">● Comensales</button>
-        <button disabled={!order} onClick={()=>{void split();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">▱ Dividir</button>
+        {Boolean(data.config?.settings.pos_iface_splitbill)&&<button disabled={!order} onClick={()=>{void split();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">▱ Dividir</button>}
         <button disabled={!order} onClick={()=>{void transfer();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">→ Transferir / Fusionar</button>
         <button disabled={!order} onClick={()=>{void sendToPreparation();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">↓ Transferir comida</button>
         {usePricelists&&<button onClick={async()=>{const id=await requestDialog({kind:"selection",title:"Tarifa",options:data.pricelists.map(item=>({id:item.id,label:item.name})),selected:pricelistId?[pricelistId]:[],max:1});if(Array.isArray(id))setPricelistId(id[0]??"");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▦ Tarifa</button>}

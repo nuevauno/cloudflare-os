@@ -245,4 +245,12 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain("(payment.tenderedMinor??0)>=payment.amountMinor");
     expect(source).toContain('terminalReferences[`${bucket}:${method.id}`]');
   });
+
+  it("hace operativos los ajustes de recibo, redondeo, restaurante y preparación",()=>{
+    for(const text of ["pos_cash_rounding_increment_minor","pos_cash_rounding_method","pos_iface_print_auto","pos_iface_print_skip_screen","pos_basic_receipt","pos_receipt_header","pos_receipt_footer","pos_iface_printbill","pos_iface_splitbill","pos_is_order_printer","pos_ship_later","pos_customer_display_bg_img_name"])expect(source).toContain(text);
+    expect(source).toContain('if(data.config?.settings.pos_iface_print_auto)await printTicket');
+    expect(source).toContain('if(data.config?.settings.pos_iface_print_skip_screen)reset()');
+    expect(source).toContain('if(data.config?.settings.pos_is_order_printer)await printPreparationChanges');
+    expect(source).toContain('data.config?.restaurant&&<button');
+  });
 });
