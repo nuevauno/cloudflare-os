@@ -131,6 +131,7 @@ const POS_SETTING_SECTIONS:PosSettingSection[]=[
   {title:"Preparación",items:[
     {key:"pos_is_order_printer",label:"Impresoras de preparación",help:"Envía comandas a cocina o bar."},
     {key:"pos_note_ids",label:"Notas internas",help:"Activa notas rápidas para la preparación."},
+    {key:"pos_quick_notes",label:"Notas rápidas",help:"Separa cada acceso rápido con una coma. Se muestran tanto en la nota del pedido como en la nota del producto.",kind:"text"},
   ]},
   {title:"Inventario",items:[
     {key:"pos_ship_later",label:"Permitir envío posterior",help:"Vende ahora y despacha después."},
@@ -383,7 +384,14 @@ export default function PosPage() {
           ? Math.floor(rawTotal / roundingIncrement) * roundingIncrement
           : Math.round(rawTotal / roundingIncrement) * roundingIncrement,
     roundingMinor = total - rawTotal,
-    tax = lines.reduce((sum, line) => sum + line.tax, 0);
+    tax = lines.reduce((sum, line) => sum + line.tax, 0),
+    quickNotes = (() => {
+      const configured = data?.config?.settings.pos_quick_notes;
+      const labels = typeof configured === "string"
+        ? configured.split(",").map((label) => label.trim()).filter(Boolean)
+        : [];
+      return labels.length ? labels : ["Esperar", "Servir", "Urgente", "Sin aderezo"];
+    })();
   const isCustomerDisplay =
     new URLSearchParams(window.location.search).get("display") === "customer";
   useEffect(() => {
@@ -1971,6 +1979,7 @@ export default function PosPage() {
                 <span>Total</span>
                 <span>{money(total)}</span>
               </div>
+              {generalNote&&<p className="mt-3 rounded-lg border border-kumo-line bg-orange-50 p-3 text-sm"><span className="text-kumo-subtle">Nota del pedido · </span>{generalNote}</p>}
               <div className="mt-3 grid grid-cols-[1fr_1fr_44px_1fr_44px] gap-2"><button onClick={()=>{setPartnerCreate(false);setPartnerDialog(true)}} className="truncate rounded-lg border border-kumo-line px-2 py-3">{data.partners.find(partner=>partner.id===partnerId)?.displayName??"Cliente"}</button><button onClick={()=>{const line=lines.find(item=>item.id===selectedLineId);setNoteEditor(line?{target:"line",productId:line.id,title:line.name,value:lineNotes[line.id]??""}:{target:"order",title:"Nota para el cliente",value:generalNote})}} className="rounded-lg border border-kumo-line py-3">Nota</button><button onClick={()=>order&&void sendToPreparation()} aria-label="Enviar comanda" className="rounded-lg border border-kumo-line">↥</button><button onClick={async()=>{const line=lines.find(item=>item.id===selectedLineId);if(!line)return;const course=Number(await requestDialog({kind:"number",title:"Tiempo",label:"Curso",value:lineCourses[line.id]??1,min:1}));if(course>0)setLineCourses(current=>({...current,[line.id]:course}))}} className="rounded-lg border border-kumo-line">Tiempo</button><button onClick={()=>setActionsOpen(true)} aria-label="Acciones" className="rounded-lg border border-kumo-line text-xl">⋮</button></div>
               {selectedLineId&&<div className="mt-2 grid grid-cols-4">{["1","2","3","Ctdad","4","5","6",allowManualDiscount?"%":"","7","8","9",allowManualPrice?"Precio":"","+/−","0",",","⌫"].map((key,index)=><button key={`${key}:${index}`} disabled={!key} onClick={async()=>{
                 const line=lines.find(item=>item.id===selectedLineId);if(!line)return;
@@ -1979,7 +1988,7 @@ export default function PosPage() {
                 else if(key==="%") {const discount=Number(await requestDialog({kind:"number",title:"Descuento",label:line.name,value:(lineDiscounts[line.id]??0)/100,min:0,max:100}));if(Number.isFinite(discount))setLineDiscounts(current=>({...current,[line.id]:Math.round(discount*100)}));}
                 else if(key==="Precio"){const price=Number(await requestDialog({kind:"number",title:"Cambiar precio",label:line.name,value:line.unitPriceMinor,min:0}));if(price>=0)setManualPrices(current=>({...current,[line.id]:price}));}
               }} className={`h-13 border border-kumo-line disabled:bg-kumo-line/30 ${(key==="Ctdad"||key==="Precio")?"bg-[#fff1ed]":key==="+/−"?"bg-[#fee28a]":""}`}>{key}</button>)}</div>}
-              <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={startNewOrder} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length} onClick={async()=>{if(!order)await save();setScreen("payment")}} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">Pago</button></div>
+              <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={startNewOrder} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length} onClick={async()=>{await save();setScreen("payment")}} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">Pago</button></div>
             </div>
           </aside>
         </section>
@@ -2083,12 +2092,9 @@ export default function PosPage() {
             </header>
             <div className="p-5">
               <div className="mb-2 flex flex-wrap gap-2">
-                {[
-                  ["Esperar", "border-red-500 bg-red-100"],
-                  ["Servir", "border-orange-400 bg-orange-100"],
-                  ["Urgente", "border-amber-400 bg-amber-100"],
-                  ["Sin aderezo", "border-sky-500 bg-sky-100"],
-                ].map(([label, color]) => (
+                {quickNotes.map((label, index) => {
+                  const color = ["border-red-500 bg-red-100", "border-orange-400 bg-orange-100", "border-amber-400 bg-amber-100", "border-sky-500 bg-sky-100"][index % 4];
+                  return (
                   <button
                     key={label}
                     onClick={() => setNoteEditor((current) => current ? {
@@ -2099,7 +2105,8 @@ export default function PosPage() {
                   >
                     {label}
                   </button>
-                ))}
+                  );
+                })}
               </div>
               <textarea
                 autoFocus
