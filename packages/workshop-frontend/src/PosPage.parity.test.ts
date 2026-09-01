@@ -121,6 +121,15 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(source).toContain('visibleProducts=useMemo');
   });
 
+  it("hace operativos precios, impuestos y descuentos según la configuración",()=>{
+    for(const behavior of ["usePricelists","allowManualDiscount","showTaxIncluded","allowManualPrice"])expect(source).toContain(behavior);
+    for(const setting of ["pos_use_pricelist","pos_manual_discount","pos_iface_tax_included","pos_restrict_price_control"])expect(source).toContain(setting);
+    expect(source).toContain('{usePricelists&&<button');
+    expect(source).toContain('allowManualDiscount?"%":""');
+    expect(source).toContain('allowManualPrice?"Precio":""');
+    expect(source).toContain("lineDiscounts[line.id]");
+  });
+
   it("mantiene el registro limpio y mueve las acciones secundarias al menú contextual",()=>{
     for(const text of ["⋮","Nota para el cliente","Transferir / Fusionar","Comensales","Tarifa","Cancelar orden"])expect(source).toContain(text);
     expect(source).toContain('grid-cols-[1fr_1fr_44px_1fr_44px]');
@@ -149,7 +158,7 @@ describe("recorridos POS portados desde la fuente 19", () => {
       'setGeneralNote("")',
       "setGuestCount(1)",
       "setTipMinor(0)",
-      "setDiscountBasisPoints(0)",
+      "setLineDiscounts({})",
       'setPartnerId("")',
       "setInvoiceRequested(false)",
       "setTakeaway(false)",

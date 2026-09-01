@@ -208,7 +208,7 @@ export default function PosPage() {
   const [generalNote, setGeneralNote] = useState(""),
     [guestCount, setGuestCount] = useState(1),
     [tipMinor, setTipMinor] = useState(0),
-    [discountBasisPoints, setDiscountBasisPoints] = useState(0),
+    [lineDiscounts, setLineDiscounts] = useState<Record<string,number>>({}),
     [paymentMethodId, setPaymentMethodId] = useState(""),
     [partnerId, setPartnerId] = useState(""),
     [search, setSearch] = useState(""),
@@ -352,7 +352,7 @@ export default function PosPage() {
       Object.entries(cart).flatMap(([id, quantity]) => {
         const p = cartProducts[id]??data?.products.find((x) => x.id === id);
         if (!p || quantity <= 0) return [];
-        const unitPriceMinor = manualPrices[id] ?? p.priceMinor,
+        const unitPriceMinor = manualPrices[id] ?? p.priceMinor,discountBasisPoints=lineDiscounts[id]??0,
           discounted = Math.round(
             (unitPriceMinor * (10000 - discountBasisPoints)) / 10000,
           ),
@@ -365,9 +365,9 @@ export default function PosPage() {
                   mapping.sourceRateBasisPoints === p.taxBasisPoints,
               )?.destinationRateBasisPoints ?? p.taxBasisPoints,
           tax = Math.round((subtotal * fiscalRate) / 10000);
-        return [{ ...p, id, productVariantId:p.id, attributes:lineAttributes[id]??[], unitPriceMinor, quantity, subtotal, tax, total: subtotal + tax }];
+        return [{ ...p, id, productVariantId:p.id, attributes:lineAttributes[id]??[], unitPriceMinor, discountBasisPoints, quantity, subtotal, tax, total: subtotal + tax }];
       }),
-    [cart, cartProducts, data, discountBasisPoints, manualPrices, fiscalPositionId,lineAttributes],
+    [cart, cartProducts, data, lineDiscounts, manualPrices, fiscalPositionId,lineAttributes],
   );
   const rawTotal = lines.reduce((sum, line) => sum + line.total, 0) + tipMinor,
     roundingIncrement = data?.config?.cashRoundingIncrementMinor ?? 1,
@@ -414,6 +414,9 @@ export default function PosPage() {
   const defaultTab:Tab=data.config?.settings.pos_default_screen==="register"||!data.config?.restaurant?"register":"floor",
     bigScrollbars=Boolean(data.config?.settings.pos_iface_big_scrollbars),
     showProductImages=data.config?.settings.pos_show_product_images!==false,
+    usePricelists=Boolean(data.config?.settings.pos_use_pricelist),
+    allowManualDiscount=Boolean(data.config?.settings.pos_manual_discount),
+    showTaxIncluded=Boolean(data.config?.settings.pos_iface_tax_included),
     showCategoryImages=Boolean(data.config?.settings.pos_show_category_images),
     groupByCategory=data.config?.settings.pos_iface_group_by_categ!==false,
     enterTerminal=()=>{setTab(defaultTab);setScreen("terminal")};
@@ -526,7 +529,7 @@ export default function PosPage() {
     setGeneralNote(existing?.metadata.generalNote ?? "");
     setGuestCount(existing?.metadata.guestCount ?? 1);
     setTipMinor(existing?.metadata.tipMinor ?? 0);
-    setDiscountBasisPoints(existing?.lines[0]?.discountBasisPoints ?? 0);
+    setLineDiscounts(Object.fromEntries(existingLines.flatMap(({line,lineKey})=>line.discountBasisPoints?[[lineKey,line.discountBasisPoints]]:[])));
     setPartnerId(existing?.metadata.partnerId ?? "");
     setInvoiceRequested(existing?.metadata.invoiceRequested ?? false);
     setTakeaway(existing?.metadata.takeaway ?? false);
@@ -593,7 +596,7 @@ export default function PosPage() {
         productVariantId: line.productVariantId,
         quantity: line.quantity,
         ...(line.attributes.length?{attributes:line.attributes}:{}),
-        discountBasisPoints,
+        discountBasisPoints:line.discountBasisPoints,
         ...(lineNotes[line.id] ? { customerNote: lineNotes[line.id] } : {}),
         ...(manualPrices[line.id] === undefined
           ? {}
@@ -1144,7 +1147,7 @@ export default function PosPage() {
     setGeneralNote("");
     setGuestCount(1);
     setTipMinor(0);
-    setDiscountBasisPoints(0);
+    setLineDiscounts({});
     setPartnerId("");
     setInvoiceRequested(false);
     setTakeaway(false);
@@ -1174,7 +1177,7 @@ export default function PosPage() {
   };
   const saveSettings=async()=>{if(!scope)return;setBusy(true);try{await authenticatedApi.posUpdateSettings(scope.organizationId,scope.companyId,settingsDraft);setSettingsDirty(false);await refresh()}finally{setBusy(false)}};
   const savePaymentMethod=async(status:'active'|'archived'='active')=>{if(!scope||!paymentMethodDraft.name.trim())return;setBusy(true);try{await authenticatedApi.posSavePaymentMethod(scope.organizationId,scope.companyId,{...paymentMethodDraft,status});setPaymentMethodDraft({name:"",methodType:"cash",requiresTerminal:false,splitTransactions:false});await refresh()}finally{setBusy(false)}};
-  const employeeLoginEnabled=Boolean(data.config?.settings.pos_module_pos_hr),isManager=!employeeLoginEnabled||data.activeOperator?.role==="manager",isMinimal=data.activeOperator?.role==="minimal";
+  const employeeLoginEnabled=Boolean(data.config?.settings.pos_module_pos_hr),isManager=!employeeLoginEnabled||data.activeOperator?.role==="manager",isMinimal=data.activeOperator?.role==="minimal",allowManualPrice=!data.config?.settings.pos_restrict_price_control||isManager;
   const loginOperator=async(operatorId=selectedOperatorId)=>{if(!scope||!operatorId)return;setBusy(true);setOperatorError("");try{await authenticatedApi.posLoginOperator(scope.organizationId,scope.companyId,operatorId,operatorPin||undefined);setSelectedOperatorId("");setOperatorPin("");await refresh()}catch(error){setOperatorError(error instanceof Error&&error.message==="pos_operator_pin_invalid"?"PIN incorrecto":"No se pudo iniciar la sesión del empleado") }finally{setBusy(false)}};
   const logoutOperator=async()=>{if(!scope)return;await authenticatedApi.posLogoutOperator(scope.organizationId,scope.companyId);await refresh()};
   const saveOperator=async()=>{if(!scope||!operatorDraft.displayName.trim())return;setBusy(true);try{await authenticatedApi.posSaveOperator(scope.organizationId,scope.companyId,{...(operatorDraft.id?{id:operatorDraft.id}:{}),displayName:operatorDraft.displayName,role:operatorDraft.role,...(operatorDraft.pin?{pin:operatorDraft.pin}:{})});setOperatorDraft({displayName:"",role:"cashier",pin:""});await refresh()}finally{setBusy(false)}};
@@ -1529,14 +1532,9 @@ export default function PosPage() {
               type="number"
               min="0"
               max="100"
-              value={discountBasisPoints / 100}
+              value={(lineDiscounts[selectedLineId]??0) / 100}
               onChange={(event) =>
-                setDiscountBasisPoints(
-                  Math.round(
-                    Math.max(0, Math.min(100, Number(event.target.value))) *
-                      100,
-                  ),
-                )
+                selectedLineId&&setLineDiscounts(current=>({...current,[selectedLineId]:Math.round(Math.max(0,Math.min(100,Number(event.target.value)))*100)}))
               }
               className="w-20 rounded-xl border border-kumo-line bg-kumo-base p-2"
             />
@@ -1899,7 +1897,7 @@ export default function PosPage() {
                     onClick={() => addProduct(product)}
                     className="relative h-20 w-32 rounded-lg border border-kumo-line bg-kumo-elevated p-3 text-center shadow-[0_4px_0_#e4e6e9]"
                   >
-                    {showProductImages&&productMediaUrls[product.id]&&<img src={productMediaUrls[product.id]} alt={product.media[0]?.altText??product.name} className="absolute inset-0 h-full w-full rounded-lg object-cover opacity-25"/>}<span className="relative block">{product.name}</span>
+                    {showProductImages&&productMediaUrls[product.id]&&<img src={productMediaUrls[product.id]} alt={product.media[0]?.altText??product.name} className="absolute inset-0 h-full w-full rounded-lg object-cover opacity-25"/>}<span className="relative block">{product.name}</span><small className="relative mt-1 block text-kumo-subtle">{money(showTaxIncluded?Math.round(product.priceMinor*(10000+product.taxBasisPoints)/10000):product.priceMinor)}</small>
                     {lines.some(line=>line.templateId===product.templateId)&&<span className="absolute bottom-1 right-1 rounded bg-black px-2 py-0.5 text-xs text-white">{lines.filter(line=>line.templateId===product.templateId).reduce((sum,line)=>sum+line.quantity,0)}</span>}
                   </button>
                 ))}
@@ -1927,13 +1925,13 @@ export default function PosPage() {
                 <span>{money(total)}</span>
               </div>
               <div className="mt-3 grid grid-cols-[1fr_1fr_44px_1fr_44px] gap-2"><button onClick={()=>{setPartnerCreate(false);setPartnerDialog(true)}} className="truncate rounded-lg border border-kumo-line px-2 py-3">{data.partners.find(partner=>partner.id===partnerId)?.displayName??"Cliente"}</button><button onClick={()=>{const line=lines.find(item=>item.id===selectedLineId);setNoteEditor(line?{target:"line",productId:line.id,title:line.name,value:lineNotes[line.id]??""}:{target:"order",title:"Nota para el cliente",value:generalNote})}} className="rounded-lg border border-kumo-line py-3">Nota</button><button onClick={()=>order&&void sendToPreparation()} aria-label="Enviar comanda" className="rounded-lg border border-kumo-line">↥</button><button onClick={async()=>{const line=lines.find(item=>item.id===selectedLineId);if(!line)return;const course=Number(await requestDialog({kind:"number",title:"Tiempo",label:"Curso",value:lineCourses[line.id]??1,min:1}));if(course>0)setLineCourses(current=>({...current,[line.id]:course}))}} className="rounded-lg border border-kumo-line">Tiempo</button><button onClick={()=>setActionsOpen(true)} aria-label="Acciones" className="rounded-lg border border-kumo-line text-xl">⋮</button></div>
-              {selectedLineId&&<div className="mt-2 grid grid-cols-4">{["1","2","3","Ctdad","4","5","6","%","7","8","9","Precio","+/−","0",",","⌫"].map(key=><button key={key} onClick={async()=>{
+              {selectedLineId&&<div className="mt-2 grid grid-cols-4">{["1","2","3","Ctdad","4","5","6",allowManualDiscount?"%":"","7","8","9",allowManualPrice?"Precio":"","+/−","0",",","⌫"].map((key,index)=><button key={`${key}:${index}`} disabled={!key} onClick={async()=>{
                 const line=lines.find(item=>item.id===selectedLineId);if(!line)return;
                 if(/^\d$/.test(key))setQuantity(line.id,Number(key));
                 else if(key==="⌫")removeProduct(line.id);
-                else if(key==="%") {const discount=Number(await requestDialog({kind:"number",title:"Descuento",value:discountBasisPoints/100,min:0,max:100}));if(Number.isFinite(discount))setDiscountBasisPoints(Math.round(discount*100));}
+                else if(key==="%") {const discount=Number(await requestDialog({kind:"number",title:"Descuento",label:line.name,value:(lineDiscounts[line.id]??0)/100,min:0,max:100}));if(Number.isFinite(discount))setLineDiscounts(current=>({...current,[line.id]:Math.round(discount*100)}));}
                 else if(key==="Precio"){const price=Number(await requestDialog({kind:"number",title:"Cambiar precio",label:line.name,value:line.unitPriceMinor,min:0}));if(price>=0)setManualPrices(current=>({...current,[line.id]:price}));}
-              }} className={`h-13 border border-kumo-line ${(key==="Ctdad"||key==="Precio")?"bg-[#fff1ed]":key==="+/−"?"bg-[#fee28a]":""}`}>{key}</button>)}</div>}
+              }} className={`h-13 border border-kumo-line disabled:bg-kumo-line/30 ${(key==="Ctdad"||key==="Precio")?"bg-[#fff1ed]":key==="+/−"?"bg-[#fee28a]":""}`}>{key}</button>)}</div>}
               <div className="mt-2 grid grid-cols-2 gap-2"><button onClick={startNewOrder} className="rounded-lg border border-kumo-line p-4">Nuevo</button><button disabled={busy||!lines.length} onClick={async()=>{if(!order)await save();setScreen("payment")}} className="rounded-lg bg-[#FE4A23] p-4 text-white disabled:opacity-40">Pago</button></div>
             </div>
           </aside>
@@ -1946,7 +1944,7 @@ export default function PosPage() {
         <button disabled={!order} onClick={()=>{void split();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">▱ Dividir</button>
         <button disabled={!order} onClick={()=>{void transfer();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">→ Transferir / Fusionar</button>
         <button disabled={!order} onClick={()=>{void sendToPreparation();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">↓ Transferir comida</button>
-        <button onClick={async()=>{const id=await requestDialog({kind:"selection",title:"Tarifa",options:data.pricelists.map(item=>({id:item.id,label:item.name})),selected:pricelistId?[pricelistId]:[],max:1});if(Array.isArray(id))setPricelistId(id[0]??"");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▦ Tarifa</button>
+        {usePricelists&&<button onClick={async()=>{const id=await requestDialog({kind:"selection",title:"Tarifa",options:data.pricelists.map(item=>({id:item.id,label:item.name})),selected:pricelistId?[pricelistId]:[],max:1});if(Array.isArray(id))setPricelistId(id[0]??"");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">▦ Tarifa</button>}
         <button onClick={()=>{setTab("orders");setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">↶ Reembolso</button>
         <button onClick={()=>{void requestDialog({kind:"message",title:"Información",body:`${table?`Mesa ${table.name}`:"Pedido"} · ${lines.length} líneas · ${money(total)}`});setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line">● Información</button>
         <button disabled={!order} onClick={()=>{void cancel();setActionsOpen(false)}} className="h-32 rounded-lg border border-kumo-line disabled:opacity-40">♜ Cancelar orden</button>
