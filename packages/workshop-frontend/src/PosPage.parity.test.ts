@@ -39,7 +39,7 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(productsPage).toContain("templateId");
   });
   it("configura atributos en caja sin duplicar tarjetas por variante",()=>{
-    for(const text of ["posResolveProductVariant","customAttributes","customPriceExtraMinor","visibleProducts","cartProducts"])expect(source).toContain(text);
+    for(const text of ["posResolveProductVariant","customAttributes","customPriceExtraMinor","visibleProducts","cartProducts","lineAttributes","attributes:line.attributes"])expect(source).toContain(text);
     expect(source).toContain('attributeLines.length');
   });
   it("usa un diálogo de nota de línea con accesos rápidos y no un prompt", () => {
