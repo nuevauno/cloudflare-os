@@ -31,6 +31,10 @@ describe("recorridos POS portados desde la fuente 19", () => {
     expect(productsPage).toContain("optionalProductIds");
     expect(productsPage).toContain("comboComponents");
   });
+  it("edita tarifas vigentes, existencias y lotes desde el producto",()=>{
+    for(const text of ["Listas de precios","Agregar precio","Cant. mínima","Desde","Hasta","Existencias disponibles","Lotes y números de serie","Agregar lote","Vencimiento"])expect(productsPage).toContain(text);
+    for(const field of ["priceRules","stockOnHandMilli","quantityMilli","expirationDate"])expect(productsPage).toContain(field);
+  });
   it("administra atributos y variantes sobre el mismo producto",()=>{
     for(const text of ["Atributos y variantes","Agregar atributo","Nueva variante","Precio extra","Creación de variantes","Instantánea","Dinámica","Sin variante","Generar todas las combinaciones"])expect(productsPage).toContain(text);
     expect(productsPage).toContain("attributeValues");
